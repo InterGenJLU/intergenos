@@ -2266,7 +2266,8 @@ _DA_BATTERY_RE = re.compile(
 #                    (world-readable). mokutil and bootctl are CONFIRM-tier, so a
 #                    plain question would raise a consent prompt.
 #   encrypted root   lsblk -J (AUTO): an encrypted (crypt) device on the path from
-#                    the disk to the filesystem mounted at /.
+#                    the disk to the filesystem mounted at /, and to every other
+#                    filesystem mounted from a drive.
 #   firewall         systemctl is-active / is-enabled nftables.service (AUTO). The
 #                    rules themselves are read with nft, which needs root and a
 #                    netlink socket the daemon's unit denies, so they are not read
@@ -2460,17 +2461,101 @@ def _lsblk_path_to(nodes: list, mountpoint: str) -> list:
     return []
 
 
+def _lsblk_mounted(nodes: list, above: tuple = ()) -> list:
+    """Every lsblk node mounted somewhere, as (chain, paths): the chain of
+    nodes from its disk down to it, and its mount points that are paths (swap
+    shows as "[SWAP]", which is not one)."""
+    found = []
+    for node in nodes or []:
+        if not isinstance(node, dict):
+            continue
+        chain = above + (node,)
+        mounts = node.get("mountpoints")
+        if not isinstance(mounts, list):
+            mounts = [node.get("mountpoint")]
+        paths = [m for m in mounts if isinstance(m, str) and m.startswith("/")]
+        if paths:
+            found.append((chain, paths))
+        found.extend(_lsblk_mounted(node.get("children") or [], chain))
+    return found
+
+
+def _and_join(words: list) -> str:
+    """'a', 'a and b', 'a, b and c'."""
+    if len(words) < 2:
+        return "".join(words)
+    return ", ".join(words[:-1]) + " and " + words[-1]
+
+
+# The mount points the Boot Loader Specification gives the EFI system partition
+# alone (/boot may hold the extended boot loader partition instead); the
+# installer mounts it at /boot/efi.
+_ESP_MOUNTPOINTS = frozenset({"/boot/efi", "/efi"})
+
+
+def _posture_other_filesystems(nodes: list, root: dict) -> str:
+    """The sentences for every filesystem mounted from a drive besides the
+    root's: those with no encrypted layer beneath them, those on one, and the
+    EFI system partition, which the firmware has to read and so is never
+    encrypted. Not counted: a device in memory (zram), which keeps nothing once
+    the power is off; a loop device, a file on a filesystem that is counted in
+    its own right; swap, which is not a filesystem. tmpfs and efivarfs have no
+    block device, so lsblk never lists them."""
+    plain, encrypted, esp = [], [], []
+    seen = {root.get("name")}
+    for chain, paths in _lsblk_mounted(nodes):
+        node = chain[-1]
+        name = node.get("name")
+        if name in seen:
+            continue
+        seen.add(name)
+        fstype = node.get("fstype") or ""
+        crypts = [n for n in chain if n.get("type") == "crypt"]
+        if crypts:
+            encrypted.append(f"{_and_join(paths)} (on {crypts[-1].get('name')})")
+        elif str(name).startswith("zram") or node.get("type") == "loop":
+            continue
+        elif fstype.lower() == "vfat" and _ESP_MOUNTPOINTS.intersection(paths):
+            esp.append(f"The EFI system partition at {_and_join(paths)} ({name}) "
+                       f"is not encrypted, by design: the firmware reads it to "
+                       f"start the machine.")
+        else:
+            plain.append(f"{_and_join(paths)} ({name}, {fstype})" if fstype
+                         else f"{_and_join(paths)} ({name})")
+    text = ""
+    if plain:
+        them = "them" if len(plain) > 1 else "it"
+        # "Not protected by disk encryption", not "readable by anyone": a
+        # filesystem can encrypt its own files, which lsblk does not show.
+        text += (f" Also mounted, with no encrypted layer beneath {them}, so disk "
+                 f"encryption does not protect what is stored on {them}: "
+                 f"{_and_join(plain)}.")
+    if encrypted:
+        text += f" Also mounted on an encrypted layer: {_and_join(encrypted)}."
+    for sentence in esp:
+        text += " " + sentence
+    if not plain and not encrypted:
+        text += " Nothing else is mounted from a drive."
+    return text
+
+
 def _posture_render_encrypted_root(out: str) -> "str | None":
-    """Whether the root filesystem sits on an encrypted device, from lsblk -J."""
+    """Whether the root filesystem sits on an encrypted device, and whether
+    every other filesystem mounted from a drive does, from lsblk -J."""
     try:
         tree = json.loads(out or "")
     except ValueError:
         return None
     if not isinstance(tree, dict):
         return None
-    path = _lsblk_path_to(tree.get("blockdevices") or [], "/")
+    nodes = tree.get("blockdevices") or []
+    path = _lsblk_path_to(nodes, "/")
     if not path:
         return None
+    # The root alone is not the answer to "is my disk encrypted?": another
+    # system's partition, a card or a separate /home can be mounted beside an
+    # encrypted root with no encrypted layer at all.
+    others = _posture_other_filesystems(nodes, path[-1])
     crypts = [i for i, node in enumerate(path) if node.get("type") == "crypt"]
     if not crypts:
         root = path[-1]
@@ -2478,16 +2563,13 @@ def _posture_render_encrypted_root(out: str) -> "str | None":
         # "is my disk encrypted?" and stands as one line of the posture list.
         return (f"The root filesystem is not encrypted: it is on "
                 f"{root.get('name')} ({root.get('type')}), with no encrypted layer "
-                f"beneath it.")
+                f"beneath it.{others}")
     i = crypts[-1]
     luks = i > 0 and (path[i - 1].get("fstype") or "").lower() == "crypto_luks"
     kind = "a LUKS-encrypted volume" if luks else "an encrypted (dm-crypt) volume"
-    # Only the path to / is read, so the sentence speaks for the root filesystem
-    # alone, never the whole disk: the EFI system partition, or a separate
-    # partition for /home, can sit on the same disk unencrypted.
     return (f"The root filesystem is encrypted: it is on {path[i].get('name')}, "
             f"{kind}, so what is stored in it can't be read without its key "
-            f"while the machine is off.")
+            f"while the machine is off.{others}")
 
 
 def _systemctl_word(out: str) -> str:

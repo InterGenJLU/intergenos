@@ -18,6 +18,7 @@ cases are hermetic.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import tempfile
@@ -64,6 +65,143 @@ _LSBLK_LVM_ON_LUKS = json.dumps({"blockdevices": [
                         "children": [{"name": "vg-root", "type": "lvm",
                                       "fstype": "ext4",
                                       "mountpoints": ["/"]}]}]}]}]})
+# lsblk -J -o NAME,TYPE,FSTYPE,MOUNTPOINTS as recorded on a dual-boot laptop,
+# byte for byte (its sha256 is _DUAL_BOOT_SHA256 below):
+# the root on a LUKS volume on the second NVMe drive; on the first, another
+# system's NTFS partition mounted from the file manager with no encrypted layer;
+# an exFAT SD card mounted the same way; the EFI system partition at /boot/efi;
+# swap in memory (zram0); the other system's own partitions not mounted.
+_LSBLK_DUAL_BOOT = """{
+   "blockdevices": [
+      {
+         "name": "mmcblk0",
+         "type": "disk",
+         "fstype": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "mmcblk0p1",
+               "type": "part",
+               "fstype": "exfat",
+               "mountpoints": [
+                   "/run/media/christopher/IGOS-SDTEST"
+               ]
+            }
+         ]
+      },{
+         "name": "zram0",
+         "type": "disk",
+         "fstype": "swap",
+         "mountpoints": [
+             "[SWAP]"
+         ]
+      },{
+         "name": "nvme0n1",
+         "type": "disk",
+         "fstype": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "nvme0n1p1",
+               "type": "part",
+               "fstype": "vfat",
+               "mountpoints": []
+            },{
+               "name": "nvme0n1p2",
+               "type": "part",
+               "fstype": null,
+               "mountpoints": []
+            },{
+               "name": "nvme0n1p3",
+               "type": "part",
+               "fstype": "ntfs",
+               "mountpoints": [
+                   "/run/media/christopher/OS"
+               ]
+            },{
+               "name": "nvme0n1p4",
+               "type": "part",
+               "fstype": "ntfs",
+               "mountpoints": []
+            },{
+               "name": "nvme0n1p5",
+               "type": "part",
+               "fstype": "ntfs",
+               "mountpoints": []
+            },{
+               "name": "nvme0n1p6",
+               "type": "part",
+               "fstype": "vfat",
+               "mountpoints": []
+            }
+         ]
+      },{
+         "name": "nvme1n1",
+         "type": "disk",
+         "fstype": null,
+         "mountpoints": [],
+         "children": [
+            {
+               "name": "nvme1n1p1",
+               "type": "part",
+               "fstype": "vfat",
+               "mountpoints": [
+                   "/boot/efi"
+               ]
+            },{
+               "name": "nvme1n1p2",
+               "type": "part",
+               "fstype": "crypto_LUKS",
+               "mountpoints": [],
+               "children": [
+                  {
+                     "name": "cryptroot",
+                     "type": "crypt",
+                     "fstype": null,
+                     "mountpoints": [
+                         "/"
+                     ]
+                  }
+               ]
+            }
+         ]
+      }
+   ]
+}
+"""
+_DUAL_BOOT_SHA256 = "623a32e03fbb5aca0d68b74bd0a770e975198e1078f70b00e9052f45df93c814"
+_DUAL_BOOT_ANSWER = (
+    "The root filesystem is encrypted: it is on cryptroot, a LUKS-encrypted "
+    "volume, so what is stored in it can't be read without its key while the "
+    "machine is off. Also mounted, with no encrypted layer beneath them, so disk "
+    "encryption does not protect what is stored on them: "
+    "/run/media/christopher/IGOS-SDTEST (mmcblk0p1, exfat) and "
+    "/run/media/christopher/OS (nvme0n1p3, ntfs). The EFI system partition at "
+    "/boot/efi (nvme1n1p1) is not encrypted, by design: the firmware reads it to "
+    "start the machine.")
+# Each other kind of mount beside an encrypted root: a plain /home and a plain
+# USB stick, a second LUKS volume at /srv, the EFI system partition at /efi, a
+# btrfs root also mounted at /var/log, a filesystem in memory (zram1) and an ISO
+# image on a loop device.
+_LSBLK_MOUNT_ROLES = json.dumps({"blockdevices": [
+    {"name": "loop0", "type": "loop", "fstype": "iso9660",
+     "mountpoints": ["/run/media/user/INSTALLER"]},
+    {"name": "zram1", "type": "disk", "fstype": "ext4", "mountpoints": ["/var/tmp"]},
+    {"name": "sda", "type": "disk", "fstype": None, "mountpoints": [None],
+     "children": [
+         {"name": "sda1", "type": "part", "fstype": "vfat", "mountpoints": ["/efi"]},
+         {"name": "sda2", "type": "part", "fstype": "crypto_LUKS",
+          "mountpoints": [None],
+          "children": [{"name": "cryptroot", "type": "crypt", "fstype": "btrfs",
+                        "mountpoints": ["/", "/var/log"]}]},
+         {"name": "sda3", "type": "part", "fstype": "ext4", "mountpoints": ["/home"]},
+         {"name": "sda4", "type": "part", "fstype": "crypto_LUKS",
+          "mountpoints": [None],
+          "children": [{"name": "cryptsrv", "type": "crypt", "fstype": "xfs",
+                        "mountpoints": ["/srv"]}]}]},
+    {"name": "sdb", "type": "disk", "fstype": None, "mountpoints": [None],
+     "children": [{"name": "sdb1", "type": "part", "fstype": "vfat",
+                   "mountpoints": ["/run/media/user/STICK"]}]}]})
 
 _HEADER_TCP = ("  sl  local_address rem_address   st tx_queue rx_queue tr tm->when "
                "retrnsmt   uid  timeout inode\n")
@@ -346,6 +484,89 @@ class EncryptedRootReadings(unittest.TestCase):
     def test_no_root_or_no_json_is_no_reading(self):
         self.assertIsNone(self.render("not json"))
         self.assertIsNone(self.render(json.dumps({"blockdevices": []})))
+
+
+class EveryMountedFilesystemIsNamed(_MachineFixture):
+    """"is my disk encrypted?" is about every drive mounted, not the root alone:
+    beside an encrypted root, a partition or a card can be mounted with no
+    encrypted layer at all, and naming the root only is true and partial."""
+
+    def render(self, out):
+        return router._posture_render_encrypted_root(out)
+
+    def test_the_recorded_reading_is_the_one_taken(self):
+        self.assertEqual(hashlib.sha256(_LSBLK_DUAL_BOOT.encode()).hexdigest(),
+                         _DUAL_BOOT_SHA256)
+
+    def test_the_plain_filesystems_beside_an_encrypted_root_are_named(self):
+        self.assertEqual(self.render(_LSBLK_DUAL_BOOT), _DUAL_BOOT_ANSWER)
+
+    def test_every_phrasing_gets_the_whole_answer(self):
+        r = _router(_outputs(lsblk=_LSBLK_DUAL_BOOT))
+        for text in ("is my disk encrypted?", "is the root filesystem encrypted",
+                     "do I have full disk encryption"):
+            with self.subTest(text=text):
+                res = _ask(r, text)
+                self.assertIsNotNone(res, f"{text!r} was not answered from the machine")
+                self.assertEqual(res.source, "direct_answer")
+                self.assertEqual(res.text, _DUAL_BOOT_ANSWER)
+
+    def test_the_posture_list_carries_it_on_one_line(self):
+        self.write_advisory(0)
+        res = _ask(_router(_outputs(lsblk=_LSBLK_DUAL_BOOT)), "is this machine secure?")
+        self.assertIsNotNone(res)
+        self.assertIn(f"- {_DUAL_BOOT_ANSWER}", res.text.splitlines())
+
+    def test_swap_in_memory_is_not_counted(self):
+        # The absence carries its control: the member is in the reading, and a
+        # plain member of the same reading is named.
+        self.assertIn('"name": "zram0"', _LSBLK_DUAL_BOOT)
+        self.assertIn('"[SWAP]"', _LSBLK_DUAL_BOOT)
+        text = self.render(_LSBLK_DUAL_BOOT)
+        self.assertNotIn("zram0", text)
+        self.assertNotIn("SWAP", text)
+        self.assertIn("/run/media/christopher/OS (nvme0n1p3, ntfs)", text)
+
+    def test_each_kind_of_mount_by_its_role(self):
+        # The plain ones are named, the encrypted one is named as such, the EFI
+        # system partition by its role; the root's own second mount point, the
+        # filesystem in memory and the image on a loop device are not counted,
+        # though each is in the reading.
+        for member in ('"loop0"', '"zram1"', '"/var/log"', '"/var/tmp"',
+                       '"/run/media/user/INSTALLER"'):
+            self.assertIn(member, _LSBLK_MOUNT_ROLES)
+        text = self.render(_LSBLK_MOUNT_ROLES)
+        for absent in ("loop0", "zram1", "/var/log", "/var/tmp", "INSTALLER"):
+            self.assertNotIn(absent, text)
+        self.assertEqual(text, (
+            "The root filesystem is encrypted: it is on cryptroot, a LUKS-encrypted "
+            "volume, so what is stored in it can't be read without its key while "
+            "the machine is off. Also mounted, with no encrypted layer beneath them, "
+            "so disk encryption does not protect what is stored on them: /home "
+            "(sda3, ext4) and /run/media/user/STICK (sdb1, vfat). Also mounted on an "
+            "encrypted layer: /srv (on cryptsrv). The EFI system partition at /efi "
+            "(sda1) is not encrypted, by design: the firmware reads it to start the "
+            "machine."))
+
+    def test_one_plain_filesystem_beside_a_plain_root(self):
+        tree = json.loads(_LSBLK_PLAIN_ROOT)
+        tree["blockdevices"][0]["children"].append(
+            {"name": "sda3", "type": "part", "fstype": "ext4",
+             "mountpoints": ["/home"]})
+        self.assertEqual(self.render(json.dumps(tree)), (
+            "The root filesystem is not encrypted: it is on sda2 (part), with no "
+            "encrypted layer beneath it. Also mounted, with no encrypted layer "
+            "beneath it, so disk encryption does not protect what is stored on it: "
+            "/home (sda3, ext4). The EFI system partition at /boot/efi (sda1) is not "
+            "encrypted, by design: the firmware reads it to start the machine."))
+
+    def test_nothing_else_mounted_is_said(self):
+        self.assertTrue(self.render(_LSBLK_LUKS_ROOT).endswith(
+            "while the machine is off. The EFI system partition at /boot/efi "
+            "(nvme0n1p1) is not encrypted, by design: the firmware reads it to start "
+            "the machine. Nothing else is mounted from a drive."))
+        self.assertTrue(self.render(_LSBLK_LVM_ON_LUKS).endswith(
+            "while the machine is off. Nothing else is mounted from a drive."))
 
 
 class FirewallReadings(unittest.TestCase):

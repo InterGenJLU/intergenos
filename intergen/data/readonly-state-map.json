@@ -318,7 +318,7 @@
         "do I have full disk encryption"
       ],
       "command": "lsblk -J -o NAME,TYPE,FSTYPE,MOUNTPOINTS",
-      "probe": "an encrypted (crypt) device on the path from the disk to the filesystem mounted at / (router._posture_render_encrypted_root)",
+      "probe": "an encrypted (crypt) device on the path from the disk to the filesystem mounted at /, and to every other filesystem mounted from a drive, each with no such layer named; the EFI system partition is named as plain by design, and zram, loop devices and swap are not counted (router._posture_render_encrypted_root)",
       "tool": "run_command",
       "requires": [
         "lsblk"
