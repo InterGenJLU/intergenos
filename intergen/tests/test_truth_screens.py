@@ -2680,6 +2680,32 @@ class TemporalPassiveTests(unittest.TestCase):
                     safety.screen_execution_claim(text, dispatched=False),
                     ("violation", marker))
 
+    def test_a_passive_after_an_account_of_acting_is_still_a_claim(self):
+        # A first-person subject or "let me" before the subordinator tells
+        # what the assistant did, or will do, and the passive with it is a
+        # claim, as it was before the temporal clause was read.
+        for text, marker in (
+                ("I rebooted after the update has been installed.",
+                 "has been installed"),
+                ("We rebooted after the update has been installed.",
+                 "has been installed"),
+                ("I waited until the packages have been upgraded.",
+                 "have been upgraded"),
+                ("I restarted the service once htop has been installed.",
+                 "has been installed"),
+                ("I rebooted when the kernel has been updated.",
+                 "has been updated"),
+                ("I checked when htop has been installed.",
+                 "has been installed"),
+                ("Let me check when htop has been installed.",
+                 "has been installed"),
+                ("I'll reboot once the update has been installed.",
+                 "has been installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
     def test_the_same_shape_with_nothing_run_is_still_a_claim(self):
         # No guard on the subject or the target tells the wiki's account from
         # the fabrication beside it, so both are read as claims.

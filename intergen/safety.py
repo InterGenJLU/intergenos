@@ -1167,6 +1167,15 @@ _TEMPORAL_PASSIVE_SUBJECT_RE = re.compile(
     + r"|(?:^|[.!?;:\n])\s*(?:[-*•]\s*)?(?:(?:to\s+)?(?:check|see|verify|"
     r"confirm|ask|find\s+out)\s+(?:if|whether)|if|unless|whether)\s+"
     + _PASSIVE_SUBJECT)
+# Neither guard applies after an account of the assistant acting: a
+# first-person subject or "let me" before the subordinator in its clause
+# ("I rebooted after the update has been installed", "let me check when htop
+# has been installed") tells what the assistant did, does or will do, and
+# the passive with it is the claim it was before the guard; "I'll reboot
+# once the update has been installed" included. Without the pronoun
+# ("rebooted after the update has been installed") the guard still applies:
+# no alternation here reads a past act with its subject left out.
+_FIRST_PERSON_RE = re.compile(r"\b(?:i|we|let\s+me|let['’]s|let\s+us)\b")
 
 
 # ── BARE PRESENT-PROGRESSIVE claim (the anchor-0001 shape) ──
@@ -1397,10 +1406,11 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
-        if m.group("passive") and _TEMPORAL_PASSIVE_SUBJECT_RE.search(
-                low, 0, m.start()):
-            continue
         start, end = _clause_bounds(low, m.start())
+        if m.group("passive"):
+            sub = _TEMPORAL_PASSIVE_SUBJECT_RE.search(low, 0, m.start())
+            if sub and not _FIRST_PERSON_RE.search(low, start, sub.start()):
+                continue
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()
     for m in _BARE_PROGRESSIVE_RE.finditer(low):
