@@ -249,4 +249,3 @@ def test_repair_rolls_back_every_row_if_its_history_write_fails(db, tmp_path):
         assert raw.execute("SELECT name, version FROM installed ORDER BY name").fetchall() == [
             ("codex", "0.159.2"), ("vscode", "1.143.0")]
         assert raw.execute("SELECT count(*) FROM history").fetchone()[0] == 0
-

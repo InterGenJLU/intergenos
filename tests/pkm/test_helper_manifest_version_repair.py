@@ -203,4 +203,3 @@ def test_publication_reads_back_a_destination_created_after_planning(tmp_path):
             PackageDB(db_path, root=str(root))
     assert legacy.read_bytes() == original
     assert raw_record(db_path) == ("0.8", "0.8", before["manifest_sha256"])
-
