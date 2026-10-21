@@ -1496,15 +1496,18 @@ class TruncatedTextAnswerTests(unittest.TestCase):
         del router._llm.stream_with_tools  # the client's own tool stream
         return router
 
-    def _endpoint(self, finish):
-        """The model endpoint answering one request with the draft."""
-        pending = [_SseResponse(_sse_text(*self.PIECES, finish=finish))]
+    def _endpoint(self, *finishes):
+        """The model endpoint answering one request per finish reason, in
+        order, with the draft."""
+        pending = [_SseResponse(_sse_text(*self.PIECES, finish=finish))
+                   for finish in finishes]
         return mock.patch("urllib.request.urlopen",
                           lambda *_a, **_k: pending.pop(0))
 
-    def _route(self, finish):
+    def _route(self, *finishes):
         router = self._router()
-        with self._endpoint(finish), mock.patch("intergen.router.glass.emit"):
+        with self._endpoint(*finishes), \
+                mock.patch("intergen.router.glass.emit"):
             return router.route(self.QUESTION)
 
     def _browser(self, finish, *, locked=False):
@@ -1546,9 +1549,10 @@ class TruncatedTextAnswerTests(unittest.TestCase):
                                  verdict)
 
     def test_a_truncated_text_answer_raises_the_offer_on_the_tool_route(self):
-        result = self._route("length")
+        result = self._route("length", "length")
         self.assertEqual(result.source, "llm_tools")
-        # Served as it came — the gate's verdict raises the offer.
+        # Cut off again when asked once more: served as it came, and the
+        # gate's verdict raises the offer.
         self.assertEqual(result.text, "".join(self.PIECES))
         self.assertTrue(result.escalation_offer.startswith(self.OPENING))
 
@@ -1560,7 +1564,7 @@ class TruncatedTextAnswerTests(unittest.TestCase):
         self.assertIsNone(result.escalation_offer)
 
     def test_a_truncated_text_answer_raises_the_offer_in_the_browser(self):
-        offer = self._route("length").escalation_offer
+        offer = self._route("length", "length").escalation_offer
         for locked in (False, True):
             with self.subTest(locked=locked):
                 end = self._browser("length", locked=locked)
@@ -1578,6 +1582,65 @@ class TruncatedTextAnswerTests(unittest.TestCase):
                 end = self._browser("stop", locked=locked)
                 self.assertEqual(end["full_response"], "".join(self.PIECES))
                 self.assertIsNone(end["escalation_offer"])
+
+    def _requests(self, *replies):
+        """The model endpoint answering one request per reply, in order;
+        returns (the patch, the request bodies it received)."""
+        received, pending = [], list(replies)
+
+        def urlopen(request, **_):
+            received.append(json.loads(request.data))
+            return pending.pop(0)
+        return mock.patch("urllib.request.urlopen", urlopen), received
+
+    def test_a_truncated_text_answer_is_asked_again_once_with_more_room(self):
+        # The freeform route asks once more with twice the room before it
+        # serves a draft the cap cut off; the tool route's text branch served
+        # it as it came. The retry asks for the answer with no tools offered,
+        # with the prompt of a turn that has none.
+        complete = "".join(self.PIECES) + " the Gaussian integral."
+        endpoint, received = self._requests(
+            _SseResponse(_sse_text(*self.PIECES, finish="length")),
+            _SseResponse(_sse_text(complete, finish="stop")))
+        router = self._router()
+        with endpoint, mock.patch("intergen.router.glass.emit"):
+            result = router.route(self.QUESTION)
+        self.assertEqual(len(received), 2)
+        self.assertIn("tools", received[0])
+        self.assertNotIn("tools", received[1])
+        self.assertEqual((received[0]["max_tokens"], received[1]["max_tokens"]),
+                         (4096, 8192))
+        # The tool prompt's provenance directive is in the first request's
+        # system message only.
+        self.assertIn("TOOL CALL PROVENANCE",
+                      received[0]["messages"][0]["content"])
+        self.assertNotIn("TOOL CALL PROVENANCE",
+                         received[1]["messages"][0]["content"])
+        self.assertEqual(received[1]["messages"][-1]["content"], self.QUESTION)
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, complete)
+        self.assertIsNone(result.escalation_offer)
+
+    def test_the_browser_keeps_its_single_stream(self):
+        # The browser has shown the draft as it streamed, so it is not asked
+        # again: one request, and the offer under what was shown.
+        endpoint, received = self._requests(
+            _SseResponse(_sse_text(*self.PIECES, finish="length")),
+            _SseResponse(_sse_text("".join(self.PIECES), finish="stop")))
+        router = self._router()
+        server = WebServer(router=router, llm=router._llm,
+                           tools=router._tools, governance=None)
+        ctx = ConnectionContext(client_id="c1", source_interface="web",
+                                ws=_RecordingWS(),
+                                conversation=router.new_conversation())
+        with endpoint, mock.patch("intergen.router.glass.emit"):
+            asyncio.run(server._stream_llm_response(
+                ctx, "turn1", self.QUESTION, RouteResult(
+                    text="", source="llm_tools", handled=False)))
+        end, = ctx.ws.of_type("stream_end")
+        self.assertEqual(len(received), 1)
+        self.assertEqual(end["full_response"], "".join(self.PIECES))
+        self.assertTrue(end["escalation_offer"].startswith(self.OPENING))
 
 
 # ── the native floor's dispatch synthesis meets the same screens ─────────────

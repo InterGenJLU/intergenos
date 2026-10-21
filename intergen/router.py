@@ -6653,6 +6653,40 @@ class ConversationRouter(RouterInterface):
                              if m.role == MessageRole.USER), "")
             gate = getattr(self._llm, "_gate_reason", None)
             gate_reason = gate(draft_text, question) if gate else ""
+            # A call that asks the model again below — the retry, a screen's
+            # regeneration — offers it no tools, so it is asked with the
+            # prompt of a turn that has none: the diagnostic prompt with
+            # tools says "Use your tools … Act immediately", the
+            # instruction/capability mismatch the tool-less override table in
+            # llm.py exists for. The history, grounding and question are the
+            # ones the draft was generated from.
+            screen_messages = self._llm.build_system_messages(
+                query_type=getattr(self, "_current_query_type", "general"),
+                with_tools=False) + messages[1:]
+            # ONE RETRY WITH MORE ROOM, AS chat() GIVES THE FREEFORM ROUTE'S
+            # ANSWER. A draft the cap cut off ("truncated") or one with no
+            # answer in it ("empty") was served as it came, with the offer,
+            # where the freeform route asks once more with twice the room
+            # before it serves; on the bus nothing of the draft has been shown
+            # yet. The retry asks for the answer, not for a tool, so it offers
+            # none (a call it made could not be dispatched from here), under
+            # chat()'s ceiling. Its text, counts and flags and the gate's
+            # verdict on it replace the draft's; a retry that brought back
+            # nothing leaves the draft as it was.
+            stream = getattr(self._llm, "stream", None)
+            room = getattr(self._llm, "_max_tokens_default", None)
+            if gate_reason in ("empty", "truncated") and stream and room:
+                room = min(room * 2, 8192)
+                logger.warning("Tool route text answer %s — retrying once "
+                               "with max_tokens=%d", gate_reason, room)
+                retried = "".join(stream(screen_messages, max_tokens=room))
+                if retried.strip():
+                    draft_text = retried
+                    tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
+                    tok_c = getattr(self._llm, '_last_completion_tokens', 0)
+                    stream_flags = list(
+                        getattr(self._llm, "_last_semantic_flags", None) or [])
+                    gate_reason = gate(draft_text, question)
             draft = LLMResponse(
                 text=draft_text, model="local", local=True,
                 tokens_prompt=tok_p, tokens_completion=tok_c,
@@ -6673,17 +6707,8 @@ class ConversationRouter(RouterInterface):
             # lock_dispatch=False: an invented usage table, "let's run the
             # command for you" and an unbacked offer to install were delivered
             # with no screen decision at all, while the locked floor screened
-            # every one. The answer now meets the freeform sequence itself.
-            #
-            # A screen that asks the model again offers it no tools, so that
-            # call is asked with the prompt of a turn that has none: the
-            # diagnostic prompt with tools says "Use your tools … Act
-            # immediately", the instruction/capability mismatch the tool-less
-            # override table in llm.py exists for. The history, grounding and
-            # question are the ones the draft was generated from.
-            screen_messages = self._llm.build_system_messages(
-                query_type=getattr(self, "_current_query_type", "general"),
-                with_tools=False) + messages[1:]
+            # every one. The answer now meets the freeform sequence itself,
+            # asked again with the tool-less prompt above.
             text, refused = self._screen_model_answer(
                 self._llm._strip_filler(draft.text),
                 screen_messages, source="llm_tools")
