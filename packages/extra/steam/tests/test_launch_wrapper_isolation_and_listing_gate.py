@@ -26,6 +26,7 @@ Each case reads the shell it exercises from build.sh in the tree under test,
 so what is tested is the text that ships.
 """
 
+import collections
 import json
 import os
 import random
@@ -75,18 +76,21 @@ WRITER = re.compile(r"(?:\bcat\s+>>?\s*|\binstall\b[^<]*?/dev/stdin\s+|\btee\s+(
 # proof. None is a python3 -c or python3 - call: each runs a module under -P or
 # a script by path, so the working directory is not on its import path, while
 # PYTHONPATH and the user's site directory still are. Keyed by recipe and line
-# text; an entry that no longer matches a call fails the check, so a fixed call
-# leaves this list with it.
+# text, with the number of calls that carry that text in that recipe. The calls
+# found are counted per key and compared with the count both ways: one more
+# call with an excepted line's text fails the check, and so does a key with
+# fewer calls than its count, so a fixed call leaves this table with it.
 KNOWN_UNISOLATED = {
-    ("packages/ai/intergen/build.sh", "#!/usr/bin/env python3"),
-    ("packages/core/pkm/build.sh", 'exec /usr/bin/python3 -P -m pkm "$@"'),
-    ("packages/desktop/forge/build.sh", 'exec /usr/bin/python3 -P -m installer "$@"'),
+    ("packages/ai/intergen/build.sh", "#!/usr/bin/env python3"): 2,
+    ("packages/core/pkm/build.sh", 'exec /usr/bin/python3 -P -m pkm "$@"'): 1,
+    ("packages/desktop/forge/build.sh", 'exec /usr/bin/python3 -P -m installer "$@"'): 1,
     ("packages/desktop/intergen-toggle/build.sh",
-     'exec python3 /usr/libexec/intergen-toggle/intergen-toggle.py "$@"'),
-    ("packages/desktop/intergen-welcome/build.sh", 'python3 /usr/libexec/intergen-welcome/intergen-welcome.py "$@"'),
-    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-cli "$@"'),
-    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-gui "$@"'),
-    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicled "$@"'),
+     'exec python3 /usr/libexec/intergen-toggle/intergen-toggle.py "$@"'): 1,
+    ("packages/desktop/intergen-welcome/build.sh",
+     'python3 /usr/libexec/intergen-welcome/intergen-welcome.py "$@"'): 1,
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-cli "$@"'): 1,
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-gui "$@"'): 1,
+    ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicled "$@"'): 1,
 }
 
 
@@ -161,6 +165,18 @@ def _unisolated(root):
     return [(rel, number, line.strip())
             for rel, _, body in _shipped_bodies(root)
             for number, line, words in _python_calls(body) if not _isolated(words)]
+
+
+def _against_the_table(found, table):
+    """The keys where the calls FOUND and the counts in TABLE disagree, as two
+    lists of (recipe, line text, calls found, count named): the keys with more
+    calls than the table names, then the keys with fewer."""
+    counts = collections.Counter((rel, line) for rel, _, line in found)
+    more = [(rel, line, n, table.get((rel, line), 0))
+            for (rel, line), n in sorted(counts.items()) if n > table.get((rel, line), 0)]
+    fewer = [(rel, line, counts[(rel, line)], n)
+             for (rel, line), n in sorted(table.items()) if counts[(rel, line)] < n]
+    return more, fewer
 
 
 def _isolated(words):
@@ -312,11 +328,36 @@ class LaunchWrapperPythonTests(unittest.TestCase):
             self.assertEqual(len(planted), 1, f"a call in a script whose opener spans two lines, planted in a copy "
                                               f"of {other}: found {planted}")
         found = _unisolated(REPO_ROOT)
-        unexpected = [hit for hit in found if (hit[0], hit[2]) not in KNOWN_UNISOLATED]
-        self.assertEqual(unexpected, [], "a shipped script runs Python without -I: " + "; ".join(
-            f"{rel}:{number}: {line}" for rel, number, line in unexpected))
-        stale = KNOWN_UNISOLATED - {(rel, line) for rel, _, line in found}
-        self.assertEqual(stale, set(), f"no longer found, so no longer an exception: {sorted(stale)}")
+        more, fewer = _against_the_table(found, KNOWN_UNISOLATED)
+
+        def lines_of(rel, line):
+            return ", ".join(str(number) for r, number, text in found if (r, text) == (rel, line))
+
+        self.assertEqual(more, [], "a shipped script runs Python without -I: " + "; ".join(
+            f"{rel}: {line} ({n} calls, at lines {lines_of(rel, line)}; {count} named as known)"
+            for rel, line, n, count in more))
+        self.assertEqual(fewer, [], "fewer calls than the table names, so its count no longer holds: " + "; ".join(
+            f"{rel}: {line} ({n} calls found, {count} named)" for rel, line, n, count in fewer))
+
+        # The count per key holds both ways: one more call with an excepted
+        # line's text, in that exception's recipe, is found, and so is one fewer.
+        intergen, shebang = "packages/ai/intergen/build.sh", "#!/usr/bin/env python3"
+        named = KNOWN_UNISOLATED[(intergen, shebang)]
+        text = (REPO_ROOT / intergen).read_text(encoding="utf-8")
+        self.assertEqual(text.count(f"\n{shebang}\n"), named)
+        table = {key: n for key, n in KNOWN_UNISOLATED.items() if key[0] == intergen}
+        for label, planted, expected in (
+                ("one more", text + '\ninstall -Dm755 /dev/stdin "${DESTDIR}/usr/bin/planted-tool" '
+                                    f"<<'PLANTEOF'\n{shebang}\nprint(\"planted\")\nPLANTEOF\n",
+                 ([(intergen, shebang, named + 1, named)], [])),
+                ("one fewer", text.replace(f"\n{shebang}\n", "\n#!/usr/bin/python3 -I\n", 1),
+                 ([], [(intergen, shebang, named - 1, named)]))):
+            with tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp) / intergen
+                copy.parent.mkdir(parents=True)
+                copy.write_text(planted, encoding="utf-8")
+                self.assertEqual(_against_the_table(_unisolated(Path(tmp)), table), expected,
+                                 f"a copy of {intergen} with {label} call carrying the text {shebang!r}")
 
 
 class PayloadListingGateTests(unittest.TestCase):
