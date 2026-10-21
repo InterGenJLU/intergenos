@@ -6166,7 +6166,7 @@ class ConversationRouter(RouterInterface):
                 subject = request[action.end():]
                 determiner = (
                     r"(?:(?:a|an|the|my|this|our|all|any|each|hypothetical|"
-                    r"new|custom|active|installed|mounted|existing)\s+)*")
+                    r"new|custom|active|installed|mounted|existing|default|optional)\s+)*")
                 system_object = (
                     r"(?:features?|settings?|options?|configuration|packages?|"
                     r"services?|kernels?|firewalls?|backups?|partitions?|disks?|"

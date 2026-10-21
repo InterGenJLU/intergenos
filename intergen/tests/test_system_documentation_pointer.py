@@ -166,6 +166,8 @@ def test_instruction_variants_keep_the_same_object_boundary(query):
 @pytest.mark.parametrize(("query", "expected"), [
     ("How do I turn on smoothing for a Linux penguin drawing?", "llm_freeform"),
     ("How do I temporarily disable shading in a Linux penguin drawing?", "llm_freeform"),
+    ("How do I change the default configuration of a hypothetical feature in Linux?", "wiki_uncovered"),
+    ("How do I change an optional feature in Linux?", "wiki_uncovered"),
     ("How do I enable a hypothetical feature in InterGenOS?", "wiki_uncovered"),
     ("How do I draw a penguin?", "llm_freeform"),
 ])
