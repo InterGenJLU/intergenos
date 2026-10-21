@@ -180,3 +180,27 @@ def test_a_conflicting_manifest_is_reported_without_replacing_it(tmp_path, probl
     if problem == "different-destination":
         assert target.read_bytes() == b"an unrelated manifest\n"
 
+
+def test_a_repair_that_updates_no_row_stops_before_legacy_cleanup(tmp_path):
+    root, db_path, legacy, original, before = seed(tmp_path)
+    with sqlite3.connect(db_path) as raw:
+        raw.executescript("CREATE TRIGGER ignore_repair BEFORE UPDATE ON installed "
+                          "BEGIN SELECT RAISE(IGNORE); END;")
+    with pytest.raises(sqlite3.IntegrityError, match="helper record changed"):
+        PackageDB(db_path, root=str(root))
+    assert legacy.read_bytes() == original
+    assert raw_record(db_path) == ("0.8", "0.8", before["manifest_sha256"])
+
+
+def test_publication_reads_back_a_destination_created_after_planning(tmp_path):
+    root, db_path, legacy, original, before = seed(tmp_path)
+    publish = PackageDB._publish_helper_manifest
+    def intervening_writer(plan):
+        plan["target"].write_bytes(b"different bytes\n")
+        return publish(plan)
+    with patch.object(PackageDB, "_publish_helper_manifest", staticmethod(intervening_writer)):
+        with pytest.raises(OSError, match="read-back differs"):
+            PackageDB(db_path, root=str(root))
+    assert legacy.read_bytes() == original
+    assert raw_record(db_path) == ("0.8", "0.8", before["manifest_sha256"])
+

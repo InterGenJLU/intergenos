@@ -1368,7 +1368,11 @@ class PackageDB:
     @staticmethod
     def _publish_helper_manifest(plan):
         """Publish complete corrected bytes while keeping the legacy file."""
-        if plan is None or plan["target"].exists():
+        if plan is None:
+            return
+        if plan["target"].exists():
+            if plan["target"].read_bytes() != plan["data"]:
+                raise OSError(f"helper manifest read-back differs: {plan['target']}")
             return
         import tempfile
         fd, temporary = tempfile.mkstemp(prefix=".pkm-helper-", dir=plan["target"].parent)
@@ -1469,7 +1473,7 @@ class PackageDB:
                         "WHERE id = ? AND version = ? AND install_method = 'helper'",
                         (new, manifest_hash, old, row_id, old))
                     if changed.rowcount != 1:
-                        continue
+                        raise sqlite3.IntegrityError(f"helper record changed during repair: {name}")
                     self.log_operation("repair-version", name, old_version=old,
                                        new_version=new, method="helper-archive-pkginfo",
                                        commit=False)
@@ -1481,6 +1485,8 @@ class PackageDB:
             for row in repairs:
                 plan = row[-1]
                 if plan:
+                    if plan["target"].read_bytes() != plan["data"]:
+                        raise OSError(f"helper manifest read-back differs: {plan['target']}")
                     if (hashlib.sha256(plan["source"].read_bytes()).hexdigest()
                             != plan["before_hash"]):
                         raise OSError(f"helper manifest changed before cleanup: {plan['source']}")
