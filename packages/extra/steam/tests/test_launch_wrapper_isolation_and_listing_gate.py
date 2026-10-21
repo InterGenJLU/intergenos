@@ -64,12 +64,16 @@ _sys.modules[_name] = _real
 INTERPRETER = re.compile(r"(?<![\w./-])(?:/[\w./-]*/)?python(?:3(?:\.\d+)?)?(?![\w.-])")
 # A short option that takes an argument ends its option cluster.
 TAKES_AN_ARGUMENT = set("cmWXQ")
-# A heredoc opener, any delimiter, quoted or not; and an opener that writes the
-# body into a file (cat >, cat >>, install ... /dev/stdin, tee), with the path's
-# leading variable.
-HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
-WRITER = re.compile(r"(?:\bcat\s+>>?\s*|\binstall\b[^<]*?/dev/stdin\s+|\btee\s+(?:-a\s+)?)\"?"
+# A heredoc opener, any delimiter: bare, quoted, double-quoted or quoted with a
+# backslash. An opener that writes the body into a file names the path's leading
+# variable after a redirect of standard output (> or >>, anywhere on the opener's
+# logical line, before the opener or after it), after install ... /dev/stdin, or
+# after tee.
+HEREDOC = re.compile(r"<<(-?)\s*(\\?)(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\3")
+WRITER = re.compile(r"(?:(?<![<>&0-9])>>?\s*|\binstall\b[^<]*?/dev/stdin\s+|\btee\s+(?:-a\s+)?)[\"']?"
                     r"\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?")
+# A variable assigned from another, the value starting with it.
+ASSIGNED_FROM = re.compile(r"\b([A-Za-z_][A-Za-z0-9_]*)=[\"']?\$\{?([A-Za-z_][A-Za-z0-9_]*)")
 
 # The shipped scripts that run Python without -I today, found when this check
 # was widened to every recipe, each left for a change of its own with its own
@@ -91,6 +95,17 @@ KNOWN_UNISOLATED = {
     ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-cli "$@"'): 1,
     ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicle-gui "$@"'): 1,
     ("packages/desktop/intergenos-backup/build.sh", 'exec python3 /usr/libexec/chronicle/chronicled "$@"'): 1,
+}
+
+# Lines in a shipped file that nothing runs, where a word naming the interpreter
+# is text and not a command: maturin's .dist-info METADATA, read as package
+# metadata. Keyed and counted as KNOWN_UNISOLATED is and compared with the
+# calls found in the same way, so another such line fails the check until it
+# is read and named here.
+NOT_A_CALL = {
+    ("packages/core/maturin/build.sh",
+     "Summary: Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python "
+     "packages"): 1,
 }
 
 
@@ -126,14 +141,21 @@ def _python_calls(body):
 
 def _shipped_bodies(root):
     """Every heredoc body that a recipe under ROOT writes into its package, as
-    (recipe, delimiter, body): its opener, read across backslash continuations,
-    writes into a path under DESTDIR, named directly or through a variable the
-    same build.sh assigns from it."""
+    (recipe, delimiter, body): its opener's logical line, read across backslash
+    continuations before and after the opener, writes into a path under
+    DESTDIR, named directly or through a chain of variables the same build.sh
+    assigns from it."""
     found = []
     for build in sorted(root.glob("packages/*/*/build.sh")):
         rel = str(build.relative_to(root))
         text = build.read_text(encoding="utf-8")
-        from_destdir = {"DESTDIR"} | set(re.findall(r"\b([A-Za-z_][A-Za-z0-9_]*)=[\"']?\$\{?DESTDIR\b", text))
+        assignments = ASSIGNED_FROM.findall(text)
+        from_destdir = {"DESTDIR"}
+        while True:
+            more = {name for name, source in assignments if source in from_destdir} - from_destdir
+            if not more:
+                break
+            from_destdir |= more
         lines = text.split("\n")
         i = 0
         while i < len(lines):
@@ -141,19 +163,22 @@ def _shipped_bodies(root):
             if lines[i].lstrip().startswith("#") or "<<<" in lines[i] or not opener:
                 i += 1
                 continue
-            dash, _, delimiter = opener.groups()
-            body, j = [], i + 1
+            dash, _, _, delimiter = opener.groups()
+            # The opener's logical line may begin on an earlier line and go on
+            # past this one, joined by backslash continuations; the body starts
+            # after its last line.
+            start, end = i, i
+            while start > 0 and lines[start - 1].rstrip().endswith("\\"):
+                start -= 1
+            while end + 1 < len(lines) and lines[end].rstrip().endswith("\\"):
+                end += 1
+            body, j = [], end + 1
             while j < len(lines) and (lines[j].lstrip("\t") if dash else lines[j]) != delimiter:
                 body.append((j + 1, lines[j]))
                 j += 1
             if j == len(lines):
                 raise AssertionError(f"{rel}:{i + 1}: the {delimiter} heredoc is never closed")
-            # The writer may sit on an earlier line, joined to this one by a
-            # backslash continuation.
-            start = i
-            while start > 0 and lines[start - 1].rstrip().endswith("\\"):
-                start -= 1
-            writer = WRITER.search(" ".join(line.rstrip().rstrip("\\") for line in lines[start:i + 1]))
+            writer = WRITER.search(" ".join(line.rstrip().rstrip("\\") for line in lines[start:end + 1]))
             if writer and writer.group(1) in from_destdir and body:
                 found.append((rel, delimiter, body))
             i = j + 1
@@ -317,18 +342,27 @@ class LaunchWrapperPythonTests(unittest.TestCase):
                                 encoding="utf-8")
                 planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == call]
                 self.assertEqual(len(planted), expected, f"{call} planted in a copy of {other}: found {planted}")
-        # A script whose opener is continued over two lines is read as well.
-        with tempfile.TemporaryDirectory() as tmp:
-            copy = Path(tmp) / other
-            copy.parent.mkdir(parents=True)
-            copy.write_text(original + '\ninstall -Dm755 /dev/stdin \\\n    "${DESTDIR}/usr/bin/planted-tool" '
-                                       "<<'PLANTEOF'\n#!/bin/sh\npython3 -c \"import sys\"\nPLANTEOF\n",
-                            encoding="utf-8")
-            planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == 'python3 -c "import sys"']
-            self.assertEqual(len(planted), 1, f"a call in a script whose opener spans two lines, planted in a copy "
-                                              f"of {other}: found {planted}")
+        # A script is read whatever the shape of the opener that writes it.
+        script = "#!/bin/sh\npython3 -c \"import sys\"\nPLANTEOF\n"
+        for shape, opener in (
+                ("an opener continued over two lines",
+                 'install -Dm755 /dev/stdin \\\n    "${DESTDIR}/usr/bin/planted-tool" <<\'PLANTEOF\''),
+                ("the redirect after the opener", 'cat << \'PLANTEOF\' > "${DESTDIR}/usr/bin/planted-tool"'),
+                ("the redirect on a line continuing the opener",
+                 'cat << \'PLANTEOF\' \\\n    > "${DESTDIR}/usr/bin/planted-tool"'),
+                ("a destination two assignments from DESTDIR",
+                 'planted_root="${DESTDIR}/usr"\nplanted_bin="${planted_root}/bin"\n'
+                 'cat > "${planted_bin}/planted-tool" <<\'PLANTEOF\''),
+                ("a delimiter quoted with a backslash", 'cat > "${DESTDIR}/usr/bin/planted-tool" <<\\PLANTEOF')):
+            with tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp) / other
+                copy.parent.mkdir(parents=True)
+                copy.write_text(f"{original}\n{opener}\n{script}", encoding="utf-8")
+                planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == 'python3 -c "import sys"']
+                self.assertEqual(len(planted), 1, f"a call in a script written by {shape}, planted in a copy of "
+                                                  f"{other}: found {planted}")
         found = _unisolated(REPO_ROOT)
-        more, fewer = _against_the_table(found, KNOWN_UNISOLATED)
+        more, fewer = _against_the_table(found, KNOWN_UNISOLATED | NOT_A_CALL)
 
         def lines_of(rel, line):
             return ", ".join(str(number) for r, number, text in found if (r, text) == (rel, line))
