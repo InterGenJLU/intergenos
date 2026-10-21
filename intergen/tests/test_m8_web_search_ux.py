@@ -477,6 +477,29 @@ class LocalPageBoundaryTests(unittest.TestCase):
                     self.assertEqual(result.text, answer + "\n\nSource: " + url)
                     self.assertIn(snippet, result.tool_results[0].content)
 
+    def test_page_markers_do_not_move_the_search_listing_boundary(self):
+        from intergen.router import _web_page_details, _web_search_snippets
+
+        fact = "The observatory opens at 09:00."
+        page_line = "PAGE-ONLY LINE: the observatory opens at 03:00."
+        marker = "Search results for: page text\n1. Page section\n   " + page_line
+        pages = {
+            "plain": fact + "\nTickets are sold at the door.",
+            "middle_marker": fact + "\n\n" + marker,
+            "start_marker": marker,
+            "repeated_marker": fact + "\n\n" + marker + "\n\n" + marker,
+        }
+        snippet = "Real snippet: opens at nine."
+        for name, page in pages.items():
+            with self._server(body=page.encode()) as url:
+                content, _ = WebSearchTool()._render_with_page(
+                    "observatory hours", [("Observatory hours", url, snippet)])
+                self.assertIn("Page excerpt:\n" + page, content)
+                with self.subTest(page=name, parser="excerpt"):
+                    self.assertEqual(_web_page_details(content), (url, page))
+                with self.subTest(page=name, parser="snippets"):
+                    self.assertEqual(_web_search_snippets(content), snippet)
+
     def test_empty_snippets_keep_the_unavailable_outcome(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 

@@ -1476,13 +1476,13 @@ def _web_page_details(output: str) -> tuple[str, str] | None:
         return None
     excerpt = ""
     if header.group(2).startswith("Page excerpt"):
-        excerpt = output[header.end():].split("\n\nSearch results for:", 1)[0].strip()
+        excerpt = output[header.end():].rsplit("\n\nSearch results for:", 1)[0].strip()
     return header.group(1), excerpt
 
 
 def _web_search_snippets(output: str) -> str:
     """Read snippet lines from the search listing after the retrieval header."""
-    _, marker, listing = output.partition("\n\nSearch results for:")
+    _, marker, listing = output.rpartition("\n\nSearch results for:")
     if not marker:
         return ""
     return "\n".join(re.findall(r"(?m)^   (?!https?://)(\S[^\n]*)$", listing))
