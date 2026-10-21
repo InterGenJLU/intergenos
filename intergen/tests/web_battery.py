@@ -86,7 +86,10 @@ a DECLARED fact; the sha256 of its own source and of the harness it imported
 are MEASURED and recorded beside it, kept apart.
 
 THE RECORD. ``<output>/`` holds ``frames.jsonl`` (every frame the server sent,
-whole, with the wall time it was written after the turn completed),
+whole, with the wall time it was written after the turn completed, and
+``at_s``, the harness's own arrival stamp for that frame in seconds after the
+send; null for the connection's opening frames, which the harness does not
+stamp, and for every frame of a turn whose stamps do not pair with its frames),
 ``verdicts.tsv`` (one line per
 question), ``summary.json`` (counts, the target identity read from
 ``pkm info intergen`` over ssh or, in the local form, on the machine itself,
@@ -105,6 +108,12 @@ harness's own frame stamps say about the start of the turn: ``first_frame_s``
 ``first_visible_s`` (the first frame that puts words on the page: a token
 with text, or a whole reply). Each stamp is taken against the send
 (``ws_harness._drive_turn``); a turn with no such frame writes an empty cell.
+A stamp is lent to a frame only when the turn's stamps pair with its frames
+one for one, each stamp named for its frame's type (_frame_stamps); a turn
+whose stamps do not pair writes empty cells, and on a replay turn its
+indicator FAILs saying so. The same stamps are written beside each frame in
+``frames.jsonl``, so every timing and the indicator can be recomputed from the
+record alone.
 
 THE TRANSCRIPT REPLAY (``--replay FILE``). Instead of the fourteen questions,
 the battery replays a recorded conversation: a TSV of turns, each with the
@@ -380,15 +389,33 @@ CONTENT_FRAMES = frozenset({"stream_start", "stream_token", "stream_end",
                             "response", "error"})
 
 
-def _timed_frames(r: Any) -> list[tuple[float, dict]]:
-    """The turn's frames with the harness's stamp for each. The harness
-    appends one event per text frame, in step with ``messages``, and an event
-    of its own (``WS_CLOSED`` and the like) for a socket that ended; those
-    carry no frame and are left out here. A turn that carries no stamps at
-    all has nothing to time: every stamp of it is empty, never a zero."""
+def _frame_stamps(r: Any) -> tuple[list[float] | None, str]:
+    """The harness's arrival stamp for each of the turn's frames, in order,
+    or (None, why) when its stamps do not pair with its frames. The harness
+    appends one event per text frame, in step with ``messages`` and named by
+    the frame's own type, and an event of its own (``WS_CLOSED`` and the like)
+    for a socket that ended; those carry no frame and are left out here. The
+    pairing is taken only when the counts are equal and every stamp names its
+    frame's type: a stamp is never lent to a frame it was not taken for."""
     events = getattr(r, "events", None) or []
-    stamps = [at for at, kind in events if not str(kind).startswith("WS_")]
-    return list(zip(stamps, r.messages))
+    frames = list(r.messages)
+    stamped = [(at, kind) for at, kind in events
+               if not str(kind).startswith("WS_")]
+    if len(stamped) != len(frames):
+        return None, f"{len(stamped)} stamps for {len(frames)} frames"
+    for n, ((_at, kind), m) in enumerate(zip(stamped, frames), start=1):
+        if kind != m.get("type", ""):
+            return None, (f"stamp {n} was taken for a {kind!r} frame and "
+                          f"frame {n} is {m.get('type', '')!r}")
+    return [at for at, _kind in stamped], ""
+
+
+def _timed_frames(r: Any) -> list[tuple[float, dict]]:
+    """The turn's frames with the harness's stamp for each (_frame_stamps).
+    A turn that carries no stamps at all, or stamps that do not pair with its
+    frames, has nothing to time: every stamp of it is empty, never a zero."""
+    stamps, _why = _frame_stamps(r)
+    return [] if stamps is None else list(zip(stamps, r.messages))
 
 
 def _turn_timings(r: Any) -> tuple[float | None, float | None, float | None]:
@@ -903,6 +930,10 @@ def _indicator_reasons(r: Any, failsafes: dict[str, float]) -> list[str]:
     content? The page raises it the moment the message is sent; the server
     keeps it honest by acknowledging the turn at once and by answering before
     either failsafe hides it."""
+    stamps, why = _frame_stamps(r)
+    if stamps is None:
+        return [f"the harness's arrival stamps do not pair with the turn's "
+                f"frames ({why}), so the indicator cannot be timed"]
     _first, ack, _visible = _turn_timings(r)
     content = next((at for at, m in _timed_frames(r)
                     if m.get("type") in CONTENT_FRAMES), None)
@@ -1560,6 +1591,29 @@ def _read_glass(target: str | None, ssh_port: int, turn_ids: list[str],
     return rows, p.stdout, ""
 
 
+def _write_opening_frames(fh: Any, conv: Any) -> None:
+    """The connection's opening frames into ``frames.jsonl``: the harness
+    stamps no arrival for them, so ``at_s`` is null."""
+    for m in conv.all_messages:
+        fh.write(json.dumps({"wall": time.time(), "question": None,
+                             "at_s": None, "frame": m}) + "\n")
+
+
+def _write_turn_frames(fh: Any, key: str, sent_at: float, r: Any) -> None:
+    """One turn's frames into ``frames.jsonl``, each beside ``at_s``, the
+    harness's own arrival stamp for it in seconds after the send — null for
+    every frame of a turn whose stamps do not pair with its frames
+    (_frame_stamps) — so the turn's timings and its indicator can be
+    recomputed from the record alone."""
+    stamps, _why = _frame_stamps(r)
+    for n, m in enumerate(r.messages):
+        fh.write(json.dumps({"wall": time.time(), "question": key,
+                             "sent_at": sent_at,
+                             "at_s": None if stamps is None else stamps[n],
+                             "frame": m}) + "\n")
+    fh.flush()
+
+
 async def _drive(tree_root: Path, local_port: int, token: str,
                  deadline_s: float, frames_out: Path,
                  target: str | None, ssh_port: int,
@@ -1570,9 +1624,7 @@ async def _drive(tree_root: Path, local_port: int, token: str,
     with frames_out.open("w", encoding="utf-8") as fh:
         async with ws_harness.WSConversation(
                 host="127.0.0.1", port=local_port, token=token) as conv:
-            for m in conv.all_messages:
-                fh.write(json.dumps({"wall": time.time(), "question": None,
-                                     "frame": m}) + "\n")
+            _write_opening_frames(fh, conv)
             for q in QUESTIONS:
                 sent_at = time.time()
                 # A fresh user asked for consent says no. Answering the prompt
@@ -1583,12 +1635,7 @@ async def _drive(tree_root: Path, local_port: int, token: str,
                 # the turn open and every later question was refused "busy".
                 r = await conv.turn(q.text, gate_decision="deny",
                                     deadline_s=deadline_s)
-                for m in r.messages:
-                    fh.write(json.dumps({"wall": time.time(),
-                                         "question": q.key,
-                                         "sent_at": sent_at,
-                                         "frame": m}) + "\n")
-                fh.flush()
+                _write_turn_frames(fh, q.key, sent_at, r)
                 # The truth this question is checked against, read NOW — while
                 # the answer is one turn old — not at the end of the run.
                 probe = TRUTH_PROBES.get(q.truth or "")
@@ -1616,21 +1663,14 @@ async def _drive_replay(turns: list[ReplayTurn], local_port: int, token: str,
     with frames_out.open("w", encoding="utf-8") as fh:
         async with ws_harness.WSConversation(
                 host="127.0.0.1", port=local_port, token=token) as conv:
-            for m in conv.all_messages:
-                fh.write(json.dumps({"wall": time.time(), "question": None,
-                                     "frame": m}) + "\n")
+            _write_opening_frames(fh, conv)
             for t in turns:
                 sent_at = time.time()
                 # Every card is answered Deny, as the fourteen questions do:
                 # the battery never approves an action on the machine.
                 r = await conv.turn(t.text, gate_decision="deny",
                                     deadline_s=deadline_s)
-                for m in r.messages:
-                    fh.write(json.dumps({"wall": time.time(),
-                                         "question": t.key,
-                                         "sent_at": sent_at,
-                                         "frame": m}) + "\n")
-                fh.flush()
+                _write_turn_frames(fh, t.key, sent_at, r)
                 for cell in t.expect:
                     for alt in cell.split("|"):
                         name, _sep, arg = alt.partition("=")

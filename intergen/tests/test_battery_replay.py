@@ -37,6 +37,7 @@ fails, at a base that has none, by saying so.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import json
 import shutil
@@ -432,6 +433,27 @@ class TheTimingsComeFromTheHarnessStamps(unittest.TestCase):
         r.events.insert(0, (0.01, "WS_CLOSED"))
         # The ack keeps its own stamp; the socket event's is not lent to it.
         self.assertEqual(_need("_timed_frames")(r), [(0.02, _ack())])
+
+    def test_stamps_that_do_not_pair_with_the_frames_are_never_lent(self):
+        frames = [_ack(), _response("hi", "identity")]
+        short = _turn(frames, text="hi")
+        short.events.pop()
+        renamed = _turn(frames, text="hi")
+        renamed.events[0] = (0.02, "stream_start")
+        for label, r in (("a stamp short", short),
+                         ("a stamp taken for another type", renamed)):
+            with self.subTest(label=label):
+                self.assertEqual(_need("_timed_frames")(r), [])
+                self.assertEqual(_need("_turn_timings")(r),
+                                 (None, None, None))
+                why = _need("_indicator_reasons")(r, FAILSAFES)
+                self.assertEqual(len(why), 1, why)
+                self.assertIn("do not pair", why[0])
+                buf = io.StringIO()
+                _need("_write_turn_frames")(buf, "t01", 0.0, r)
+                rows = [json.loads(x) for x in buf.getvalue().splitlines()]
+                self.assertEqual([row["frame"] for row in rows], frames)
+                self.assertEqual([row["at_s"] for row in rows], [None, None])
 
 
 class TheIndicator(unittest.TestCase):
@@ -902,6 +924,116 @@ class TheTruthReadings(unittest.TestCase):
     def test_a_reading_never_taken_is_never_a_pass(self):
         self.assertIn("could not be checked",
                       self._truth("firewall", "It is active.", None)[0])
+
+
+# ── each arrival in the record, over a real socket ─────────────────────────
+class TheRecordCarriesEachArrival(unittest.TestCase):
+    """frames.jsonl holds each frame beside the harness's own arrival stamp,
+    so the indicator verdict is recomputed from the record alone. Driven over
+    a real socket: a local websocket server, the real harness and the
+    battery's own writers."""
+
+    # The server, per turn: the delay before the ack, the delay before the
+    # reply, and a frame it sends after the reply (or None).
+    SCRIPT = ((0.0, 0.02, {"type": "tool_executed", "tool_name": "read_file",
+                           "success": False, "summary": "a late frame"}),
+              (0.35, 0.02, None),
+              (0.0, 0.45, None))
+    WINDOWS = {"RESPONSE_TIMEOUT_MS": 0.3, "POST_ACK_TIMEOUT_MS": 0.3}
+
+    def _serve_and_drive(self, drive):
+        from aiohttp import web
+
+        async def handler(request):
+            ws = web.WebSocketResponse(protocols=("intergen",))
+            await ws.prepare(request)
+            await ws.send_json({"type": "connected", "client_id": "case"})
+            n = 0
+            async for msg in ws:
+                if msg.type != ws_harness.aiohttp.WSMsgType.TEXT:
+                    continue
+                ack_delay, reply_delay, late = self.SCRIPT[n % 3]
+                n += 1
+                await asyncio.sleep(ack_delay)
+                await ws.send_json({"type": "turn_ack", "turn_id": f"r{n}"})
+                await asyncio.sleep(reply_delay)
+                await ws.send_json({"type": "response", "turn_id": f"r{n}",
+                                    "content": "hi", "source": "identity",
+                                    "handled": True})
+                if late is not None:
+                    await asyncio.sleep(0.05)
+                    await ws.send_json(late)
+            return ws
+
+        async def main():
+            app = web.Application()
+            app.router.add_get("/ws", handler)
+            runner = web.AppRunner(app)
+            await runner.setup()
+            await web.TCPSite(runner, "127.0.0.1", 0).start()
+            try:
+                return await drive(runner.addresses[0][1])
+            finally:
+                await runner.cleanup()
+
+        with redirect_stdout(io.StringIO()):
+            return asyncio.run(main())
+
+    def _record(self):
+        tmp = Path(tempfile.mkdtemp(prefix="replay-arrivals-"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        return tmp, tmp / "frames.jsonl"
+
+    def test_the_indicator_is_recomputed_from_the_record_alone(self):
+        tmp, frames_out = self._record()
+        turns = _need("parse_replay_bytes")(
+            (HEADER + "\n" + "".join(f"{n}\t1\t\t\t\tturn {n}\t-\t-\n"
+                                     for n in (1, 2, 3))).encode(), "case.tsv")
+        results = self._serve_and_drive(lambda port: wb._drive_replay(
+            turns, port, "case-token", 10.0, frames_out, None, 22, {}))
+        rows = [json.loads(x) for x in frames_out.read_text().splitlines()]
+        with mock.patch.object(wb, "INDICATOR_ACK_S", 0.2):
+            memory = [wb._indicator_reasons(r, self.WINDOWS)
+                      for _t, r in results]
+            recorded = []
+            for t in turns:
+                mine = [row for row in rows if row["question"] == t.key]
+                recorded.append(wb._indicator_reasons(SimpleNamespace(
+                    messages=[row["frame"] for row in mine],
+                    events=[(row["at_s"], row["frame"].get("type", ""))
+                            for row in mine]), self.WINDOWS))
+        # The case ran as it was built: one turn held, one acknowledged
+        # late, one answered past the failsafe.
+        self.assertEqual(memory[0], [], memory)
+        self.assertTrue(len(memory[1]) == 1
+                        and "after the first second" in memory[1][0], memory)
+        self.assertTrue(len(memory[2]) == 1
+                        and "0.3s failsafe" in memory[2][0], memory)
+        self.assertEqual(recorded, memory)
+        # Every frame carries the stamp the harness took for it, the frame
+        # after the reply included; the opening frame carries none.
+        self.assertEqual(results[0][1].late_frames, 1)
+        for t, (_t, r) in zip(turns, results):
+            mine = [row for row in rows if row["question"] == t.key]
+            self.assertEqual([row["frame"] for row in mine], r.messages)
+            self.assertEqual([row["at_s"] for row in mine],
+                             wb._frame_stamps(r)[0])
+        self.assertEqual([row["at_s"] for row in rows
+                          if row["question"] is None], [None])
+
+    def test_the_fourteen_question_record_carries_each_arrival_too(self):
+        tmp, frames_out = self._record()
+        with mock.patch.object(wb, "QUESTIONS", wb.QUESTIONS[:1]):
+            (q, r), = self._serve_and_drive(lambda port: wb._drive(
+                tmp, port, "case-token", 10.0, frames_out, None, 22, {}))
+        rows = [json.loads(x) for x in frames_out.read_text().splitlines()]
+        mine = [row for row in rows if row["question"] == q.key]
+        self.assertEqual([row["frame"] for row in mine], r.messages)
+        self.assertEqual(len(mine), 3)
+        self.assertEqual([row["at_s"] for row in mine],
+                         wb._frame_stamps(r)[0])
+        self.assertTrue(all(isinstance(row["at_s"], float) for row in mine),
+                        mine)
 
 
 # ── the record ─────────────────────────────────────────────────────────────
