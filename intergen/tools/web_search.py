@@ -12,6 +12,7 @@ InterGen's "local first, cloud optional" philosophy.
 from __future__ import annotations
 
 import http.client
+import io
 import ipaddress
 import json
 import logging
@@ -87,6 +88,28 @@ class _PageText(HTMLParser):
         )
 
 
+class _DeadlineReader(io.RawIOBase):
+    """Apply the remaining budget to every receive, including HTTP headers."""
+
+    def __init__(self, sock, remaining):
+        self._sock = sock
+        self._remaining = remaining
+        self._raw = sock.makefile("rb", buffering=0)
+
+    def readable(self):
+        return True
+
+    def readinto(self, buffer):
+        self._sock.settimeout(self._remaining())
+        return self._raw.readinto(buffer)
+
+    def close(self):
+        try:
+            self._raw.close()
+        finally:
+            super().close()
+
+
 def _fetch_page_text(url: str) -> tuple[str, str, bool]:
     """Fetch public page text with byte and socket-I/O bounds.
 
@@ -132,6 +155,14 @@ def _fetch_page_text(url: str) -> tuple[str, str, bool]:
                 "Accept": "text/html,text/plain", "Accept-Encoding": "identity",
                 "Connection": "close",
             })
+
+            def bounded_response(*args, **kwargs):
+                result = http.client.HTTPResponse(*args, **kwargs)
+                result.fp.close()
+                result.fp = io.BufferedReader(_DeadlineReader(sock, remaining))
+                return result
+
+            connection.response_class = bounded_response
             response = connection.getresponse()
             if response.status in {301, 302, 303, 307, 308}:
                 location = response.getheader("Location")

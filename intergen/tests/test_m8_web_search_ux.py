@@ -28,7 +28,10 @@ import io
 import contextlib
 import http.client
 import socket
+import threading
+import time
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from unittest import mock
 
@@ -298,6 +301,82 @@ class SearchPageEvidenceTests(unittest.TestCase):
         with self._network(b"<article><p>Closed today.</p></article>"):
             result = router.route("search the web for observatory opening hours")
         self.assertEqual(result.text, "Closed today.\n\nSource: https://example.com/news")
+
+
+class LocalPageBoundaryTests(unittest.TestCase):
+    @contextlib.contextmanager
+    def _server(self, *, slow_part=None, status=200, body=b"Opening hours."):
+        stopped = threading.Event()
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+
+            def do_GET(self):
+                try:
+                    if slow_part:
+                        prefix = (b"HTTP/1.1 200 " if slow_part == "status"
+                                  else b"HTTP/1.1 200 OK\r\nX-Slow: ")
+                        self.connection.sendall(prefix)
+                        for _ in range(12):
+                            if stopped.wait(0.1):
+                                return
+                            self.connection.sendall(b"x")
+                        suffix = (b"\r\nContent-Type: text/plain\r\n"
+                                  b"Content-Length: 2\r\n\r\nok")
+                        self.connection.sendall(suffix)
+                        return
+                    self.send_response(status)
+                    self.send_header("Content-Type", "text/plain")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+                except (BrokenPipeError, ConnectionResetError):
+                    pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever,
+                                  kwargs={"poll_interval": 0.01})
+        thread.start()
+        real_connect = socket.create_connection
+
+        def connect(address, *args, **kwargs):
+            self.assertEqual(address, ("192.0.2.10", 80))
+            return real_connect(server.server_address, *args, **kwargs)
+
+        real_lookup = socket.getaddrinfo
+
+        def lookup(host, port, *args, **kwargs):
+            if host == "fixture.invalid":
+                return [(socket.AF_INET, socket.SOCK_STREAM, 6, "",
+                         ("192.0.2.10", port))]
+            self.assertEqual(host, "127.0.0.1")
+            return real_lookup(host, port, *args, **kwargs)
+
+        try:
+            with mock.patch("socket.getaddrinfo", side_effect=lookup), \
+                    mock.patch("socket.create_connection", side_effect=connect), \
+                    mock.patch("ipaddress.ip_address", side_effect=lambda value:
+                               SimpleNamespace(is_global=value == "192.0.2.10")):
+                yield "http://fixture.invalid/opening"
+        finally:
+            stopped.set()
+            server.shutdown()
+            server.server_close()
+            thread.join()
+
+    def test_the_total_budget_covers_status_and_header_reads(self):
+        from intergen.tools import web_search
+
+        for part in ("status", "header"):
+            with self.subTest(part=part), self._server(slow_part=part) as url, \
+                    mock.patch.object(web_search, "_PAGE_TIMEOUT", 0.35):
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError):
+                    web_search._fetch_page_text(url)
+                elapsed = time.monotonic() - started
+                print(f"slow_{part}_elapsed={elapsed:.6f}", flush=True)
+                self.assertLess(elapsed, 0.8)
 
 
 if __name__ == "__main__":
