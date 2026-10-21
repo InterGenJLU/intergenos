@@ -839,15 +839,13 @@ class RepoManager:
                     # The declared body length. On a 206 this is what
                     # REMAINS, so the whole-file total is the resumed offset
                     # plus it; on a 200 it is the whole file. A server that
-                    # declares nothing leaves total None and the report
-                    # falls back to bytes-and-rate without a percentage —
-                    # an unknown total is stated by omission, never guessed.
+                    # declares nothing leaves total None; the caller may
+                    # retain an independent size from the package index.
+                    # Without either source the total stays unknown.
                     # getattr, because a response object is not required to
                     # carry headers at all (urllib's do; a stand-in in a
                     # test, or a future transport, need not). A total that
-                    # cannot be read is stated by its absence — the report
-                    # then shows bytes and rate without a percentage rather
-                    # than inventing one.
+                    # cannot be read is stated by its absence, never guessed.
                     _hdrs = getattr(resp, "headers", None)
                     declared = _hdrs.get("Content-Length") if _hdrs else None
                     try:
@@ -1577,7 +1575,9 @@ class RepoManager:
                 if _r is None:
                     return
                 if n == 0:
-                    _r.reset(resumed_from, total)
+                    # An absent response length does not erase the size
+                    # already supplied by the package index.
+                    _r.reset(resumed_from, total if total is not None else pkg.get("size"))
                     return
                 _r.advance(n)
 
