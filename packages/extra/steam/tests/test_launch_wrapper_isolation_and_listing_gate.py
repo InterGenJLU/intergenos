@@ -295,6 +295,16 @@ class LaunchWrapperPythonTests(unittest.TestCase):
                                 encoding="utf-8")
                 planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == call]
                 self.assertEqual(len(planted), expected, f"{call} planted in a copy of {other}: found {planted}")
+        # A script whose opener is continued over two lines is read as well.
+        with tempfile.TemporaryDirectory() as tmp:
+            copy = Path(tmp) / other
+            copy.parent.mkdir(parents=True)
+            copy.write_text(original + '\ninstall -Dm755 /dev/stdin \\\n    "${DESTDIR}/usr/bin/planted-tool" '
+                                       "<<'PLANTEOF'\n#!/bin/sh\npython3 -c \"import sys\"\nPLANTEOF\n",
+                            encoding="utf-8")
+            planted = [hit for hit in _unisolated(Path(tmp)) if hit[2] == 'python3 -c "import sys"']
+            self.assertEqual(len(planted), 1, f"a call in a script whose opener spans two lines, planted in a copy "
+                                              f"of {other}: found {planted}")
         found = _unisolated(REPO_ROOT)
         unexpected = [hit for hit in found if (hit[0], hit[2]) not in KNOWN_UNISOLATED]
         self.assertEqual(unexpected, [], "a shipped script runs Python without -I: " + "; ".join(
