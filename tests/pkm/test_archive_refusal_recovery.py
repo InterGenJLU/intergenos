@@ -320,3 +320,95 @@ def test_archive_install_database_failure_has_one_recovery_sentence(local, monke
     assert said.count("Recover from Chronicle restore point") == 1, said
     assert ("Recovery if this attempt changed files: Recover from Chronicle "
             f"restore point {RESTORE_ID}.") in said
+
+
+@pytest.mark.parametrize("points", [(RESTORE_ID,), ()], ids=["with-id", "no-id"])
+def test_absent_upgrade_names_what_its_restore_point_would_revert(
+        local, monkeypatch, points):
+    # alpha upgrades before widget and zeta after it (alphabetical within a
+    # rank); zeta's new release brings gamma as a new dependency. widget's
+    # install fails after its removal with no rollback copy, so it is absent.
+    # The restore point covers every package the transaction named and pkm.db,
+    # so the sentence that names it, composed once the transaction has ended,
+    # names alpha's and zeta's upgrades and gamma's record too.
+    archives = {"widget": local.new}
+    for name in ("alpha", "zeta"):
+        old = _make_archive(local.new.with_name(f"{name}-1.0-3.igos.tar.gz"),
+                            name, "1.0", 3, {f"usr/bin/{name}": b"old\n"})
+        assert local.installer.install(name, archive_path=old)[0]
+        archives[name] = _make_archive(
+            local.new.with_name(f"{name}-1.0-4.igos.tar.gz"), name, "1.0", 4,
+            {f"usr/bin/{name}": b"new\n"})
+    archives["gamma"] = _make_archive(local.new.with_name("gamma-1.0-1.igos.tar.gz"),
+                                      "gamma", "1.0", 1, {"usr/bin/gamma": b"gamma\n"})
+    entries = {name: {"name": name, "version": "1.0", "release": 4,
+                      "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+               for name, path in archives.items()}
+    entries["gamma"]["release"] = 1
+    entries["zeta"]["depends"] = ["gamma"]
+    repo = FakeRepo(entries)
+    repo.download_package = lambda name, reporter=None: (True, archives[name])
+    change_archive_after_removal(local, monkeypatch)
+    rc, said = attempt(local, monkeypatch, names=["alpha", "widget", "zeta"],
+                       repo=repo, points=points)
+    assert rc == 1, said
+    assert local.db.get_installed("widget") is None
+    assert local.db.get_installed("alpha")["release"] == 4
+    assert local.db.get_installed("zeta")["release"] == 4
+    assert local.db.get_installed("gamma")["release"] == 1
+    assert "widget 1.0-3 was removed before this install attempt" in said
+    reverts = ("which also returns alpha from 1.0-4 to 1.0-3 and zeta from 1.0-4 "
+               "to 1.0-3 (upgraded by this transaction) and removes the record of "
+               "gamma (installed by this transaction)")
+    if points:
+        recovery = f"Recover from Chronicle restore point {RESTORE_ID}, {reverts}."
+    else:
+        recovery = ("Inspect `chronicle list restore-point` for a matching capture, "
+                    f"{reverts}, or reinstall a verified archive of the previous "
+                    "build.")
+        assert RESTORE_ID not in said
+    assert said.count(recovery) == 1, said
+    assert said.count("Recover from") + said.count("No restore-point id") == 1, said
+    # Composed after the transaction ended: after zeta's upgrade, not at widget's.
+    assert said.index("Upgraded zeta to 1.0-4") < said.index(recovery)
+
+
+def test_rejected_rollback_copy_leaves_one_recovery_sentence(local, monkeypatch):
+    # The copy saved for the rollback carries another release than its name
+    # says, so the gate before the restore refuses it and widget stays absent.
+    old = local.new.with_name("widget-1.0-3.igos.tar.gz")
+    old.write_bytes(local.new.read_bytes())
+    change_archive_after_removal(local, monkeypatch)
+    rc, said = attempt(local, monkeypatch, rollback=True)
+    assert rc == 1, said
+    assert local.db.get_installed("widget") is None
+    assert "NOT restoring widget from the rollback cache" in said
+    assert "--archive=" not in said
+    assert said.count("Recover from") == 1, said
+    assert ("widget is not installed. Recover from Chronicle restore point "
+            f"{RESTORE_ID}.") in said
+
+
+def test_failed_rollback_install_leaves_one_recovery_sentence(local, monkeypatch):
+    # The rollback copy keeps its name and header but not the bytes it was
+    # saved with, so its install refuses and widget stays absent.
+    old = local.new.with_name("widget-1.0-3.igos.tar.gz")
+    remove = PackageRemover.remove
+
+    def removing(self, name, **kwargs):
+        result = remove(self, name, **kwargs)
+        assert result[0], result
+        local.new.write_bytes(b"changed after removal")
+        _make_archive(old, "widget", "1.0", 3, {"usr/bin/widget": b"other\n"})
+        return result
+
+    monkeypatch.setattr(PackageRemover, "remove", removing)
+    rc, said = attempt(local, monkeypatch, rollback=True)
+    assert rc == 1, said
+    assert local.db.get_installed("widget") is None
+    assert "CRITICAL: rollback of widget also failed" in said
+    assert "Manual recovery" not in said
+    assert "--archive=" not in said
+    assert said.count("Recover from") == 1, said
+    assert ("widget is not installed. Recover from Chronicle restore point "
+            f"{RESTORE_ID}.") in said

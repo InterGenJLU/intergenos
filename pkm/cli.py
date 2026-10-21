@@ -2216,9 +2216,28 @@ def _name_header_mode(args):
     return "refuse"
 
 
+def _restore_point_recovery(capture, *, previous_build=False, reverts=""):
+    """The one recovery sentence a transaction's restore point offers.
+    ``reverts`` names what else restoring it would undo."""
+    points = getattr(capture, "restore_points", ())
+    if points:
+        return ("Recover from Chronicle restore point " + ", ".join(points)
+                + (f", {reverts}" if reverts else "") + ".")
+    return ("No restore-point id was returned for this transaction. "
+            "Inspect `chronicle list restore-point` for a matching capture, "
+            + (f"{reverts}, " if reverts else "")
+            + ("or reinstall a verified archive of the previous build."
+               if previous_build else "or retry with a verified archive."))
+
+
 def _failed_install_message(name, message, capture, *, removed=None,
                             restored=False, unfinished=None):
-    """Describe recovery only after the install and rollback outcomes are known."""
+    """Describe recovery only after the install and rollback outcomes are known.
+
+    An upgrade that removed the package and could not put it back gets its
+    recovery from _absent_after_upgrade once the whole transaction has ended,
+    because the restore point it names also reverts the transaction's other
+    packages, and those are known only then."""
     if removed or unfinished:
         message = message.replace("Nothing was changed.", "").strip()
     if unfinished:
@@ -2226,25 +2245,44 @@ def _failed_install_message(name, message, capture, *, removed=None,
     if restored:
         return (f"{name} {txn.format_vr(removed)} was removed and restored "
                 f"from the rollback cache. {message}")
-    if not removed and "Nothing was changed." in message:
+    if removed:
+        return (f"{name} {txn.format_vr(removed)} was removed before this "
+                f"install attempt. {message}")
+    if "Nothing was changed." in message:
         # install() refused before it wrote anything and says so; its message
         # is the whole outcome, and there is nothing to recover.
         return message
-    points = getattr(capture, "restore_points", ())
-    recovery = (
-        "Recover from Chronicle restore point " + ", ".join(points) + "."
-        if points else
-        "No restore-point id was returned for this transaction. "
-        "Inspect `chronicle list restore-point` for a matching capture, "
-        + ("or reinstall a verified archive of the previous build." if removed
-           else "or retry with a verified archive.")
-    )
-    if removed:
-        return (f"{name} {txn.format_vr(removed)} was removed before this "
-                f"install attempt. {message} {recovery}")
     # install() does not report whether a failed attempt wrote target files.
     # Name the available recovery without claiming that any write occurred.
-    return (f"{message} Recovery if this attempt changed files: {recovery}")
+    return (f"{message} Recovery if this attempt changed files: "
+            f"{_restore_point_recovery(capture)}")
+
+
+def _absent_after_upgrade(absent, capture, returned, installed):
+    """The one recovery sentence for the packages an upgrade removed and could
+    not put back, composed once the transaction has ended.
+
+    The restore point taken before the transaction covers the installed files
+    of every package it named and pkm.db (pretxn.transaction_footprint), so
+    restoring it also returns every other package this transaction upgraded
+    to its previous build (``returned``: "<name> from <new> to <old>") and
+    removes the record of every package it installed as a new dependency
+    (``installed``). Both are named, so nobody restores it without knowing."""
+    def listed(items):
+        return (items[0] if len(items) == 1
+                else ", ".join(items[:-1]) + " and " + items[-1])
+    clauses = []
+    if returned:
+        clauses.append(f"returns {listed(returned)} (upgraded by this transaction)")
+    if installed:
+        clauses.append(f"removes the record of {listed(installed)} "
+                       f"(installed by this transaction)")
+    reverts = ("which also " + " and ".join(clauses)) if clauses else ""
+    names = [p["name"] for p in absent]
+    return (f"{listed(names)} {'is' if len(names) == 1 else 'are'} not "
+            f"installed. "
+            + _restore_point_recovery(capture, previous_build=True,
+                                      reverts=reverts))
 
 
 def cmd_install(db, args):
@@ -3666,6 +3704,12 @@ def cmd_upgrade(db, args):
     # post-install hook failed, a refused signing among them): not "did not
     # upgrade", and named apart from those in the closing line.
     unfinished_this_txn = []
+    # Packages removed and not put back (their old row), and the new
+    # dependencies this transaction installed: the recovery sentence names the
+    # first once the transaction has ended, with what its restore point would
+    # also revert (see _absent_after_upgrade).
+    absent_this_txn = []
+    installed_deps_this_txn = []
     # Did this transaction change installed state at all? Not the same
     # question as "did anything upgrade": a package whose files deployed and
     # whose critical hook then failed IS a changed system — it is registered,
@@ -3740,6 +3784,7 @@ def cmd_upgrade(db, args):
                 dep_install_failed = True
                 break
             emit_info(f"Installed new dep for {remote_pkg['name']}: {new_dep}")
+            installed_deps_this_txn.append(new_dep)
         if dep_install_failed:
             emit_warn(
                 f"Skipping upgrade of {remote_pkg['name']} due to new "
@@ -3906,13 +3951,12 @@ def cmd_upgrade(db, args):
             _name_ok, _name_why = rollback_archive_matches_its_name(
                 rollback_archive)
             if not _name_ok:
+                # The facts only: the recovery is the one sentence for every
+                # package left absent, once the transaction has ended.
                 emit(
                     f"NOT restoring {installed_pkg['name']} from the rollback "
                     f"cache: {_name_why}. The upgrade has already failed and "
-                    f"this file would put an unknown release on the machine. "
-                    f"Recover from the chronicle restore point, or install a "
-                    f"known archive with `pkm install "
-                    f"{installed_pkg['name']} --archive=<path>`.",
+                    f"this file would put an unknown release on the machine.",
                     err=True,
                 )
                 _rollback_usable = False
@@ -3937,11 +3981,12 @@ def cmd_upgrade(db, args):
                     f"{installed_pkg['version']} restored."
                 )
             else:
+                # The facts only, as above: the copy that was just refused is
+                # not offered again as the way back.
                 emit(
                     f"CRITICAL: rollback of {installed_pkg['name']} also "
                     f"failed: {rb_msg}. System may be in a partially-upgraded "
-                    f"state. Manual recovery: `pkm install "
-                    f"{installed_pkg['name']} --archive={rollback_archive}`",
+                    f"state.",
                     err=True,
                 )
             if rb_ok and payload_kept:
@@ -4017,6 +4062,8 @@ def cmd_upgrade(db, args):
         else:
             emit_error(f"upgrading {remote_pkg['name']}: {msg}")
             failed_this_txn.append((remote_pkg["name"], msg))
+            if not rb_ok:
+                absent_this_txn.append(installed_pkg)
 
     # Q5/Q3: ONE consolidated end-of-transaction "Next steps" block across every
     # package actually upgraded — reboot / restart-services / log-out, strongest
@@ -4047,6 +4094,17 @@ def cmd_upgrade(db, args):
     # packages that DID upgrade are already installed and are not undone by
     # this; the code describes the transaction, and a transaction with a
     # failed member did not do what it was asked.
+    if absent_this_txn:
+        # Composed now, not at the failure: a package upgraded after it is
+        # reverted by the same restore point and must be named too.
+        _before = {p["name"]: p for p, _ in upgradable}
+        _landed = set(upgraded_this_txn) | set(unfinished_this_txn)
+        _returned = [
+            f"{n} from {txn.format_vr(db.get_installed(n) or _before[n])} to "
+            f"{txn.format_vr(_before[n])}"
+            for n in (p["name"] for p, _ in upgradable) if n in _landed]
+        emit_error(_absent_after_upgrade(
+            absent_this_txn, _pretxn_result, _returned, installed_deps_this_txn))
     if unfinished_this_txn:
         emit_error(
             f"{len(unfinished_this_txn)} of {len(upgradable)} package(s) "
