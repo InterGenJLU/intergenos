@@ -2971,6 +2971,114 @@ class EllipticalNegationTests(unittest.TestCase):
             self.assertEqual(floors[True], floors[False])
 
 
+# ── an act behind an adverb, "gone ahead and", "we" or a discourse word ──────
+# The first-person act markers admitted only "just" and "now" between the
+# subject and the verb, read "i" as the only subject and a bare progressive
+# only at the very opening of its clause, so the phrasings below read clean on
+# a turn that ran nothing.
+GONE_AHEAD_CLAIM = "I've gone ahead and installed steam for you."
+
+
+class ActMarkerSlotTests(unittest.TestCase):
+    """A listed adverb or "gone/went ahead and" between the subject and the
+    verb, "we" with its auxiliary, and a listed discourse word before a bare
+    progressive keep the act a claim. "we" in the simple past, an open slot
+    and an open lead are not read."""
+
+    def test_an_act_behind_an_adverb_or_we_is_a_claim(self):
+        for text, marker in (
+                ("I've already installed htop.", "i've already installed"),
+                ("I have already installed htop.", "i have already installed"),
+                ("I've already run the update.", "i've already run"),
+                ("I've already started the update.", "i've already started"),
+                ("I've also installed htop.", "i've also installed"),
+                ("I have also updated your packages.", "i have also updated"),
+                ("I've quickly installed htop.", "i've quickly installed"),
+                ("I've gone ahead and installed htop for you.",
+                 "i've gone ahead and installed"),
+                ("I went ahead and installed htop for you.",
+                 "i went ahead and installed"),
+                ("I've gone ahead and run the update.",
+                 "i've gone ahead and run"),
+                ("I have gone ahead and started the update.",
+                 "i have gone ahead and started"),
+                ("We've installed htop for you.", "we've installed"),
+                ("I've now also installed htop.", "i've now also installed"),
+                ("I then installed htop.", "i then installed"),
+                ("We have already run the update.", "we have already run"),
+                ("We're installing htop now.", "we're installing"),
+                ("I'm also installing htop now.", "i'm also installing"),
+                ("I've already checked your disk usage.",
+                 "i've already checked your disk"),
+                ("We've checked the disk usage for you.",
+                 "we've checked the disk"),
+                ("I've gone ahead and saved it to ~/notes.txt.",
+                 "i've gone ahead and saved it to ~"),
+                ("We've created report.md for you.",
+                 "we've created report.md"),
+                ("I went ahead and made it executable.",
+                 "i went ahead and made it executable")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_a_progressive_after_a_discourse_word_is_a_claim(self):
+        for text, marker in (
+                ("Okay, installing htop now.", "installing htop now"),
+                ("Sure, running the update now.", "running the update now"),
+                ("Alright, starting the update now.",
+                 "starting the update now"),
+                ("Great, installing htop now.", "installing htop now")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_the_honest_shapes_stay_clean(self):
+        for text in (
+                "I haven't installed anything.",
+                "I have not installed htop.",
+                "I've never installed htop on this machine.",
+                "We have not run anything.",
+                "I would have installed it, but nothing ran.",
+                "If I had installed it, it would show in the list.",
+                "I have to run it from a terminal, so here is the command.",
+                "We have to install it first.",
+                "I can install it for you.",
+                "I'll install it once you confirm.",
+                "We run entirely on your machine.",
+                "I've always run InterGenOS on this laptop.",
+                # The installed wiki's own voice.
+                "We started the way most people would.",
+                "We ran the corpus against all three tiers.",
+                "If you want, installing htop now is one command away.",
+                "When ready, running the update now takes a minute.",
+                "In short, updating now is safe.",
+                "Before installing htop now, check the free space."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+
+    def test_the_claim_is_regenerated_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                GONE_AHEAD_CLAIM, NOTHING_INSTALLED, TURN41_USER,
+                locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], (
+                    "claim_screen", "violation_regenerated",
+                    "i've gone ahead and installed"))
+                self.assertEqual(result.text, NOTHING_INSTALLED)
+                self.assertEqual(len(regenerations), 1)
+                self.assertTrue(regenerations[0][-1].content.startswith(
+                    "You did NOT run"))
+        self.assertEqual(floors[True], floors[False])
+
+
 # ── a follow-up whose first word is capitalized ──────────────────────────────
 # After the recorded printer exchange, "What's that mean?" and "What does that
 # mean?" were answered on both floors from the how-to corpus's chmod 777 page:

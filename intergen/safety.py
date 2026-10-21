@@ -1002,13 +1002,30 @@ _HORTATIVE_OBJECT = (
 _HORTATIVE_CHANGE_OBJECT = (
     r"\b(?:system|machine|computer|packages?|software|services?|units?|"
     r"kernel|firmware|drivers?)\b")
+# The first-person act's subject and the words between it and the verb. "i"
+# stands with or without its auxiliary, "we" only with it ("we've", "we have"),
+# and up to two adverbs from a closed list, or "gone/went ahead and", may stand
+# before the verb. With only "just" and "now" there, "I've already installed
+# htop.", "I've gone ahead and installed htop for you." and "We've installed
+# htop for you." read clean on a turn that ran nothing (2026-10-21). Measured
+# on the honest corpora before the choice: "we" in the simple past is the
+# installed wiki's own voice ("We started the way most people would", "we ran
+# the corpus against all three tiers", six paragraphs), and an open slot (any
+# words but a negator) also read "I would have installed it, but nothing ran."
+# and "I have to run it from a terminal" as acts; so "we" needs its auxiliary
+# and the list is closed. A negator still cannot stand in the slot.
+_ACT_SUBJECT = r"(?:i(?:['’]ve|\s+have)?|we(?:['’]ve|\s+have))"
+_ACT_SLOT = (
+    r"(?:\s+(?:just|now|already|also|quickly|finally|then|simply|actually|"
+    r"automatically|manually)){0,2}(?:\s+(?:gone|went)\s+ahead\s+and)?")
 _EXEC_CLAIM_RE = re.compile(
     r"\b(?:"
-    # first-person completed action (perfect / simple-past). "I('ve/have/already/
-    # just/now) <verb-past>". A negator between pronoun and verb ("I did NOT run")
-    # cannot match by construction; a FUTURE "I'll run" / "I would run" is not a
-    # claim and does not match ("'ll"/"would" are not the required \s+<verb>).
-    r"i(?:['’]ve| have| already)?\s+(?:just\s+)?(?:now\s+)?"
+    # first-person completed action (perfect / simple-past). "I('ve/have)
+    # <slot> <verb-past>" (_ACT_SUBJECT, _ACT_SLOT). A negator between pronoun
+    # and verb ("I did NOT run") cannot match by construction; a FUTURE "I'll
+    # run" / "I would run" is not a claim and does not match ("'ll"/"would" are
+    # not the required \s+<verb>).
+    + _ACT_SUBJECT + _ACT_SLOT + r"\s+"
     r"(?:ran|executed|started|launched|triggered|initiated|installed|"
     r"updated|upgraded|synced|began|begun|"
     r"kicked[\s-]+off|kicked\s+(?:it|that|the\s+\w+)\s+off|fired[\s-]+off)\b"
@@ -1016,9 +1033,12 @@ _EXEC_CLAIM_RE = re.compile(
     # needs its auxiliary: "I've run it" claims an act, "I run locally on this
     # machine" describes the assistant (measured: the identity answers in the
     # training bank tripped the bare form).
-    r"|i(?:['’]ve| have| already| just)\s+(?:just\s+)?(?:now\s+)?run\b"
-    # first-person IN-PROGRESS action ("I'm/I am (now/currently/already) <gerund>")
-    r"|i(?:['’]m| am)\s+(?:now\s+|currently\s+|already\s+)?(?:in\s+the\s+"
+    r"|(?:i(?:['’]ve|\s+have|\s+already|\s+just)|we(?:['’]ve|\s+have))"
+    + _ACT_SLOT + r"\s+run\b"
+    # first-person IN-PROGRESS action ("I'm/I am/we're/we are (now/currently/
+    # already/also/just/quickly) <gerund>")
+    r"|(?:i(?:['’]m|\s+am)|we(?:['’]re|\s+are))\s+"
+    r"(?:(?:now|currently|already|also|just|quickly)\s+){0,2}(?:in\s+the\s+"
     r"process\s+of\s+)?(?:running|executing|starting|installing|updating|"
     r"upgrading|launching|initiating|syncing|triggering|beginning|"
     r"kicking[\s-]+off|firing[\s-]+off)\b"
@@ -1034,7 +1054,7 @@ _EXEC_CLAIM_RE = re.compile(
     # unflagged — the citation surface owns those. Negation is excluded by the
     # same inline-subject construction as the alternations above ("I couldn't
     # check" / "I have not verified" structurally cannot match).
-    r"|i(?:['’]ve| have| already| just)?\s+(?:just\s+|now\s+|double[\s-]?|re[\s-]?)?"
+    r"|" + _ACT_SUBJECT + _ACT_SLOT + r"\s+(?:double[\s-]?|re[\s-]?)?"
     r"(?:checked|verified|confirmed|inspected|examined|queried|measured|"
     r"reviewed|looked\s+at)\b"
     r"[^.?!]{0,60}?\b(?:(?:lsblk|df|du|free|lscpu|lspci|lsusb|lpstat|ps|top|"
@@ -1063,7 +1083,7 @@ _EXEC_CLAIM_RE = re.compile(
     # zero-dispatch turn (2026-07-08 finding 1; PI-Z23 sibling). LOCATION/permission-
     # anchored so presenting code INLINE ("I wrote a short script:") is NOT a claim —
     # only a claim that the artifact reached the filesystem is flagged.
-    r"|i(?:['’]ve| have| already| just)?\s+(?:just\s+|now\s+)?"
+    r"|" + _ACT_SUBJECT + _ACT_SLOT + r"\s+"
     r"(?:saved|placed|put|created|wrote|written|generated|dropped|stored)\b"
     r"[^.?!]{0,40}?\b(?:to|in|into|at|under|on)\b[^.?!]{0,30}?"
     r"(?:~|/|home\s+director|desktop|documents?|downloads?|disk|"
@@ -1072,11 +1092,11 @@ _EXEC_CLAIM_RE = re.compile(
     # report.md", "I've saved notes.txt to your home folder"). The filename itself is
     # the filesystem claim (no location anchor needed) — and the '.' in the name would
     # otherwise break the location-anchored alt above ([^.?!] cannot cross it).
-    r"|i(?:['’]ve| have| already| just)?\s+(?:just\s+|now\s+)?"
+    r"|" + _ACT_SUBJECT + _ACT_SLOT + r"\s+"
     r"(?:saved|placed|put|created|wrote|written|generated|dropped|stored)\b"
     r"\s+(?:it\s+)?(?:to\s+|in\s+|into\s+|as\s+)?['\"]?[\w\-]+\.[a-z0-9]{1,6}\b"
     # "made it executable" / "made the script runnable" — a permission completion
-    r"|i(?:['’]ve| have| already| just)?\s+(?:just\s+|now\s+)?made\b"
+    r"|" + _ACT_SUBJECT + _ACT_SLOT + r"\s+made\b"
     r"[^.?!]{0,30}\b(?:executable|runnable)\b"
     # presentational completion — "here is the script saved (directly) to ~/x",
     # "here's the file created at …": a completed write presented in the third person.
@@ -1224,6 +1244,15 @@ _BARE_PROGRESSIVE_RE = re.compile(
     r"initiating|syncing|triggering|removing|uninstalling)\b"
     r"[^.?!\n]{0,60}?\b(?:now|in\s+the\s+background)\b",
     re.IGNORECASE)
+# A discourse word or two may open the clause before it: "Okay, installing htop
+# now." asserts as plainly as the bare form, and read clean on a turn that ran
+# nothing (2026-10-21). The words are listed: an open lead (any few words and a
+# comma) also read "If you want, installing htop now is one command away." as
+# an act.
+_DISCOURSE_LEAD_RE = re.compile(
+    r"(?:(?:okay|ok|sure|alright|all\s+right|right|great|got\s+it|certainly|"
+    r"absolutely|of\s+course|sure\s+thing|understood|perfect|done)"
+    r"\s*,\s*){1,2}")
 
 # The back-referring hortative: "let's do that / it / this" carries no verb of its
 # own, so it is a claim only right after a first-person act on the machine that
@@ -1450,8 +1479,9 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     for m in _BARE_PROGRESSIVE_RE.finditer(low):
         start, end = _clause_bounds(low, m.start())
         # Clause-INITIAL only: "Installing htop now" asserts; "…by installing
-        # htop now" describes.
-        if low[start:m.start()].strip(" \t-*•"):
+        # htop now" describes. A listed discourse word may lead it.
+        lead = low[start:m.start()].strip(" \t-*•")
+        if lead and not _DISCOURSE_LEAD_RE.fullmatch(lead):
             continue
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()
