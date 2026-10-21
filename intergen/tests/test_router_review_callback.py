@@ -37,7 +37,7 @@ class _RecordingTools:
         return [{"name": "demo"}]
 
     def execute(self, call, *, ingress_tracker=None, trust_state=None,
-                review_callback=None):
+                review_callback=None, origin=None, search_ask=None):
         self.seen_callback = review_callback
         return ToolResult(call_id="", name=getattr(call, "name", "demo"),
                           content="ok", success=True)

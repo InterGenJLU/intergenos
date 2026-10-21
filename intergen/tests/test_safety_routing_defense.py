@@ -35,7 +35,7 @@ class _BlockedTools:
         return [{"name": "run_command"}]
 
     def execute(self, call, *, ingress_tracker=None, trust_state=None,
-                review_callback=None):
+                review_callback=None, origin=None, search_ask=None):
         return ToolResult(call_id="", name="run_command",
                           content="Command blocked by safety classifier: dd ...",
                           success=False, blocked=True)

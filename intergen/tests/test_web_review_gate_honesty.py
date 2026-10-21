@@ -221,7 +221,7 @@ class GateRefusalMessageTests(unittest.TestCase):
 class _DenyTools:
     """A registry whose execute() returns a gate-refusal (not executed)."""
     def execute(self, call, *, ingress_tracker=None, trust_state=None,
-                review_callback=None):
+                review_callback=None, origin=None, search_ask=None):
         return ToolResult(call_id="", name=getattr(call, "name", "run_command"),
                           content="Tool call denied by user via review modal.",
                           success=False, executed=False)

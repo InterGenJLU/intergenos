@@ -1685,21 +1685,24 @@ class WebServer:
             # reading, held per thread, so it is read in the route worker's own
             # thread the moment route() returns and carried with this turn to
             # the stream. A turn abandoned at the deadline keeps its own cell.
+            # The route itself is still handed to the worker right here, in
+            # this function: the installed gates read the turn acknowledgement
+            # as sent above this hand-off (tests/installed/_shape_detectors.py).
             _route_search_ask: list = [None]
 
-            def _route_this_turn():
-                routed = self._router.route(
-                    user_msg, decide_only=True,
-                    conversation=_route_conversation,
-                    review_callback=_route_review_cb,
-                )
+            def _keep_the_word(routed):
                 _read = getattr(self._router, "turn_search_ask", None)
                 _route_search_ask[0] = _read() if callable(_read) else None
                 return routed
 
             _route_future = loop.run_in_executor(
                 None,
-                lambda: _route_ctx.run(_route_this_turn),
+                lambda: _keep_the_word(_route_ctx.run(
+                    self._router.route,
+                    user_msg, decide_only=True,
+                    conversation=_route_conversation,
+                    review_callback=_route_review_cb,
+                )),
             )
             ctx.route_worker = _route_future
             try:

@@ -119,7 +119,7 @@ class _RecordingTools:
         return []
 
     def execute(self, call, *, ingress_tracker=None, trust_state=None,
-                review_callback=None):
+                review_callback=None, origin=None, search_ask=None):
         with self._lock:
             self.dispatches.append((threading.current_thread().name,
                                     call.name, str(call.arguments)))
