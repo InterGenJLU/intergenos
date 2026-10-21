@@ -37,9 +37,11 @@ from types import SimpleNamespace
 from unittest import mock
 
 from intergen import capability_registry, safety
+from intergen.escalation import EscalationManager
 from intergen.howto import HowtoCorpus
+from intergen.interfaces.cloud import ProviderConfig
 from intergen.interfaces.types import (
-    HardwareTierLevel, Message, MessageRole, RouteResult)
+    EscalationMode, HardwareTierLevel, Message, MessageRole, RouteResult)
 from intergen.intents import register_all_intents
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
@@ -1016,18 +1018,22 @@ class _OneHit:
         return self._hit
 
 
-def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None):
+def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
+                    escalation=None):
     """One recorded turn through route(), the console entry, on a router with
     the recorded history. Native (the 9B and 35B lanes' floor): the model
     streams `draft` as a text answer and calls no tool. Locked (the 2B floor):
     `draft` is the model's first completion. Every later completion — a
     regeneration — is `regeneration`. `wiki`, when given, is the page the
-    installed wiki returns for the turn. Returns (the result, the screen
-    decisions, the regeneration requests, the tool-route requests)."""
+    installed wiki returns for the turn; `escalation`, when given, is the
+    phone-a-friend manager the turn's offer is decided by. Returns (the result,
+    the screen decisions, the regeneration requests, the tool-route requests)."""
     tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
     router = _router(tier=tier, locked=locked)
     if wiki is not None:
         router._wiki_retrieval = _OneHit(wiki)
+    if escalation is not None:
+        router._escalation = escalation
     for asked, answered in pairs:
         router._append_history(asked, answered)
     replies = ([draft] if locked else []) + [regeneration] * 5
@@ -1257,6 +1263,71 @@ class FreeformCitationTests(unittest.TestCase):
         self.assertEqual([d[1] for d in decisions], ["clean"] * len(decisions))
         self.assertTrue(result.text.startswith(answer))
         self.assertTrue(result.text.endswith(PRINT_PAGE.citation))
+
+
+# ── the phone-a-friend offer on the tool route ───────────────────────────────
+ACME = ProviderConfig(name="acme", adapter="openai", model="acme-1",
+                      api_key_keyring_id="intergen-acme")
+
+
+def _offering(providers):
+    """The phone-a-friend manager in its default ASK mode: with a designated
+    provider the offer names it; with none, it says how to designate one."""
+    return EscalationManager(mode=EscalationMode.ASK, providers=providers,
+                             adapter_factory=lambda config: object())
+
+
+class ToolRouteOfferTests(unittest.TestCase):
+    """A general question the model declines, and declines again when asked
+    once more, is answered with the scope steer on both routes. On the freeform
+    route that unrecovered refusal also earns the phone-a-friend offer; the
+    tool route's text answer carried none, so on the native floor the same turn
+    reached no offer at all. Each case routes one turn through route() on both
+    floors with the same model replies and the same manager."""
+
+    QUESTION = "What's the square root of pi?"
+
+    def _both_floors(self, draft, regeneration, providers):
+        native = _route_recorded(draft, regeneration, self.QUESTION,
+                                 locked=False, escalation=_offering(providers))
+        locked = _route_recorded(draft, regeneration, self.QUESTION,
+                                 locked=True, escalation=_offering(providers))
+        self.assertEqual(native[0].source, "llm_tools")
+        self.assertEqual(len(native[3]), 1)
+        self.assertEqual(locked[0].source, "llm_freeform")
+        self.assertEqual(native[1], locked[1])
+        return native[0], locked[0], native[1]
+
+    def test_an_unrecovered_refusal_carries_the_offer_on_the_tool_route(self):
+        # The declined answer this machine's model gave, given twice.
+        declined = BrowserRefusalScreenTests.DECLINED
+        for name, providers, opening in (
+                ("a designated provider", [ACME],
+                 "I can reach out to your designated frontier model (acme) "),
+                ("no provider", [],
+                 "Since you haven't designated a frontier model provider yet")):
+            with self.subTest(provider=name):
+                native, locked, decisions = self._both_floors(
+                    declined, declined, providers)
+                self.assertEqual(decisions[-1][:2], (
+                    "refusal_screen", "refusal_regen_failed_steer"))
+                self.assertEqual(native.text, safety.honest_scope_steer())
+                self.assertEqual(locked.text, native.text)
+                self.assertTrue(locked.escalation_offer.startswith(opening))
+                self.assertEqual(native.escalation_offer,
+                                 locked.escalation_offer)
+
+    def test_a_recovered_refusal_carries_no_offer_on_either_route(self):
+        # The control: a refusal the one regeneration corrected is an answer,
+        # and a confident answer earns no offer on either route.
+        answer = "The square root of pi is approximately 1.7725."
+        native, locked, decisions = self._both_floors(
+            BrowserRefusalScreenTests.DECLINED, answer, [ACME])
+        self.assertEqual(decisions[-1][:2],
+                         ("refusal_screen", "refusal_regenerated"))
+        self.assertEqual(native.text, answer)
+        self.assertIsNone(native.escalation_offer)
+        self.assertIsNone(locked.escalation_offer)
 
 
 if __name__ == "__main__":

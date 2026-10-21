@@ -6590,15 +6590,15 @@ class ConversationRouter(RouterInterface):
             # model again and overwrite them.
             tok_p = getattr(self._llm, '_last_prompt_tokens', 0)
             tok_c = getattr(self._llm, '_last_completion_tokens', 0)
+            draft = LLMResponse(
+                text="".join(collected_text), model="local", local=True,
+                tokens_prompt=tok_p, tokens_completion=tok_c,
+                semantic_flags=stream_flags)
             # D6: a flagged text answer on the tool route meets the same first
             # rung as a flagged freeform answer — discarded, and the incoherence
             # fallback served in its place.
             flagged = self._semantic_flag_fallback(
-                LLMResponse(
-                    text="".join(collected_text), model="local", local=True,
-                    tokens_prompt=tok_p, tokens_completion=tok_c,
-                    semantic_flags=stream_flags),
-                user_input, source="llm_tools")
+                draft, user_input, source="llm_tools")
             if flagged is not None:
                 return flagged
             # THE SAME SCREENS AS A FREEFORM ANSWER. On the native floor every
@@ -6621,9 +6621,20 @@ class ConversationRouter(RouterInterface):
             screen_messages = self._llm.build_system_messages(
                 query_type=getattr(self, "_current_query_type", "general"),
                 with_tools=False) + messages[1:]
-            text, _ = self._screen_model_answer(
-                self._llm._strip_filler("".join(collected_text)),
+            text, refused = self._screen_model_answer(
+                self._llm._strip_filler(draft.text),
                 screen_messages, source="llm_tools")
+            # THE SAME OFFER AS A FREEFORM ANSWER. A refusal the screens could
+            # not correct is a failure of the local answer: on the freeform
+            # route it earns the phone-a-friend offer beside the steer in the
+            # text, and served from here it earned the steer alone, so the
+            # same declined question carried the offer on the locked floor and
+            # none on the native one. The offer is decided from the same
+            # inputs — the draft, its confidence and whether the refusal stood.
+            # No quality gate reads this stream, so the draft keeps the default
+            # quality verdict and the refusal and the request's own signals
+            # are what can raise the offer here.
+            confidence = 1.0 if draft.quality_passed else 0.5
             return RouteResult(
                 text=text,
                 source="llm_tools",
@@ -6635,6 +6646,8 @@ class ConversationRouter(RouterInterface):
                     kind="model", renderer="llm_tools_text"),
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
+                escalation_offer=self._maybe_offer(
+                    user_input, draft, confidence, refused=refused),
             )
 
         return RouteResult(handled=False)
@@ -7437,7 +7450,7 @@ class ConversationRouter(RouterInterface):
         parallel text regex. Both citations degrade gracefully through the
         verify-then-cite chain (no line until the page ships and verifies).
         """
-        if self._escalation is None or not response.local:
+        if getattr(self, "_escalation", None) is None or not response.local:
             return None
         try:
             dq = analyze_query(
