@@ -6159,7 +6159,7 @@ class ConversationRouter(RouterInterface):
             # Domain-neutral verbs need a system object, not a platform word
             # somewhere in an object's description or its surrounding context.
             if re.fullmatch(
-                    r"(?:chang|remov|clos|enabl|disabl)(?:e[sd]?|ing)|"
+                    r"(?:chang|remov|clos|disabl)(?:e[sd]?|ing)|"
                     r"(?:adjust|open|check|list|show|find)(?:s|ed|ing)?|"
                     r"(?:re)?set(?:s|ting)?|turn(?:s|ed|ing)?\s+(?:on|off)",
                     action.group("action"), re.IGNORECASE):
