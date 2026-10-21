@@ -303,7 +303,9 @@ igos_helper_write_acceptance() {
         igos_helper_emit "Could not identify the account recording license acceptance."
         return 1
     fi
-    python3 - "$@" "$acceptance_user" "$acceptance_source" <<'PYACCEPTANCE'
+    # Isolated (-I): the caller's working directory, user site directory and
+    # PYTHON* variables stay off the import path of every embedded program.
+    python3 -I - "$@" "$acceptance_user" "$acceptance_source" <<'PYACCEPTANCE'
 import datetime
 import json
 import os
@@ -474,9 +476,10 @@ _igos_helper_emit_partial() {
     if ! command -v python3 >/dev/null 2>&1; then
         return 0
     fi
+    # Isolated (-I), as every embedded program in this library.
     IGOS_HELPER_STAGING="$IGOS_HELPER_STAGING" \
     IGOS_HELPER_NAME="$IGOS_HELPER_NAME" \
-    python3 - "$partial" 2>/dev/null <<'PYEOF' || true
+    python3 -I - "$partial" 2>/dev/null <<'PYEOF' || true
 import json, os, sys
 staging = os.environ["IGOS_HELPER_STAGING"]
 name = os.environ["IGOS_HELPER_NAME"]
@@ -789,9 +792,10 @@ igos_helper_commit() {
         unset IGOS_HELPER_STAGING IGOS_HELPER_NAME
         return 1
     fi
+    # Isolated (-I), as every embedded program in this library.
     IGOS_HELPER_STAGING="$IGOS_HELPER_STAGING" \
     IGOS_HELPER_NAME="$IGOS_HELPER_NAME" \
-    python3 - "$tmp" <<'PYEOF'
+    python3 -I - "$tmp" <<'PYEOF'
 import json, os, sys
 staging = os.environ["IGOS_HELPER_STAGING"]
 name = os.environ["IGOS_HELPER_NAME"]

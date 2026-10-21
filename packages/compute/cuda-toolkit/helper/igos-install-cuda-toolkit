@@ -375,7 +375,9 @@ stamp_release_into_manifest() {
     local manifest="${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/cuda-toolkit.manifest"
     local release="$HELPER_RELEASE"
     [ -f "$manifest" ] || { echo "  ERROR: the footprint manifest was not written; nothing to stamp."; return 1; }
-    python3 - "$manifest" "$release" <<'PY'
+    # Isolated (-I): the caller's working directory, user site directory and
+    # PYTHON* variables stay off the import path.
+    python3 -I - "$manifest" "$release" <<'PY'
 import json, os, sys
 path, release = sys.argv[1], int(sys.argv[2])
 with open(path, "r", encoding="utf-8") as f:
