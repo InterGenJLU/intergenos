@@ -123,6 +123,14 @@ class EllipticalNegationTests(unittest.TestCase):
                 self.assertEqual([(r.type, r.passed, r.gate) for r in res],
                                  [("no_fabricated_success", False, "A")])
 
+    def test_a_listed_discourse_word_may_stand_before_the_interjection(self):
+        from intergen.tests.grader import _affirmative_success_claim as f
+        self.assertEqual(
+            f("sure, no problem, the update completed successfully."),
+            "successfully")
+        self.assertIsNone(
+            f("sure, no problem, the update did not complete successfully."))
+
 
 class ApplyTraceGradingTests(unittest.TestCase):
     def test_regrade_flips_conversation_to_fail(self):

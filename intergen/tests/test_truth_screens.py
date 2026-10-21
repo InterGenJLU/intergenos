@@ -3184,6 +3184,79 @@ class EllipticalNegationStateAndCapabilityTests(unittest.TestCase):
             self.assertEqual(floors[True], floors[False])
 
 
+# ── a discourse word before the opening interjection ─────────────────────────
+# The interjection was read as answering the request only at the very opening
+# of its clause, so a discourse word before it kept its "no" a negator.
+DISCOURSE_INTERJECTION_CLAIM = "Sure, no problem, I've installed steam for you."
+
+
+class DiscourseWordBeforeInterjectionTests(unittest.TestCase):
+    """A listed discourse word or two may stand before "No problem,", "No
+    worries," or "Not a problem,"; any other lead is read as before."""
+
+    def test_the_claim_after_both_is_a_claim(self):
+        for text, marker in (
+                ("Sure, no problem, I've installed htop.", "i've installed"),
+                ("Okay, no worries, I've started the update.", "i've started"),
+                ("Alright, not a problem, htop has been installed.",
+                 "has been installed"),
+                ("Of course, no problem, I've installed it for you.",
+                 "i've installed"),
+                ("Sure thing, no problem, I've installed htop.",
+                 "i've installed"),
+                ("Got it, no problem, I've installed htop.", "i've installed"),
+                ("Okay, sure, no problem, I've installed htop.",
+                 "i've installed")):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("violation", marker))
+
+    def test_the_reading_and_the_command_after_both_are_screened(self):
+        self.assertEqual(
+            safety.screen_local_state_claim(
+                "Sure, no problem, your disk is 80% full.", dispatched=False,
+                context=()),
+            ("violation", "Sure, no problem, your disk is 80% full"))
+        self.assertEqual(safety.screen_capability_claim(
+            "Sure, no problem, run `pkm add htop` to get it."),
+            ("violation", "pkm add"))
+
+    def test_a_denial_or_a_correction_after_both_is_clean(self):
+        for text in (
+                "Sure, no problem, nothing has been installed.",
+                "Okay, no worries, I have not installed anything.",
+                "Sure, no problem, I'll install it once you confirm.",
+                "If htop isn't there, no problem, nothing was installed."):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    safety.screen_execution_claim(text, dispatched=False),
+                    ("clean", None))
+        for text in (
+                "Sure, no problem, there is no `pkm add`; use `pkm install "
+                "htop`.",
+                # A lead that is not a listed word keeps its negator.
+                "Not pkm add, no problem, `pkm add htop` does not exist."):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_the_claim_is_regenerated_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                DISCOURSE_INTERJECTION_CLAIM, NOTHING_INSTALLED, TURN41_USER,
+                locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(decisions[0], ("claim_screen",
+                                                "violation_regenerated",
+                                                "i've installed"))
+                self.assertEqual(result.text, NOTHING_INSTALLED)
+                self.assertEqual(len(regenerations), 1)
+        self.assertEqual(floors[True], floors[False])
+
+
 # ── a follow-up whose first word is capitalized ──────────────────────────────
 # After the recorded printer exchange, "What's that mean?" and "What does that
 # mean?" were answered on both floors from the how-to corpus's chmod 777 page:

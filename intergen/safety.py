@@ -1156,10 +1156,18 @@ _ELLIPTICAL_NEGATION_RE = re.compile(
     r"|\bor\s+not\s*,")
 # "No problem,", "No worries," and "Not a problem," opening a clause answer
 # the request and negate nothing after them: "No problem, I've installed htop
-# for you." read clean on a turn that ran nothing.
+# for you." read clean on a turn that ran nothing. A listed discourse word or
+# two may open the clause before one ("Sure, no problem, I've installed
+# htop." read clean too, 2026-10-21); the list is the one the bare
+# progressive's lead reads (_DISCOURSE_LEAD_RE). Any few words before it would
+# also blank the negator of a correction ("Not pkm add, no problem, `pkm add
+# htop` does not exist.").
+_DISCOURSE_WORD = (
+    r"(?:okay|ok|sure|alright|all\s+right|right|great|got\s+it|certainly|"
+    r"absolutely|of\s+course|sure\s+thing|understood|perfect|done)")
 _NEGATING_INTERJECTION_RE = re.compile(
-    r"(?:^|(?<=[.!?\n]))\s*(?:no\s+problem|no\s+worries|not\s+a\s+problem)"
-    r"\s*,")
+    r"(?:^|(?<=[.!?\n]))\s*(?:" + _DISCOURSE_WORD + r"\s*,\s*){0,2}"
+    r"(?:no\s+problem|no\s+worries|not\s+a\s+problem)\s*,")
 
 
 def _phrases_blanked(low: str, at: int) -> str:
@@ -1268,10 +1276,7 @@ _BARE_PROGRESSIVE_RE = re.compile(
 # nothing (2026-10-21). The words are listed: an open lead (any few words and a
 # comma) also read "If you want, installing htop now is one command away." as
 # an act.
-_DISCOURSE_LEAD_RE = re.compile(
-    r"(?:(?:okay|ok|sure|alright|all\s+right|right|great|got\s+it|certainly|"
-    r"absolutely|of\s+course|sure\s+thing|understood|perfect|done)"
-    r"\s*,\s*){1,2}")
+_DISCOURSE_LEAD_RE = re.compile(r"(?:" + _DISCOURSE_WORD + r"\s*,\s*){1,2}")
 
 # The back-referring hortative: "let's do that / it / this" carries no verb of its
 # own, so it is a claim only right after a first-person act on the machine that
