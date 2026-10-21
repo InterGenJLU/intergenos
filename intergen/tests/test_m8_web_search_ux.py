@@ -280,17 +280,18 @@ class SearchPageEvidenceTests(unittest.TestCase):
         self.assertIn("\nSource: https://example.com/news", result.text)
         self.assertNotIn("is available at", result.text)
 
-    def test_unavailable_page_text_is_spoken_without_a_model_guess(self):
+    def test_unavailable_page_and_navigation_snippets_do_not_supply_a_headline(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
 
         router, registry, _executed = _build_router()
         registry.execute = lambda call, **_kwargs: WebSearchTool().execute(call.arguments)
+        answer = "The retrieved snippets do not state the latest headline."
+        router._llm.stream = lambda *_args, **_kwargs: iter([answer])
         with self._network(b"<html><head><title>News</title></head>"
                            b"<body><script>loadHeadlines()</script></body></html>"):
             result = router.route("search the web for the latest headline")
-        self.assertIn("no readable text", result.text)
+        self.assertIn(answer, result.text)
         self.assertIn("https://example.com/news", result.text)
-        self.assertEqual(router._llm.synthesis_calls, 0)
 
     def test_a_short_factual_answer_keeps_its_words_and_adds_the_source_line(self):
         from intergen.tests.test_router_executes_recognised_search import _build_router
@@ -377,6 +378,37 @@ class LocalPageBoundaryTests(unittest.TestCase):
                 elapsed = time.monotonic() - started
                 print(f"slow_{part}_elapsed={elapsed:.6f}", flush=True)
                 self.assertLess(elapsed, 0.8)
+
+    def test_an_unavailable_page_keeps_an_answering_snippet(self):
+        from intergen.tests.test_router_executes_recognised_search import _build_router
+
+        fact = "The observatory opens at 09:00."
+        with self._server(status=404) as url:
+            for snippet, answer in (
+                (fact, fact),
+                ("The observatory has a gift shop.",
+                 "The retrieved snippets do not state the opening time."),
+            ):
+                with self.subTest(snippet=snippet):
+                    router, registry, _ = _build_router()
+                    del registry.execute
+                    prompts = []
+
+                    def synthesize(messages, **_kwargs):
+                        prompts.append(messages[-1].content)
+                        yield answer
+
+                    router._llm.stream = synthesize
+                    search = (f'<a class="result__a" href="{url}">Opening hours</a>'
+                              f'<a class="result__snippet">{snippet}</a>').encode()
+                    with mock.patch.dict("os.environ", {"SERPER_API_KEY": ""}), \
+                            mock.patch("urllib.request.urlopen", return_value=io.BytesIO(search)):
+                        result = router.route("search the web for observatory opening hours")
+                    self.assertEqual(len(prompts), 1)
+                    self.assertIn(snippet, prompts[0])
+                    self.assertIn("If they do not contain the fact, say so.", prompts[0])
+                    self.assertEqual(result.text, answer + "\n\nSource: " + url)
+                    self.assertIn(snippet, result.tool_results[0].content)
 
 
 if __name__ == "__main__":

@@ -1462,6 +1462,14 @@ def _web_page_details(output: str) -> tuple[str, str] | None:
         excerpt = output[header.end():].split("\n\nSearch results for:", 1)[0].strip()
     return header.group(1), excerpt
 
+
+def _web_search_snippets(output: str) -> str:
+    """Read snippet lines from the search listing after the retrieval header."""
+    _, marker, listing = output.partition("\n\nSearch results for:")
+    if not marker:
+        return ""
+    return "\n".join(re.findall(r"(?m)^   (?!https?://)(\S[^\n]*)$", listing))
+
 _LIVE_ACTION_RE = re.compile(
     r"^\s*(?:restart|stop|start|enable|disable|open|launch|run|install|remove|"
     r"uninstall|delete|write|create|save|mount|unmount|kill)\b", re.IGNORECASE)
@@ -8479,7 +8487,7 @@ class ConversationRouter(RouterInterface):
 
         if tool_name == "web_search":
             page = _web_page_details(output)
-            if page is not None and not page[1]:
+            if page is not None and not page[1] and not _web_search_snippets(output):
                 return f"The page returned no readable text; the link is {page[0]}"
 
         # Provenance gate. Output that did NOT come from the shell executor can
@@ -9123,6 +9131,8 @@ class ConversationRouter(RouterInterface):
             instruction += self._FAILED_RESULT_RULE
         page = (_web_page_details(raw_output or tool_output)
                 if tool_name == "web_search" else None)
+        snippets = (_web_search_snippets(raw_output or tool_output)
+                    if page is not None else "")
         if page is not None:
             instruction += (
                 "\nAnswer the requested fact from the page excerpt and snippets. "
@@ -9157,7 +9167,7 @@ class ConversationRouter(RouterInterface):
         reason = self._synthesis_rejection_reason(
             response, text, user_input,
             raw_output=raw_output if raw_output is not None else tool_output)
-        if page is not None and not page[1]:
+        if page is not None and not page[1] and not snippets:
             reason = "web_page_unavailable"
         elif page is not None and not reason:
             prose = re.sub(r"https?://[^\s)\]]+", "", text).strip(" \n.:;()[]-")
@@ -9190,10 +9200,12 @@ class ConversationRouter(RouterInterface):
         if reason == "web_page_unavailable" and page is not None:
             return f"The page returned no readable text; the link is {page[0]}"
         if reason == "web_link_only" and page is not None:
-            excerpt = page[1][:1200].rstrip()
-            if len(page[1]) > 1200:
+            evidence = page[1] or snippets
+            label = "page" if page[1] else "search snippets"
+            excerpt = evidence[:1200].rstrip()
+            if len(evidence) > 1200:
                 excerpt += "…"
-            return f"From the page:\n{excerpt}\n\nSource: {page[0]}"
+            return f"From the {label}:\n{excerpt}\n\nSource: {page[0]}"
         return self._tool_output_answer(
             tool_name, raw_output if raw_output is not None else tool_output)
 
