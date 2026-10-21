@@ -153,8 +153,7 @@ igos_helper_record_post_install_action \
 # unrelated third-party mirror, now removed).
 
 echo "  Finding the requested Brave release in signed apt metadata..."
-LATEST=$(igos_helper_find_verified_deb_in_packages "$BRAVE_PKG_NAME" "$BRAVE_APT_BASE" "$BRAVE_KEYRING" "$BRAVE_DIST" main "$REQUESTED_VERSION" "")
-if [ -z "$LATEST" ]; then
+if ! LATEST=$(igos_helper_find_verified_deb_in_packages "$BRAVE_PKG_NAME" "$BRAVE_APT_BASE" "$BRAVE_KEYRING" "$BRAVE_DIST" main "$REQUESTED_VERSION" "") || [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate a Brave package in the official apt"
     echo "         Packages metadata at ${BRAVE_APT_BASE}/dists/${BRAVE_DIST}/"
     echo ""
@@ -172,7 +171,16 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${BRAVE_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/brave.deb" "${BRAVE_APT_BASE}/${POOL_PATH}"
+if ! wget -q --show-progress -O "$TMPDIR/brave.deb" "${BRAVE_APT_BASE}/${POOL_PATH}"; then
+    echo "  ERROR: ${DEB_NAME} could not be downloaded, so there was nothing to"
+    echo "  install. Nothing was installed, and nothing on this machine was"
+    echo "  changed beyond the record of your acceptance of the license terms"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/brave.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem with the network or at the vendor's end — try again later."
+    exit 1
+fi
 
 # K21.E: refuse install if signed-Release verification fails. This
 # checks InRelease GPG signature (against the pinned keyring at
@@ -196,8 +204,16 @@ fi
 
 echo "  Extracting..."
 cd "$TMPDIR"
-ar x brave.deb
-tar xf data.tar.xz
+if ! ar x brave.deb || ! tar xf data.tar.xz; then
+    echo "  ERROR: the downloaded ${DEB_NAME} could not be unpacked. Nothing was"
+    echo "  installed, and nothing on this machine was changed beyond the record"
+    echo "  of your acceptance of the license terms ($ACCEPTANCE_FILE), a note"
+    echo "  of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/brave.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
+fi
 
 echo "  Installing to /opt/brave.com/brave/..."
 cp -a opt/brave.com /opt/

@@ -453,8 +453,9 @@ class InstallerRefusalTests(unittest.TestCase):
         begins = [i for i, text in enumerate(texts) if text.startswith('igos_helper_init "steam"')]
         self.assertEqual(len(begins), 1, f"the installer begins its record {len(begins)} times, not once")
         refusals = [i for i, text in enumerate(texts) if i > begins[0] and text.lstrip().startswith('echo "  ERROR:')]
-        # A zero here would prove nothing: the installer refuses four ways once its record has begun.
-        self.assertEqual(len(refusals), 4, f"refusals after the record begins, at build.sh lines "
+        # A zero here would prove nothing: the installer refuses six ways once its record has begun (the
+        # lookup, the download, the signature, the unpacking, the listing and the payload's paths).
+        self.assertEqual(len(refusals), 6, f"refusals after the record begins, at build.sh lines "
                                            f"{[body[i][0] for i in refusals]}")
         leaves = ("nothing on this machine was changed beyond the record of your acceptance of the agreement "
                   "($ACCEPTANCE_FILE), a note of this stopped attempt for pkm "

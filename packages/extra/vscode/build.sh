@@ -156,8 +156,7 @@ igos_helper_record_post_install_action \
     "User accepted Microsoft VS Code license (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding the requested Visual Studio Code release in signed apt metadata..."
-LATEST=$(igos_helper_find_verified_deb_in_packages "$VSCODE_PKG_NAME" "$VSCODE_APT_BASE" "$VSCODE_KEYRING" "$VSCODE_DIST" main "$REQUESTED_VERSION" "")
-if [ -z "$LATEST" ]; then
+if ! LATEST=$(igos_helper_find_verified_deb_in_packages "$VSCODE_PKG_NAME" "$VSCODE_APT_BASE" "$VSCODE_KEYRING" "$VSCODE_DIST" main "$REQUESTED_VERSION" "") || [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate code package in the official PMC apt"
     echo "         Packages metadata at ${VSCODE_APT_BASE}/dists/${VSCODE_DIST}/"
     exit 1
@@ -168,7 +167,16 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${VSCODE_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/vscode.deb" "${VSCODE_APT_BASE}/${POOL_PATH}"
+if ! wget -q --show-progress -O "$TMPDIR/vscode.deb" "${VSCODE_APT_BASE}/${POOL_PATH}"; then
+    echo "  ERROR: ${DEB_NAME} could not be downloaded, so there was nothing to"
+    echo "  install. Nothing was installed, and nothing on this machine was"
+    echo "  changed beyond the record of your acceptance of the license terms"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/vscode.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem with the network or at the vendor's end — try again later."
+    exit 1
+fi
 
 # K21.F: refuse install if signed-Release verification fails.
 echo "  Verifying signed-Release integrity chain..."
@@ -189,15 +197,27 @@ fi
 
 echo "  Extracting to /opt/vscode/..."
 cd "$TMPDIR"
-ar x vscode.deb
-# The code .deb has historically used data.tar.xz; probe alternatives
-# (gz / zst) for forward-compatibility with future compressor swaps.
-if [ -f data.tar.xz ]; then
-    tar -xf data.tar.xz
-elif [ -f data.tar.zst ]; then
-    tar --zstd -xf data.tar.zst
-elif [ -f data.tar.gz ]; then
-    tar -xzf data.tar.gz
+UNPACKED=0
+if ar x vscode.deb; then
+    # The code .deb has historically used data.tar.xz; probe alternatives
+    # (gz / zst) for forward-compatibility with future compressor swaps.
+    if [ -f data.tar.xz ]; then
+        tar -xf data.tar.xz && UNPACKED=1
+    elif [ -f data.tar.zst ]; then
+        tar --zstd -xf data.tar.zst && UNPACKED=1
+    elif [ -f data.tar.gz ]; then
+        tar -xzf data.tar.gz && UNPACKED=1
+    fi
+fi
+if [ "$UNPACKED" != 1 ]; then
+    echo "  ERROR: the downloaded ${DEB_NAME} could not be unpacked. Nothing was"
+    echo "  installed, and nothing on this machine was changed beyond the record"
+    echo "  of your acceptance of the license terms ($ACCEPTANCE_FILE), a note"
+    echo "  of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/vscode.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
 fi
 rm -rf /opt/vscode
 mkdir -p /opt/vscode

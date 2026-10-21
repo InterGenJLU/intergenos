@@ -307,8 +307,7 @@ igos_helper_record_post_install_action \
     "User accepted the Steam Subscriber Agreement (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding steam-launcher in Valve's signed apt metadata (component ${STEAM_COMPONENT})..."
-LATEST=$(igos_helper_find_verified_deb_in_packages "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_KEYRING" "$STEAM_DIST" "$STEAM_COMPONENT" "$REQUESTED_VERSION" "$STEAM_KEY_FPR")
-if [ -z "$LATEST" ]; then
+if ! LATEST=$(igos_helper_find_verified_deb_in_packages "$STEAM_PKG_NAME" "$STEAM_APT_BASE" "$STEAM_KEYRING" "$STEAM_DIST" "$STEAM_COMPONENT" "$REQUESTED_VERSION" "$STEAM_KEY_FPR") || [ -z "$LATEST" ]; then
     echo "  ERROR: Steam could not be found in Valve's own package listing, so"
     echo "  there was nothing to download. Nothing was installed, and nothing on"
     echo "  this machine was changed beyond the record of your acceptance of the"
@@ -326,7 +325,16 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${STEAM_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/steam.deb" "${STEAM_APT_BASE}/${POOL_PATH}"
+if ! wget -q --show-progress -O "$TMPDIR/steam.deb" "${STEAM_APT_BASE}/${POOL_PATH}"; then
+    echo "  ERROR: Steam could not be downloaded from Valve, so there was"
+    echo "  nothing to install. Nothing was installed, and nothing on this"
+    echo "  machine was changed beyond the record of your acceptance of the"
+    echo "  agreement ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem at Valve's end or with the network — try again later."
+    exit 1
+fi
 
 # The SCOPED weak-digest posture (operator decision 2): STRICT-first;
 # only Valve's specific SHA1 weak-digest rejection triggers a permissive
@@ -362,8 +370,16 @@ fi
 
 echo "  Extracting..."
 cd "$TMPDIR"
-ar x steam.deb
-tar xf data.tar.xz
+if ! ar x steam.deb || ! tar xf data.tar.xz; then
+    echo "  ERROR: the downloaded Steam release could not be unpacked. Nothing"
+    echo "  was installed, and nothing on this machine was changed beyond the"
+    echo "  record of your acceptance of the agreement ($ACCEPTANCE_FILE), a note"
+    echo "  of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/steam.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
+fi
 
 # Pre-flight payload-completeness gate: every path the .deb ships must
 # fall under a root this helper HANDLES (installs + records) or

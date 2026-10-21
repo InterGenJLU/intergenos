@@ -156,8 +156,7 @@ igos_helper_record_post_install_action \
     "User accepted OpenAI's Terms of Use (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding the latest ChatGPT desktop app release in signed repository metadata..."
-LATEST=$(igos_helper_find_verified_deb_in_packages "$CHATGPT_PKG_NAME" "$CHATGPT_APT_BASE" "$CHATGPT_KEYRING" "$CHATGPT_DIST" main "$REQUESTED_VERSION" "")
-if [ -z "$LATEST" ]; then
+if ! LATEST=$(igos_helper_find_verified_deb_in_packages "$CHATGPT_PKG_NAME" "$CHATGPT_APT_BASE" "$CHATGPT_KEYRING" "$CHATGPT_DIST" main "$REQUESTED_VERSION" "") || [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate the chatgpt package in OpenAI's repository"
     echo "         metadata at ${CHATGPT_APT_BASE}/dists/${CHATGPT_DIST}/"
     exit 1
@@ -168,7 +167,16 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${CHATGPT_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-igos_helper_download "$TMPDIR/chatgpt.deb" "${CHATGPT_APT_BASE}/${POOL_PATH}" wget
+if ! igos_helper_download "$TMPDIR/chatgpt.deb" "${CHATGPT_APT_BASE}/${POOL_PATH}" wget; then
+    echo "  ERROR: ${DEB_NAME} could not be downloaded, so there was nothing to"
+    echo "  install. Nothing was installed, and nothing on this machine was"
+    echo "  changed beyond the record of your acceptance of the license terms"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/chatgpt.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem with the network or at the vendor's end — try again later."
+    exit 1
+fi
 
 # Refuse install if signed-Release verification fails.
 echo "  Verifying signed-Release integrity chain..."
@@ -189,15 +197,27 @@ fi
 
 echo "  Extracting to /opt/chatgpt/..."
 cd "$TMPDIR"
-ar x chatgpt.deb
-# The .deb uses data.tar.xz today; probe the alternatives (gz / zst) so a
-# future compressor change does not break the install silently.
-if [ -f data.tar.xz ]; then
-    tar -xf data.tar.xz
-elif [ -f data.tar.zst ]; then
-    tar --zstd -xf data.tar.zst
-elif [ -f data.tar.gz ]; then
-    tar -xzf data.tar.gz
+UNPACKED=0
+if ar x chatgpt.deb; then
+    # The .deb uses data.tar.xz today; probe the alternatives (gz / zst) so a
+    # future compressor change does not break the install silently.
+    if [ -f data.tar.xz ]; then
+        tar -xf data.tar.xz && UNPACKED=1
+    elif [ -f data.tar.zst ]; then
+        tar --zstd -xf data.tar.zst && UNPACKED=1
+    elif [ -f data.tar.gz ]; then
+        tar -xzf data.tar.gz && UNPACKED=1
+    fi
+fi
+if [ "$UNPACKED" != 1 ]; then
+    echo "  ERROR: the downloaded ${DEB_NAME} could not be unpacked. Nothing was"
+    echo "  installed, and nothing on this machine was changed beyond the record"
+    echo "  of your acceptance of the license terms ($ACCEPTANCE_FILE), a note"
+    echo "  of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/chatgpt.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
 fi
 if [ ! -d usr/lib/chatgpt ]; then
     echo "  ERROR: the package layout changed — usr/lib/chatgpt is not in the"

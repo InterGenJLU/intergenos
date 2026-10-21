@@ -142,8 +142,7 @@ igos_helper_record_post_install_action \
     "User accepted Microsoft Edge license terms (acceptance artifact at $ACCEPTANCE_FILE)"
 
 echo "  Finding the requested Microsoft Edge release in signed apt metadata..."
-LATEST=$(igos_helper_find_verified_deb_in_packages "$EDGE_PKG_NAME" "$EDGE_APT_BASE" "$EDGE_KEYRING" "$EDGE_DIST" main "$REQUESTED_VERSION" "")
-if [ -z "$LATEST" ]; then
+if ! LATEST=$(igos_helper_find_verified_deb_in_packages "$EDGE_PKG_NAME" "$EDGE_APT_BASE" "$EDGE_KEYRING" "$EDGE_DIST" main "$REQUESTED_VERSION" "") || [ -z "$LATEST" ]; then
     echo "  ERROR: Could not locate microsoft-edge-stable in the official"
     echo "         PMC apt Packages metadata at ${EDGE_APT_BASE}/dists/${EDGE_DIST}/"
     exit 1
@@ -154,7 +153,16 @@ POOL_PATH=$(echo "$LATEST" | cut -d'|' -f3)
 igos_helper_set_version "${EDGE_VERSION:-unknown}"
 
 echo "  Downloading ${DEB_NAME}..."
-wget -q --show-progress -O "$TMPDIR/edge.deb" "${EDGE_APT_BASE}/${POOL_PATH}"
+if ! wget -q --show-progress -O "$TMPDIR/edge.deb" "${EDGE_APT_BASE}/${POOL_PATH}"; then
+    echo "  ERROR: ${DEB_NAME} could not be downloaded, so there was nothing to"
+    echo "  install. Nothing was installed, and nothing on this machine was"
+    echo "  changed beyond the record of your acceptance of the license terms"
+    echo "  ($ACCEPTANCE_FILE), a note of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/edge.manifest.partial)"
+    echo "  and the run's working files under /tmp. This is usually a temporary"
+    echo "  problem with the network or at the vendor's end — try again later."
+    exit 1
+fi
 
 # K21.E: refuse install if signed-Release verification fails. This
 # checks InRelease GPG signature (against the pinned keyring at
@@ -178,8 +186,16 @@ fi
 
 echo "  Extracting..."
 cd "$TMPDIR"
-ar x edge.deb
-tar xf data.tar.xz
+if ! ar x edge.deb || ! tar xf data.tar.xz; then
+    echo "  ERROR: the downloaded ${DEB_NAME} could not be unpacked. Nothing was"
+    echo "  installed, and nothing on this machine was changed beyond the record"
+    echo "  of your acceptance of the license terms ($ACCEPTANCE_FILE), a note"
+    echo "  of this stopped attempt for pkm"
+    echo "  (${IGOS_HELPER_MANIFEST_DIR:-/var/lib/igos/helpers}/edge.manifest.partial)"
+    echo "  and the run's working files under /tmp. Try again; if it keeps"
+    echo "  happening, please report it."
+    exit 1
+fi
 
 echo "  Installing to /opt/microsoft/msedge/..."
 cp -a opt/microsoft /opt/
