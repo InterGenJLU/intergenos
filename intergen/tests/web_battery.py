@@ -86,7 +86,8 @@ a DECLARED fact; the sha256 of its own source and of the harness it imported
 are MEASURED and recorded beside it, kept apart.
 
 THE RECORD. ``<output>/`` holds ``frames.jsonl`` (every frame the server sent,
-whole, with the wall time it arrived), ``verdicts.tsv`` (one line per
+whole, with the wall time it was written after the turn completed),
+``verdicts.tsv`` (one line per
 question), ``summary.json`` (counts, the target identity read from
 ``pkm info intergen`` over ssh or, in the local form, on the machine itself,
 the tree sha, the file hashes, the exact commands, wall times, the
