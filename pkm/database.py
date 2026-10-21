@@ -1300,7 +1300,8 @@ class PackageDB:
         if old == new:
             previous = self.conn.execute(
                 "SELECT old_version FROM history WHERE package_name = ? "
-                "AND operation = 'repair-version' AND method = 'helper-archive-pkginfo' "
+                "AND operation = 'repair-version' "
+                "AND method IN ('helper-archive-pkginfo', 'helper-install-history') "
                 "AND new_version = ? ORDER BY id DESC LIMIT 1", (name, new)).fetchone()
             if previous:
                 versions.append(previous[0])
@@ -1395,11 +1396,15 @@ class PackageDB:
                 os.unlink(temporary)
 
     def _repair_helper_package_versions(self):
-        """Restore helper package identities from their recorded archives.
+        """Restore helper package identities from their archives or install history.
 
         Earlier helper merges replaced the package version with the application
-        build. Only the recorded archive's matching name and release establish
-        the package version; a repository entry or a filename does not. Keep
+        build. The recorded archive's matching name and release establish the
+        package version. When that archive is absent, the newest successful
+        archive install in this package's history establishes its version;
+        the row's release stays unchanged. A present but unreadable or
+        contradictory archive is not replaced by historical evidence.
+        A repository entry or a filename never establishes the version. Keep
         the application build, filling an empty payload_version from the old
         value. Vendor-versioned packages already matching their archive stay
         untouched. Run before the older release-suffix repair so it cannot
@@ -1424,17 +1429,41 @@ class PackageDB:
             "FROM installed WHERE install_method = 'helper' ORDER BY id"
         ).fetchall()
         for row_id, name, version, release, archive_path, payload, stored_hash in rows:
+            missing = None
+            method = "helper-archive-pkginfo"
+            source = archive_path
             if not archive_path:
-                left.append((name, "no installed archive is recorded"))
-                continue
-            try:
-                if not stat.S_ISREG(os.stat(archive_path).st_mode):
-                    left.append((name, f"{archive_path} is not a regular archive"))
+                missing = "no installed archive is recorded"
+            else:
+                try:
+                    archive_stat = os.stat(archive_path)
+                except FileNotFoundError:
+                    missing = f"the recorded archive {archive_path} is absent"
+                except OSError as error:
+                    left.append((name, str(error)))
                     continue
-                meta = _read_package_meta(archive_path)
-            except (ArchiveReadError, OSError) as error:
-                left.append((name, str(error)))
-                continue
+                if missing is None:
+                    if not stat.S_ISREG(archive_stat.st_mode):
+                        left.append((name, f"{archive_path} is not a regular archive"))
+                        continue
+                    try:
+                        meta = _read_package_meta(archive_path)
+                    except (ArchiveReadError, OSError) as error:
+                        left.append((name, str(error)))
+                        continue
+            if missing is not None:
+                recorded = self.conn.execute(
+                    "SELECT id, new_version FROM history WHERE package_name = ? "
+                    "AND operation = 'install' AND method = 'archive' "
+                    "AND success = 1 ORDER BY id DESC LIMIT 1", (name,)).fetchone()
+                if (not recorded or not isinstance(recorded[1], str)
+                        or not recorded[1].strip()):
+                    left.append((name, missing + "; no successful archive install "
+                                 "with a nonempty version is established by its latest history row"))
+                    continue
+                meta = {"name": name, "release": release, "version": recorded[1]}
+                method = "helper-install-history"
+                source = f"archive-install history row {recorded[0]}"
             if not meta:
                 left.append((name, f"{archive_path} carries no .PKGINFO"))
                 continue
@@ -1453,7 +1482,8 @@ class PackageDB:
                 name, version, package_version, release, payload or version, stored_hash)
             if package_version != version or plan:
                 repairs.append((row_id, name, version, package_version,
-                                release, archive_path, payload or version, stored_hash, plan))
+                                release, archive_path, payload or version, stored_hash,
+                                method, source, plan))
 
         repaired = []
         if repairs:
@@ -1462,7 +1492,8 @@ class PackageDB:
             self.conn.execute("BEGIN IMMEDIATE")
             try:
                 for row in repairs:
-                    row_id, name, old, new, release, archive_path, payload, stored_hash, plan = row
+                    (row_id, name, old, new, release, archive_path, payload,
+                     stored_hash, method, source, plan) = row
                     manifest_hash = plan["after_hash"] if plan else stored_hash
                     if old == new and manifest_hash == stored_hash:
                         continue
@@ -1475,7 +1506,7 @@ class PackageDB:
                     if changed.rowcount != 1:
                         raise sqlite3.IntegrityError(f"helper record changed during repair: {name}")
                     self.log_operation("repair-version", name, old_version=old,
-                                       new_version=new, method="helper-archive-pkginfo",
+                                       new_version=new, method=method,
                                        commit=False)
                     repaired.append(row)
                 self.conn.commit()
@@ -1503,14 +1534,15 @@ class PackageDB:
             except Exception:
                 pass
 
-        for row_id, name, old, new, release, archive_path, payload, stored_hash, plan in repaired:
+        for (row_id, name, old, new, release, archive_path, payload,
+             stored_hash, method, source, plan) in repaired:
             _emit_db_event("repair_helper_version", pkg=name, old_version=old,
                            new_version=new, release=release, archive=archive_path,
-                           payload_version=payload)
+                           payload_version=payload, method=method, source=source)
             detail = (f" Text manifest reconciled; recorded manifest hash "
                       f"{stored_hash!r} to {plan['after_hash']!r}." if plan else "")
             say(f"pkm: repaired {name}'s package version {old!r} to {new!r} "
-                f"from {archive_path}; application build {payload!r} retained.{detail}")
+                f"from {source}; application build {payload!r} retained.{detail}")
         for row in repairs:
             if row not in repaired and row[-1]:
                 say(f"pkm: completed helper manifest repair for {row[1]}; "
