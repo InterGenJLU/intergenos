@@ -20,6 +20,7 @@ Coverage:
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -168,10 +169,10 @@ igos_helper_commit
         self.assertNotIn("partial", data)
         self.assertEqual(data["files"], [f"{self.tmp}/deposits/okpkg/bin"])
 
-    def test_user_cleanup_runs_on_crash_before_sidecar(self):
+    def test_user_cleanup_runs_on_crash_after_the_sidecar_is_written(self):
         # BLOCKING-D fix verification: helper sets IGOS_HELPER_USER_CLEANUP
         # instead of installing its own `trap ... EXIT`. On crash, the
-        # cleanup runs + the partial sidecar still gets written.
+        # partial sidecar is written and then the cleanup runs.
         sentinel = self.tmp / "user-cleanup-ran-on-crash"
         body = f"""
 IGOS_HELPER_USER_CLEANUP="touch {sentinel}"
@@ -189,6 +190,103 @@ exit 1
         )
         partial = self.manifest_dir / "ucleanup-crashpkg.manifest.partial"
         self.assertTrue(partial.is_file(), "sidecar must still be written on crash")
+
+    def _run_as_a_helper(self, script_body, manifest_dir, tmpdir):
+        """Run SCRIPT_BODY as a helper runs: TMPDIR in the environment only when
+        TMPDIR is given, as pkm passes it on only when its own environment holds it."""
+        script = f"""
+set +e
+source {HELPER_LIB_SH}
+{script_body}
+"""
+        env = {k: v for k, v in os.environ.items() if k != "TMPDIR"}
+        env["IGOS_HELPER_MANIFEST_DIR"] = str(manifest_dir)
+        if tmpdir is not None:
+            env["TMPDIR"] = str(tmpdir)
+        return subprocess.run(
+            ["bash", "-c", script],
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+    def test_the_note_is_written_whether_or_not_tmpdir_is_exported(self):
+        # A helper makes its working directory with TMPDIR=$(mktemp -d) and
+        # registers its removal as the cleanup. When TMPDIR arrives in the
+        # helper's environment, the assignment keeps it exported, so the
+        # library's staging directory (mktemp -t) is made inside the working
+        # directory the cleanup removes. The note of the stopped attempt must
+        # be written in both environments: the trap writes it first.
+        body = f"""
+TMPDIR=$(mktemp -d)
+IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR"
+igos_helper_init "tmpdirpkg"
+echo "STAGING=$IGOS_HELPER_STAGING"
+echo "WORKDIR=$TMPDIR"
+igos_helper_set_version "1.0.0"
+mkdir -p {self.tmp}/deposits/tmpdirpkg && printf x > {self.tmp}/deposits/tmpdirpkg/bin
+igos_helper_record_file {self.tmp}/deposits/tmpdirpkg/bin
+exit 1
+"""
+        exported = self.tmp / "exported"
+        exported.mkdir()
+        problems = []
+        for label, tmpdir in (("TMPDIR not exported", None), ("TMPDIR exported", exported)):
+            manifest_dir = self.tmp / label.replace(" ", "-")
+            manifest_dir.mkdir()
+            proc = self._run_as_a_helper(body, manifest_dir, tmpdir)
+            said = dict(line.split("=", 1) for line in proc.stdout.splitlines() if "=" in line)
+            staging, workdir = said.get("STAGING", ""), said.get("WORKDIR", "")
+            try:
+                self.assertEqual(proc.returncode, 1, f"{label}: {proc.stderr}")
+                self.assertTrue(staging and workdir, f"{label}: the run did not say its directories: {proc.stdout}")
+                # The premise of each environment: where the staging directory was made.
+                self.assertEqual(staging.startswith(workdir + "/"), tmpdir is not None,
+                                 f"{label}: the staging directory {staging}, the working directory {workdir}")
+                self.assertFalse(Path(workdir).exists(), f"{label}: the cleanup did not run ({workdir})")
+                partial = manifest_dir / "tmpdirpkg.manifest.partial"
+                if not partial.is_file():
+                    problems.append(f"{label}: the note of the stopped attempt was not written ({partial})")
+                    continue
+                data = json.loads(partial.read_text())
+                self.assertEqual(data["name"], "tmpdirpkg", label)
+                self.assertEqual(data["version_installed"], "1.0.0", label)
+                self.assertEqual(data["files"], [f"{self.tmp}/deposits/tmpdirpkg/bin"], label)
+            finally:
+                # Not exported, the staging directory is left under /tmp, as a
+                # stopped run's message says; this case removes its own.
+                if tmpdir is None and staging.startswith("/tmp/igos-helper-"):
+                    shutil.rmtree(staging, ignore_errors=True)
+        self.assertEqual(problems, [], "\n".join(problems))
+
+    def test_the_note_writer_imports_nothing_from_the_working_directory(self):
+        # The trap writes the note while the helper's working directory still
+        # exists, and an installer has usually changed into it to unpack the
+        # vendor's archive there. A module of the payload's must not be
+        # imported by the note writer, which runs as root.
+        marker = self.tmp / "planted-module-imported"
+        body = f"""
+TMPDIR=$(mktemp -d)
+IGOS_HELPER_USER_CLEANUP="rm -rf $TMPDIR"
+igos_helper_init "isolatedpkg"
+echo "STAGING=$IGOS_HELPER_STAGING"
+igos_helper_set_version "1.0.0"
+cd "$TMPDIR"
+printf 'import pathlib\\npathlib.Path("{marker}").write_text("imported")\\n' > json.py
+exit 1
+"""
+        proc = self._run_as_a_helper(body, self.manifest_dir, None)
+        said = dict(line.split("=", 1) for line in proc.stdout.splitlines() if "=" in line)
+        staging = said.get("STAGING", "")
+        try:
+            self.assertEqual(proc.returncode, 1, proc.stderr)
+            self.assertFalse(marker.exists(), "the note writer imported json.py from the working directory")
+            self.assertTrue((self.manifest_dir / "isolatedpkg.manifest.partial").is_file(),
+                            "the note of the stopped attempt was not written")
+        finally:
+            if staging.startswith("/tmp/igos-helper-"):
+                shutil.rmtree(staging, ignore_errors=True)
 
     def test_user_cleanup_runs_on_successful_commit(self):
         # BLOCKING-D fix verification: trap stays installed even after

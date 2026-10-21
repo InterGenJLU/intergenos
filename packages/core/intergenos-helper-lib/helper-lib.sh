@@ -441,26 +441,42 @@ _igos_helper_warn_if_direct() {
 
 _igos_helper_emit_partial() {
     # Internal: invoked by the EXIT trap installed in igos_helper_init.
-    # Two responsibilities (BLOCKING-D fix 2026-05-19):
+    # Two responsibilities (BLOCKING-D fix 2026-05-19), in this order:
     #
-    #   1. Always run the helper-set IGOS_HELPER_USER_CLEANUP command
-    #      (typically `rm -rf "$TMPDIR"`). This is how helpers register
-    #      cleanup WITHOUT installing their own `trap ... EXIT`, which
-    #      would collide with init's trap via bash trap-replace
-    #      semantics (one trap per signal -- no native composition).
-    #
-    #   2. On crash (IGOS_HELPER_COMMITTED != 1), write a
+    #   1. On crash (IGOS_HELPER_COMMITTED != 1), write a
     #      `<name>.manifest.partial` sidecar capturing the staged
     #      state so pkm's reader can surface the orphan file list.
     #      On success commit clears the staging tmpdir but leaves
     #      IGOS_HELPER_COMMITTED=1 + the trap installed so this
     #      function still runs and executes user cleanup on exit.
     #
+    #   2. Always run the helper-set IGOS_HELPER_USER_CLEANUP command
+    #      (typically `rm -rf "$TMPDIR"`). This is how helpers register
+    #      cleanup WITHOUT installing their own `trap ... EXIT`, which
+    #      would collide with init's trap via bash trap-replace
+    #      semantics (one trap per signal -- no native composition).
+    #
+    # The sidecar comes first because the cleanup can remove the staging
+    # area it is read from: a helper makes its working directory with
+    # TMPDIR=$(mktemp -d), and when TMPDIR arrives in the helper's
+    # environment (pkm passes it on) that assignment stays exported, so
+    # init's mktemp -t makes the staging area inside the directory the
+    # cleanup removes.
+    #
     # Best-effort: failures suppressed so a crashing helper is not
     # further obscured by the trap.
+    _igos_helper_write_partial
     if [ -n "${IGOS_HELPER_USER_CLEANUP:-}" ]; then
         eval "$IGOS_HELPER_USER_CLEANUP" 2>/dev/null || true
     fi
+    return 0
+}
+
+_igos_helper_write_partial() {
+    # Internal: step 1 of _igos_helper_emit_partial, the sidecar. It runs
+    # before the helper's cleanup, so the working directory a helper has
+    # changed into (an unpacked vendor archive, often) still exists: the
+    # program below runs isolated, and nothing there is on its import path.
     if [ "${IGOS_HELPER_COMMITTED:-0}" = "1" ]; then
         return 0
     fi
