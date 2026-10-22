@@ -22,10 +22,14 @@
 # that launch; an existing config directory keeps the mode GDM gave it.
 #
 # THE BYTES THAT LAND ARE THE BYTES CHECKED. This helper runs as root and
-# reads out of a directory the user controls, so it opens the layout once,
-# without following a link at its name, and takes the file type, owner and
-# size from that open file, then parses and copies the bytes it read from it.
-# A name swapped after the open cannot change what is copied.
+# reads out of a directory the user controls, so it walks to that directory
+# from / one component at a time by descriptor, never through a link, and
+# holds the layout's name with O_PATH|O_NOFOLLOW, which opens nothing: the
+# file type, owner and size come from that hold, and only a regular file the
+# user owns is then opened, through the hold, as the same inode. A FIFO put
+# at the name is never opened. It parses and copies the bytes it read from
+# that one descriptor, so a name swapped after the hold cannot change what
+# is copied.
 #
 # FAILURE POSTURE: fail loud, never degrade the greeter. A refused sync
 # leaves the previous greeter layout in place; the worst case at the greeter
@@ -75,26 +79,59 @@ def fail(message):
 
 
 # Refuse anything but a plain regular file OWNED by that user, sized like a
-# monitors.xml, judged from the one descriptor every later read uses. A link
-# here could otherwise copy an arbitrary root-readable file into the greeter's
-# seat state.
+# monitors.xml, judged from the hold before anything opens it. A link here
+# could otherwise copy an arbitrary root-readable file into the greeter's
+# seat state, and an open of a FIFO runs what the FIFO does when opened.
+def walked(directory):
+    """An O_PATH descriptor on `directory`, walked from / by descriptor,
+    never through a link."""
+    fd = os.open("/", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
+    for part in [part for part in directory.split("/") if part]:
+        try:
+            below = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW
+                            | os.O_CLOEXEC, dir_fd=fd)
+        finally:
+            os.close(fd)
+        fd = below
+    return fd
+
+
+src_dir, src_name = os.path.split(os.path.normpath(src))
 try:
-    fd = os.open(src, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    dfd_src = walked(src_dir)
 except FileNotFoundError:
     print(f"{PREFIX}: {src} absent, nothing to sync")
     sys.exit(0)
 except OSError as exc:
-    if exc.errno == errno.ELOOP:
-        fail(f"{src} is a symlink — refusing")
-    fail(f"{src} cannot be opened ({exc.strerror}) — refusing")
+    fail(f"{src_dir} is not a directory reached without a link "
+         f"({exc.strerror}) — refusing")
 try:
-    info = os.fstat(fd)
+    held = os.open(src_name, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC,
+                   dir_fd=dfd_src)
+except FileNotFoundError:
+    print(f"{PREFIX}: {src} absent, nothing to sync")
+    sys.exit(0)
+finally:
+    os.close(dfd_src)
+try:
+    info = os.fstat(held)
+    if stat.S_ISLNK(info.st_mode):
+        fail(f"{src} is a symlink — refusing")
     if not stat.S_ISREG(info.st_mode):
         fail(f"{src} is not a regular file — refusing")
     if info.st_uid != uid:
         fail(f"{src} owned by uid {info.st_uid}, expected {uid} — refusing")
     if info.st_size > limit:
         fail(f"{src} is {info.st_size} bytes (limit {limit}) — refusing")
+    fd = os.open(f"/proc/self/fd/{held}",
+                 os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+finally:
+    os.close(held)
+try:
+    opened = os.fstat(fd)
+    if (opened.st_dev, opened.st_ino) != (info.st_dev, info.st_ino):
+        fail(f"{src} opened as another file than the one checked — refusing")
+    os.set_blocking(fd, True)
     chunks, total = [], 0
     while total <= limit:
         chunk = os.read(fd, limit + 1 - total)

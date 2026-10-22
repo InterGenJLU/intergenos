@@ -18,9 +18,12 @@
 # layout exists (the per-user sync owns the file from first login on; this
 # script never overwrites an existing target).
 #
-# Same mode-bit doctrine as igos-greeter-monitors-sync: ownership is never
-# touched (GDM chowns seat state itself, per-boot dynamic uid); file 0644 +
-# dirs 0755 carry the readability guarantee. Recovery from a bad layout:
+# Same doctrine as igos-greeter-monitors-sync: ownership is never touched.
+# GDM runs the greeter as a per-boot dynamic account and, at every greeter
+# launch, gives the seat config directory and everything in it to that
+# account and sets the directory 0700, so the copy lands root-owned 0600, and
+# the config directory is created 0700 only when it is absent; an existing one
+# keeps the mode GDM gave it. Recovery from a bad layout:
 #   rm /var/lib/gdm/seat0/config/monitors.xml && systemctl restart gdm
 
 set -euo pipefail
@@ -56,14 +59,18 @@ SEED_SIZE="$(stat -c %s "$SEED")"
 python3 -c "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])" \
     "$SEED" 2>/dev/null || fail "$SEED is not well-formed XML — refusing"
 
-install -dm755 /var/lib/gdm /var/lib/gdm/seat0 "$SEAT_CONFIG"
+install -dm755 /var/lib/gdm /var/lib/gdm/seat0
+if ! mkdir -m 0700 "$SEAT_CONFIG" 2>/dev/null; then
+    [ -d "$SEAT_CONFIG" ] && [ ! -L "$SEAT_CONFIG" ] || \
+        fail "$SEAT_CONFIG is not a directory — refusing"
+fi
 
-# Atomic install with the drift-proof file mode; same-filesystem mv so the
+# Atomic install at the greeter's file mode; same-filesystem mv so the
 # greeter can never observe a torn file.
 TMP="$(mktemp "$SEAT_CONFIG/.monitors.xml.XXXXXX")"
 trap 'rm -f "$TMP"' EXIT
 cat "$SEED" > "$TMP"
-chmod 0644 "$TMP"
+chmod 0600 "$TMP"
 mv -f "$TMP" "$TARGET"
 trap - EXIT
 
