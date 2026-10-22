@@ -67,7 +67,10 @@ import time
 
 from intergen import dispatch_token
 from intergen import privileged_request
-from intergen.tool_registry import ToolRegistry, _PRIVILEGED_TOOLS
+from intergen.tool_registry import (ToolRegistry, _PRIVILEGED_TOOLS,
+                                    _classify_risk_tier,
+                                    _on_the_users_own_manager)
+from intergen.interfaces.provenance import ToolRiskTier
 from intergen.interfaces.types import SafetyTier
 
 
@@ -426,6 +429,41 @@ def main(argv: list[str] | None = None) -> int:
             f"privileged_dispatch: tool {tool_name!r} is in the privileged "
             f"allowlist but the registry did not discover it; "
             f"intergen.tools.{tool_name} may be missing or broken.",
+        )
+
+    # THE ROUTE, RE-DERIVED HERE. The registry sends a call to this boundary
+    # exactly when _classify_risk_tier calls it PRIVILEGED_STATE_CHANGING
+    # (decision.needs_pkexec); a read-only call and a change on the person's
+    # own service manager run in the person's own process. A request for either
+    # that reached this point would otherwise run as root on the caller's word
+    # that it belongs here, so the same function is asked again, of the same
+    # tool and arguments. For manage_services, manage_packages and run_command
+    # it reads nothing but the arguments, so its answer here is the registry's
+    # answer; write_file's tier reads the path it names, and is privileged
+    # whatever that path resolves to. It runs before the validation below,
+    # which for manage_services asks the service manager about the unit.
+    try:
+        route = _classify_risk_tier(tool, arguments, tool_name)
+    except Exception as exc:  # noqa: BLE001 — a route not derived is refused
+        _refuse(
+            f"privileged_dispatch: the route of {tool_name!r} for this "
+            f"argument set could not be derived ({type(exc).__name__}: "
+            f"{exc}); refusing dispatch.",
+        )
+    if route is not ToolRiskTier.PRIVILEGED_STATE_CHANGING:
+        if tool_name == "manage_services" and _on_the_users_own_manager(
+                arguments):
+            _refuse(
+                "privileged_dispatch: manage_services with user_mode true "
+                "acts on the person's own service manager (systemctl --user), "
+                "a change within their own account that runs in their own "
+                "process; run as root, --user would reach root's manager, not "
+                "theirs; refusing dispatch.",
+            )
+        _refuse(
+            f"privileged_dispatch: {tool_name!r} for this argument set is "
+            f"{route.value}, which runs in the person's own process and is "
+            f"never routed to this boundary; refusing dispatch.",
         )
 
     # Per-tool argument schema validation. Same call the unprivileged
