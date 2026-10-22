@@ -4,6 +4,7 @@
 
 import hashlib
 import json
+import os
 
 import pytest
 
@@ -39,6 +40,7 @@ def provision_case(tmp_path):
             pins_path=pins, model_dir=store,
             manifest_path=tmp_path / "manifest.json",
             system_legal_dir=legal, accepted_by="consenting-user",
+            caller_uid=os.getuid(),
         )
 
     return entry, pins, store, legal, run

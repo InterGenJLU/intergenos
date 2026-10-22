@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 from types import SimpleNamespace
 from unittest import mock
 
@@ -43,7 +44,8 @@ def install(m):
                         mmproj_staging_path=str(m.stage / m.names[1]))
         ok, message = provision(args, pins_path=m.pinfile, model_dir=m.store,
                                 manifest_path=m.record,
-                                system_legal_dir=m.root / "legal")
+                                system_legal_dir=m.root / "legal",
+                                caller_uid=os.getuid())
         assert ok, message
     return ModelManager(m.store, m.record, m.pinfile)
 
@@ -86,6 +88,7 @@ def test_manifest_write_failure_is_not_success(models):
              staging_path=str(models.stage / models.names[2])),
         pins_path=models.pinfile, model_dir=models.store,
         manifest_path=models.record, system_legal_dir=models.root / "legal",
+        caller_uid=os.getuid(),
     )
     assert not ok
     assert "files installed" in message

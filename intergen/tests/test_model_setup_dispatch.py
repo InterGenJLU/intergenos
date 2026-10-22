@@ -61,6 +61,7 @@ class TestProvision(unittest.TestCase):
             model_dir=self.store,
             manifest_path=self.manifest,
             system_legal_dir=self.root / "legal",
+            caller_uid=os.getuid(),
         )
 
     def test_happy_path_installs_root_owned_perms(self):
@@ -146,7 +147,7 @@ class TestSystemLicenseAcceptance(unittest.TestCase):
             {"filename": filename, "staging_path": str(staged)},
             pins_path=self.pins, model_dir=self.store,
             manifest_path=self.manifest, system_legal_dir=self.legal,
-            accepted_by="installer-admin",
+            accepted_by="installer-admin", caller_uid=os.getuid(),
         )
 
     def test_qwen_writes_system_acceptance(self):
@@ -222,7 +223,8 @@ class TestProvisionMmproj(unittest.TestCase):
     def _call(self, arguments):
         return msd.provision(arguments, pins_path=self.pins,
                              model_dir=self.store, manifest_path=self.manifest,
-                             system_legal_dir=self.root / "legal")
+                             system_legal_dir=self.root / "legal",
+                             caller_uid=os.getuid())
 
     def test_vision_installs_both_artifacts(self):
         g_staged, g_sha = self._stage("vlm.gguf", b"GGUF" * 100)
