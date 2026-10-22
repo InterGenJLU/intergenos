@@ -70,16 +70,16 @@ class UserDataCaptureIntegrityTest(unittest.TestCase):
 
     def test_source_change_after_copy_refuses_the_version(self):
         self.document.write_bytes(b"before")
-        real_copy = _userdata.shutil.copy2
+        real_copy = _userdata._copy_from_descriptor
 
-        def copy_then_change(source, target, *args, **kwargs):
-            result = real_copy(source, target, *args, **kwargs)
-            if Path(source) == self.document:
+        def copy_then_change(fd, st, target):
+            result = real_copy(fd, st, target)
+            if Path(target).name == self.document.name:
                 self.document.write_bytes(b"after!")
             return result
 
         with mock.patch.object(
-            _userdata.shutil, "copy2", side_effect=copy_then_change
+            _userdata, "_copy_from_descriptor", side_effect=copy_then_change
         ):
             with self.assertRaisesRegex(
                 _userdata.SourceChangedError, "changed during capture"

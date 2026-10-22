@@ -74,15 +74,15 @@ def test_source_change_refuses_capture_and_removes_staging(
     capture_store, monkeypatch
 ):
     eng, document = capture_store
-    real_copy = userdata.shutil.copy2
+    real_copy = userdata._copy_from_descriptor
 
-    def copy_then_change(source, target, *args, **kwargs):
-        result = real_copy(source, target, *args, **kwargs)
-        if Path(source) == document:
+    def copy_then_change(fd, st, target):
+        result = real_copy(fd, st, target)
+        if Path(target).name == document.name:
             document.write_bytes(b"BBBB")
         return result
 
-    monkeypatch.setattr(userdata.shutil, "copy2", copy_then_change)
+    monkeypatch.setattr(userdata, "_copy_from_descriptor", copy_then_change)
     with pytest.raises(RuntimeError, match="changed during capture"):
         capture(eng)
 
@@ -92,18 +92,18 @@ def test_source_change_refuses_capture_and_removes_staging(
 
 def test_cleanup_failure_is_visible_to_capture_clients(capture_store, monkeypatch):
     eng, document = capture_store
-    real_copy = userdata.shutil.copy2
+    real_copy = userdata._copy_from_descriptor
 
-    def copy_then_change(source, target, *args, **kwargs):
-        result = real_copy(source, target, *args, **kwargs)
-        if Path(source) == document:
+    def copy_then_change(fd, st, target):
+        result = real_copy(fd, st, target)
+        if Path(target).name == document.name:
             document.write_bytes(b"BBBB")
         return result
 
     def fail_cleanup(_path):
         raise OSError("cleanup could not remove staging")
 
-    monkeypatch.setattr(userdata.shutil, "copy2", copy_then_change)
+    monkeypatch.setattr(userdata, "_copy_from_descriptor", copy_then_change)
     monkeypatch.setattr(userdata.shutil, "rmtree", fail_cleanup)
 
     response = api.dispatch(

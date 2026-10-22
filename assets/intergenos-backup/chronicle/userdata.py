@@ -15,6 +15,15 @@ self-verifies and a restore re-hashes before writing. Hardlink reuse requires
 matching nanosecond metadata and verified source and previous-version hashes.
 A source that changes during capture is refused without committing a version.
 
+Root reads every home here, and each home's owner controls the names and the
+directories in it, so nothing in a home is acted on by path: each directory
+os.walk lists is walked to from / by descriptor without following a link
+(held_open), each name in it is held with O_PATH before anything opens it, its
+type and metadata come from that hold, and a regular file's bytes are read from
+the descriptor opened through the hold, never from its path. A directory
+swapped for a link while the capture runs makes the walk refuse, and the
+capture is refused like any other changed source.
+
 Commit-last (spec §14): the tree is built under a staging name, then renamed to
 its version-id name, and only then is the manifest committed. A capture
 interrupted before the manifest commit leaves an orphan tree with no committed
@@ -22,6 +31,8 @@ manifest — invisible to list(), reclaimed by GC — and never disturbs the pri
 version.
 """
 
+import errno
+import hashlib
 import os
 import shutil
 import stat
@@ -29,8 +40,11 @@ import tempfile
 from pathlib import Path
 
 from . import cas as _cas
+from . import held_open as _held
 from . import manifest as _manifest
 from . import paths as _paths
+
+_CHUNK = 1024 * 1024
 
 
 class SourceChangedError(RuntimeError):
@@ -135,19 +149,23 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
                         d for d in dirnames
                         if not is_excluded(os.path.join(dirpath, d) + "/")
                     ]
-                _capture_dir(dirpath, staging, entries)
-                # os.walk lists directory symlinks but does not visit them.
-                directory_links = [
-                    name for name in dirnames
-                    if os.path.islink(os.path.join(dirpath, name))
-                ]
-                for fn in filenames + directory_links:
-                    ap = os.path.join(dirpath, fn)
-                    if is_excluded and is_excluded(ap):
-                        continue
-                    _capture_file_or_link(
-                        ap, staging, prev_index, prev_tree, entries
-                    )
+                # The names os.walk listed are only names: each is acted on
+                # through this directory's descriptor, walked to from /.
+                dir_fd = _held_source_directory(dirpath)
+                try:
+                    _capture_dir(dirpath, dir_fd, staging, entries)
+                    # os.walk lists directory symlinks among the directories
+                    # but does not visit them; the hold tells them apart.
+                    for fn in filenames + dirnames:
+                        ap = os.path.join(dirpath, fn)
+                        if is_excluded and is_excluded(ap):
+                            continue
+                        _capture_file_or_link(
+                            ap, dir_fd, fn, fn in dirnames, staging,
+                            prev_index, prev_tree, entries
+                        )
+                finally:
+                    os.close(dir_fd)
         manifest = _manifest.build_manifest(
             _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries,
             unreadable
@@ -188,11 +206,20 @@ def _stat_meta(st):
     }
 
 
-def _capture_dir(dirpath, staging, entries):
+def _held_source_directory(dirpath):
+    """An O_PATH descriptor on a directory os.walk listed, walked from / by
+    descriptor. A link on the way (a directory swapped while the capture
+    ran) or a component that is gone is a source that changed."""
     try:
-        st = os.lstat(dirpath)
-    except OSError:
-        return
+        return _held.held_directory(dirpath)
+    except OSError as error:
+        raise SourceChangedError(
+            f"source changed during capture: {dirpath}: {error}"
+        ) from error
+
+
+def _capture_dir(dirpath, dir_fd, staging, entries):
+    st = os.fstat(dir_fd)
     tp = _tree_path(staging, dirpath)
     tp.mkdir(parents=True, exist_ok=True)
     e = {"path": dirpath, "type": _manifest.T_DIR}
@@ -205,27 +232,100 @@ def _source_signature(st):
             st.st_size, st.st_mtime_ns, st.st_ctime_ns)
 
 
-def _require_unchanged_source(path, before):
+def _require_unchanged_source(path, dir_fd, name, fd, before):
+    """The source is the object held and has not changed: the descriptor the
+    bytes come from (when one is open) and the name in the held directory
+    both still show the signature taken from the hold."""
     try:
-        after = os.lstat(path)
+        now = [os.stat(name, dir_fd=dir_fd, follow_symlinks=False)]
+        if fd is not None:
+            now.append(os.fstat(fd))
     except OSError as error:
         raise SourceChangedError(
             f"source changed during capture: {path}: {error}"
         ) from error
-    if _source_signature(after) != _source_signature(before):
+    if any(_source_signature(after) != _source_signature(before)
+           for after in now):
         raise SourceChangedError(f"source changed during capture: {path}")
 
 
-def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
+def _sha256_fd(fd):
+    """The sha256 of everything readable from `fd`, from its start."""
+    os.lseek(fd, 0, os.SEEK_SET)
+    h = hashlib.sha256()
+    for chunk in iter(lambda: os.read(fd, _CHUNK), b""):
+        h.update(chunk)
+    return h.hexdigest()
+
+
+def _copy_xattrs(src_fd, dst_fd):
+    """The extended attributes shutil.copy2 carried, copied between
+    descriptors, skipping the same errors it skips."""
     try:
-        st = os.lstat(ap)
+        names = os.listxattr(src_fd)
+    except OSError as error:
+        if error.errno not in (errno.ENOTSUP, errno.ENODATA, errno.EINVAL):
+            raise
+        return
+    for name in names:
+        try:
+            os.setxattr(dst_fd, name, os.getxattr(src_fd, name))
+        except OSError as error:
+            if error.errno not in (errno.EPERM, errno.ENOTSUP, errno.ENODATA,
+                                   errno.EINVAL, errno.EACCES):
+                raise
+
+
+def _copy_from_descriptor(fd, st, tp):
+    """Copy the bytes readable from `fd` into the new staged file `tp` with
+    the source's mode, times and extended attributes (what copy2 kept).
+    Returns the staged file's fstat and the sha256 of its own bytes."""
+    out = os.open(tp, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                  | os.O_CLOEXEC, 0o600)
+    try:
+        os.lseek(fd, 0, os.SEEK_SET)
+        for chunk in iter(lambda: os.read(fd, _CHUNK), b""):
+            view = memoryview(chunk)
+            while view:
+                view = view[os.write(out, view):]
+        _copy_xattrs(fd, out)
+        os.fchmod(out, stat.S_IMODE(st.st_mode))
+        os.utime(out, ns=(st.st_atime_ns, st.st_mtime_ns))
+        # Describe and hash the bytes in the staged version.
+        return os.fstat(out), _sha256_fd(out)
+    finally:
+        os.close(out)
+
+
+def _capture_file_or_link(ap, dir_fd, name, listed_as_directory, staging,
+                          prev_index, prev_tree, entries):
+    try:
+        held, st = _held.hold_at(dir_fd, name)
     except OSError:
         return
+    try:
+        _capture_held(ap, dir_fd, name, held, st, listed_as_directory,
+                      staging, prev_index, prev_tree, entries)
+    finally:
+        os.close(held)
+
+
+def _capture_held(ap, dir_fd, name, held, st, listed_as_directory, staging,
+                  prev_index, prev_tree, entries):
+    if stat.S_ISDIR(st.st_mode):
+        if listed_as_directory:
+            return  # os.walk visits it and captures it as its own directory
+        raise SourceChangedError(
+            f"source changed during capture: {ap} became a directory")
+    if listed_as_directory and not stat.S_ISLNK(st.st_mode):
+        raise SourceChangedError(
+            f"source changed during capture: {ap} is no longer a directory")
+
     tp = _tree_path(staging, ap)
     tp.parent.mkdir(parents=True, exist_ok=True)
 
     if stat.S_ISLNK(st.st_mode):
-        target = os.readlink(ap)
+        target = _held.read_link(held)
         try:
             os.symlink(target, tp)
         except FileExistsError:
@@ -238,41 +338,43 @@ def _capture_file_or_link(ap, staging, prev_index, prev_tree, entries):
     if not stat.S_ISREG(st.st_mode):
         # Sockets/fifos/devices in a home tree are not user data to restore;
         # record their presence without bytes so the manifest is complete.
+        # The hold names their kind; nothing opens them.
         e = {"path": ap, "type": _manifest.T_FILE, "size": 0,
              "sha256": _cas.sha256_bytes(b"")}
         e.update(_stat_meta(st))
         entries.append(e)
         return
 
-    prev = prev_index.get(ap)
-    unchanged = (
-        prev is not None
-        and prev.get("type") == _manifest.T_FILE
-        and prev.get("size") == st.st_size
-        and prev.get("mtime_ns") == st.st_mtime_ns
-        and prev_tree is not None
-        and _tree_path(prev_tree, ap).exists()
-    )
-    if unchanged:
-        # Timestamp-preserving copies and a damaged previous version must
-        # not make different bytes look eligible for hardlink reuse.
-        source_sha = _cas.sha256_file(ap)
-        _require_unchanged_source(ap, st)
+    fd, _opened = _held.reopened(held, st, os.O_RDONLY, ap)
+    try:
+        prev = prev_index.get(ap)
         unchanged = (
-            source_sha == prev.get("sha256")
-            and _cas.sha256_file(_tree_path(prev_tree, ap)) == source_sha
+            prev is not None
+            and prev.get("type") == _manifest.T_FILE
+            and prev.get("size") == st.st_size
+            and prev.get("mtime_ns") == st.st_mtime_ns
+            and prev_tree is not None
+            and _tree_path(prev_tree, ap).exists()
         )
-    if unchanged:
-        os.link(_tree_path(prev_tree, ap), tp)
-        sha = prev["sha256"]
-        captured_st = st
-    else:
-        shutil.copy2(ap, tp, follow_symlinks=False)
-        _require_unchanged_source(ap, st)
-        # Describe and hash the bytes in the staged version.
-        captured_st = os.lstat(tp)
-        sha = _cas.sha256_file(tp)
-    _require_unchanged_source(ap, st)
+        if unchanged:
+            # Timestamp-preserving copies and a damaged previous version
+            # must not make different bytes look eligible for hardlink reuse.
+            # The source is hashed from the held descriptor, not its path.
+            source_sha = _sha256_fd(fd)
+            _require_unchanged_source(ap, dir_fd, name, fd, st)
+            unchanged = (
+                source_sha == prev.get("sha256")
+                and _cas.sha256_file(_tree_path(prev_tree, ap)) == source_sha
+            )
+        if unchanged:
+            os.link(_tree_path(prev_tree, ap), tp)
+            sha = prev["sha256"]
+            captured_st = st
+        else:
+            captured_st, sha = _copy_from_descriptor(fd, st, tp)
+        _require_unchanged_source(ap, dir_fd, name, fd, st)
+    finally:
+        os.close(fd)
     e = {"path": ap, "type": _manifest.T_FILE,
          "size": captured_st.st_size, "sha256": sha}
     # Ownership describes the source to restore, not the daemon-owned staging
