@@ -1370,8 +1370,14 @@ class Engine:
     @_state_locked
     def queue_status(self):
         window = f"{self.config.work_start}–{self.config.work_end}"
+        try:
+            present = self.target_root() is not None
+        except EngineError:
+            present = False  # a refused target runs nothing either
         return {"count": self.queue.count(),
-                "summary": self.queue.status_summary(window),
+                "summary": self.queue.status_summary(
+                    window, target_present=present,
+                    target_adopted=bool(self.state.get("target"))),
                 "intents": self.queue.list()}
 
     @_state_locked

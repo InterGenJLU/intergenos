@@ -97,15 +97,36 @@ class Queue:
     def count(self):
         return len(self.list())
 
-    def status_summary(self, work_window_text=None):
-        """A human line for `chronicle status` / the GUI. Empty when idle."""
-        n = self.count()
-        if n == 0:
+    def status_summary(self, work_window_text=None, target_present=True,
+                       target_adopted=True):
+        """A human line for `chronicle status` / the GUI. Empty when idle.
+
+        An intent for a layer that lives on the backup target cannot run in
+        the off-peak window while no target is attached: it waits for the
+        target, and the line says that instead of promising a time. The
+        hourly user-data trigger queues one such intent an hour while the
+        target is away, so this is what a person without a target reads."""
+        intents = self.list()
+        if not intents:
             return ""
-        when = (f"will back up after {work_window_text}"
-                if work_window_text else "will back up in the off-peak window")
-        noun = "change" if n == 1 else "changes"
-        return f"{n} {noun} queued — {when}."
+        waiting = 0 if target_present else sum(
+            1 for intent in intents
+            if intent.get("layer") in _paths.TARGET_ONLY_LAYERS)
+        rest = len(intents) - waiting
+        parts = []
+        if waiting:
+            noun = "capture is" if waiting == 1 else "captures are"
+            until = ("once it is attached" if target_adopted
+                     else "once one is adopted and attached")
+            parts.append(f"{waiting} user-data {noun} waiting for the backup "
+                         f"target and will run {until}.")
+        if rest:
+            when = (f"will back up after {work_window_text}"
+                    if work_window_text
+                    else "will back up in the off-peak window")
+            noun = "change" if rest == 1 else "changes"
+            parts.append(f"{rest} {noun} queued — {when}.")
+        return " ".join(parts)
 
     def drain(self, run_intent):
         """Drain the queue by calling run_intent(intent) for each entry.
