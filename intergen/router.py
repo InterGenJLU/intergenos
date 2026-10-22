@@ -510,6 +510,18 @@ _PKG_TEACH_STOP = frozenset({
     "package", "packages", "app", "apps", "application", "applications",
     "program", "programs", "software", "stuff", "something", "anything",
 })
+# What may follow the name for it to close the verb's object: the end of the
+# sentence or a punctuation mark (the marks the name is stripped of, the dash
+# among them), a conjunction, the kind word, or the machine the package goes on
+# or comes off. Anything else means the phrase goes on past the word, so the
+# word is not the package asked for: "at", "time", "less" and "file" are real
+# packages, and "how do I get at my old files?" was offered `pkm install at`.
+_PKG_TEACH_CLOSES_RE = re.compile(
+    r"\s*(?:$|[?!.,;:-]|(?:and|or|but|then|so|package|app|application|program)\b"
+    r"|(?:on|to|onto|from)\s+(?:this|my|the)\s+"
+    r"(?:machine|computer|system|laptop|box)\b)",
+    re.IGNORECASE,
+)
 # verb -> (pkm subcommand, human verb for the taught sentence)
 _PKG_VERB_TO_PKM = {
     "install": ("install", "install"), "add": ("install", "install"),
@@ -951,9 +963,11 @@ def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
     Returns None when the query is not a recognizable '<verb> <app>' package
     action, so the caller falls through unchanged. The target is filtered against
     a stoplist so non-package phrasings ("update my system") yield no false hit,
-    and is taken only when `resolves` finds it in the package index: the word
-    after the verb is not always a name ("how do I check install on this
-    machine?" read "on" as the package and offered to run `pkm install on`).
+    is taken only where it closes the verb's object (_PKG_TEACH_CLOSES_RE), and
+    only when `resolves` finds it in the package index: the word after the verb
+    is not always a name ("how do I check install on this machine?" read "on"
+    as the package and offered to run `pkm install on`). A full stop after the
+    name ends the sentence; it is not part of the name.
     """
     m = _PKG_ACTION_TEACH_RE.search(normalized)
     if m is None:
@@ -964,9 +978,14 @@ def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
     if _PKG_ACTION_TEACH_NEGATION_RE.search(normalized[:m.start()]):
         return None
     # The target is a NAME; punctuation that ran into it ("steam-", "vlc.") is
-    # the sentence's, not the package's.
-    app = m.group(2).lower().rstrip(".,;:!?-")
+    # the sentence's, not the package's. Where the name ends is where the
+    # closing check reads on from, so a mark stripped here is one the closing
+    # check takes as closing the object.
+    raw = m.group(2).rstrip(".,;:!?-")
+    app = raw.lower()
     if not app or app in _PKG_TEACH_STOP:
+        return None
+    if not _PKG_TEACH_CLOSES_RE.match(normalized, m.start(2) + len(raw)):
         return None
     mapped = _PKG_VERB_TO_PKM.get(m.group(1).lower())
     if mapped is None:
