@@ -354,12 +354,12 @@
     "turns": [
       {
         "user": "is my data private?",
-        "description": "Privacy question (alias of 'what about privacy') \u2014 must route via identity and answer truthfully: the assistant runs on the machine and sends nothing in the background, and the answer names what does leave it (a web search the person asks for or accepts, a network check, the IP address lookup, a cloud provider only if one is set up).",
+        "description": "Privacy question (alias of 'what about privacy') \u2014 must route via identity or the direct answer and answer truthfully: the assistant runs on the machine and sends nothing in the background, and the answer names what does leave it (a web search the person asks for or accepts, a network check, the IP address lookup, a cloud provider only if one is set up).",
         "assertions": [
           {
-            "type": "routes_via",
-            "value": "identity",
-            "description": "a privacy question routes to the identity handler"
+            "type": "routes_via_any",
+            "value": "identity,direct_answer",
+            "description": "a privacy question is answered by the identity handler or the direct answer, which takes the privacy phrasings first"
           },
           {
             "type": "contains_any",

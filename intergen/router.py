@@ -5368,14 +5368,18 @@ class ConversationRouter(RouterInterface):
         return _posture_render_firewall(active or "", enabled or "")
 
     def _privacy_answer(self) -> str:
-        """What leaves this machine, from the machine's own facts: the model
-        serving this router, the tools registered, the providers configured and
-        the dispatch mode. Where the model is kept from dispatch (the locked
-        mode), what goes out goes out only on a person's request: a web search,
-        the public-address lookup, a software download, a Phone-A-Friend send.
-        Where the model is given its tools, a read-only one runs without a
-        prompt, so the model may start a web search or a network check by
-        itself while it answers, and the answer says so."""
+        """What leaves this machine and when, from the machine's own facts: the
+        model serving this router, the tools registered, the providers
+        configured and the dispatch mode. Each path out is named with the
+        condition it runs under, as the identity answers name them: a web search
+        the person asks for or accepts when offered; a network check, run
+        without asking only on the person's direct request in a conversation
+        that has read nothing from outside, otherwise asked first; the IP
+        address lookup when asked; a software download; a Phone-A-Friend send
+        the person approves. Where the model is given its tools it may also run
+        a read-only tool on this machine by itself, and the answer says so;
+        nothing that leaves the machine runs without the person's word on
+        either floor."""
         model = None
         llm = getattr(self, "_llm", None)
         if llm is not None:
@@ -5392,43 +5396,37 @@ class ConversationRouter(RouterInterface):
                 providers = []
         served = f" ({model})" if model else ""
         web = self._web_search_available()
-        own: list[str] = []
-        if getattr(self, "_lock_dispatch", True):
-            text = (f"What you type here stays on this machine: the model that "
-                    f"answers you{served} runs here, and nothing you say or do is "
-                    f"sent anywhere on its own — no telemetry, no usage reports. "
-                    f"Something leaves this machine only when you ask for it: ")
-        else:
-            # Unlocked, the model is offered every registered tool, and a
-            # read-only (AUTO) call runs for any provenance without a prompt;
-            # dig and ping are AUTO commands for run_command.
-            text = (f"The model that answers you{served} runs on this machine, and "
-                    f"nothing is sent in the background — no telemetry, no usage "
-                    f"reports. Something leaves this machine only while I work on "
-                    f"something you asked: ")
-            reg = getattr(self, "_tools", None)
-            names = reg.get_all_names() if reg is not None else []
-            if web:
-                own.append("a web search it starts sends the words it chose to "
-                           "the search service")
-            if "run_command" in names:
-                own.append("a network check it runs, such as dig or ping, sends "
-                           "the name it checks out to the network")
-        asks = []
+        reg = getattr(self, "_tools", None)
+        names = reg.get_all_names() if reg is not None else []
+        text = (f"Nothing is sent in the background — no telemetry, no usage "
+                f"reports — and the model that answers you{served} runs here, on "
+                f"this machine. Something leaves this machine only while I work "
+                f"on something you asked.")
         if web:
-            asks.append("a web search sends its search words to the search service")
-        asks.append("asking for your public IP address asks a public resolver")
-        asks.append("installing or updating software downloads it from the "
-                    "InterGenOS package mirror")
+            text += (" A web search you ask for, or accept when I offer it, sends "
+                     "its search words to the search service and fetches the "
+                     "first result's page.")
+        if "run_command" in names:
+            # dig and ping are read-only commands for run_command.
+            text += (" A network check such as dig or ping reaches the host it "
+                     "names, and runs without asking only on your direct request "
+                     "in a conversation where nothing from outside has been "
+                     "read; otherwise I ask you first.")
+        text += (" Your IP address is looked up at a public DNS resolver when you "
+                 "ask for it, and installing or updating software downloads it "
+                 "from the InterGenOS package mirror.")
         if providers:
-            asks.append("Phone-A-Friend sends a question to "
-                        + ", ".join(providers)
-                        + " only after you approve that one send")
-        text += "; ".join(asks) + "."
-        if own:
-            text += (" Here the model may also start a read-only tool by itself, "
-                     "without asking you first, when it decides that helps answer "
-                     "you: " + "; ".join(own) + ".")
+            text += (" Phone-A-Friend sends a question to "
+                     + ", ".join(providers)
+                     + " only after you approve that one send.")
+        if not getattr(self, "_lock_dispatch", True):
+            # Unlocked, the model is offered every registered tool, and a
+            # read-only call on this machine runs without a prompt. The sentence
+            # holds where a search the model builds waits for the person's word
+            # and a network check it asks for is held to the condition above.
+            text += (" Here the model may also run read-only tools on this "
+                     "machine by itself while it answers you; nothing that leaves "
+                     "this machine runs without your word.")
         if not providers:
             text += (" No Phone-A-Friend provider is set up here, so nothing is "
                      "ever sent to a cloud model.")
