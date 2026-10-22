@@ -103,7 +103,7 @@ else
             --registry "$INTERGEN_PYROOT/tool_registry.py" 2>&1); then
         printf '%s\n' "$GATE_A_OUT" | sed 's/^/  /'
         violation "deployed PolicyKit policy does not require one administrator authentication per privileged call" \
-                  "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal the deployed _PRIVILEGED_TOOLS."
+                  "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal the deployed _PRIVILEGED_TOOLS, read as PolicyKit reads the file, with no element it reads once appearing twice."
         GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
     else
         printf '%s\n' "$GATE_A_OUT" | sed 's/^/  /'
@@ -225,14 +225,20 @@ fi
 # (worse) authenticate one path while executing a different one.
 header "Gate F — D-007 composition: pkexec runner exec.path matches PolicyKit policy"
 if [ -f "$POLICY_PATH" ] && [ -f "$RUNNER_PATH" ]; then
-    POLICY_EXEC=$(grep -oE 'org\.freedesktop\.policykit\.exec\.path[^>]*>[^<]+</annotate>' "$POLICY_PATH" 2>/dev/null \
-                  | sed -E 's|.*>([^<]+)</annotate>|\1|' | head -1)
-    if [ -z "$POLICY_EXEC" ]; then
+    # Every action's exec.path as PolicyKit reads the file (the checker's reading,
+    # --exec-paths), never the first match of a grep, which a comment or a
+    # repeated annotation would decide.
+    POLICY_CHECK="$(cd "$(dirname "$0")" && pwd)/lib/check-privileged-runner-policy.py"
+    if ! POLICY_EXECS=$(python3 -I "$POLICY_CHECK" --exec-paths --policy "$POLICY_PATH" 2>&1); then
+        printf '%s\n' "$POLICY_EXECS" | sed 's/^/  /'
+        violation "could not read exec.path from deployed PolicyKit policy as PolicyKit reads it" \
+                  "PolicyKit would not read the file as written; the lines above name where."
+    elif [ -z "$POLICY_EXECS" ]; then
         violation "could not extract exec.path from deployed PolicyKit policy" \
                   "Policy file structurally malformed or missing exec.path annotation."
-    elif [ "$POLICY_EXEC" != "/usr/bin/intergen-privileged-runner" ]; then
+    elif ! printf '%s\n' "$POLICY_EXECS" | cut -f2 | grep -qx '/usr/bin/intergen-privileged-runner'; then
         violation "PolicyKit exec.path does not match canonical runner location" \
-                  "Got: $POLICY_EXEC, expected: /usr/bin/intergen-privileged-runner."
+                  "Got: $(printf '%s\n' "$POLICY_EXECS" | cut -f2 | sort -u | tr '\n' ' ')expected: /usr/bin/intergen-privileged-runner."
     else
         green "PASS — PolicyKit exec.path matches deployed runner location"
     fi

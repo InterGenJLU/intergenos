@@ -56,7 +56,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
-import xml.etree.ElementTree as ElementTree
+import importlib.util
 from pathlib import Path
 from unittest import mock
 
@@ -71,6 +71,13 @@ from intergen.tool_registry import ToolRegistry, _PRIVILEGED_TOOLS
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY = REPO_ROOT / "intergen" / "data" / "org.intergenos.intergen.policy"
 RUNNER_SCRIPT = REPO_ROOT / "intergen" / "data" / "intergen-privileged-runner"
+
+#: The D-008 gates' reader of the policy (scripts/lib/check-privileged-runner-policy.py),
+#: which reads it as polkit 127 does: intergen has one reader of its policy.
+_READER_SPEC = importlib.util.spec_from_file_location(
+    "check_privileged_runner_policy", REPO_ROOT / "scripts" / "lib" / "check-privileged-runner-policy.py")
+policy_reader = importlib.util.module_from_spec(_READER_SPEC)
+_READER_SPEC.loader.exec_module(policy_reader)
 
 EXEC_PATH = "org.freedesktop.policykit.exec.path"
 EXEC_ARGV1 = "org.freedesktop.policykit.exec.argv1"
@@ -109,30 +116,21 @@ ARGUMENTS = {
 
 
 def _actions(policy_path):
-    """The policy's actions as polkit reads them: id, defaults, annotations,
-    message (the untranslated <message>)."""
-    actions = []
-    for action in ElementTree.parse(policy_path).getroot().iter("action"):
-        annotations = {
-            a.get("key"): (a.text or "").strip() for a in action.iter("annotate")
-        }
-        defaults = action.find("defaults")
-        message = next(
-            (m.text for m in action.findall("message")
-             if not m.get("{http://www.w3.org/XML/1998/namespace}lang")),
-            None,
-        )
-        actions.append({
-            "id": action.get("id"),
-            "allow_active": (
-                (defaults.find("allow_active").text or "").strip()
-                if defaults is not None and defaults.find("allow_active") is not None
-                else "no"
-            ),
-            "annotations": annotations,
-            "message": message,
-        })
-    return actions
+    """The policy's actions as polkit 127 reads them (the gates' reader): id,
+    the allow_active default, annotations, message (the untranslated
+    <message>). A file PolicyKit would not read as written (it stops reading
+    it, or keeps the last of a repeated element) is refused here, named."""
+    reading = policy_reader.read_policy(policy_path)
+    departures = policy_reader.reading_violations(reading)
+    if departures:
+        raise AssertionError(f"PolicyKit does not read {policy_path} as written: {departures}")
+    return [{
+        "id": action.id,
+        "allow_active": action.defaults["allow_active"],
+        "defaults": dict(action.defaults),
+        "annotations": dict(action.annotations),
+        "message": action.message,
+    } for action in reading.actions.values()]
 
 
 class _PolkitAgent:
@@ -280,23 +278,15 @@ class Leg2ThePolicyItselfTests(unittest.TestCase):
                 if a["annotations"].get(EXEC_PATH) == tr._PKEXEC_RUNNER_PATH]
 
     def test_no_action_bound_to_the_runner_keeps_an_authentication(self):
-        root = ElementTree.parse(POLICY).getroot()
-        bound = 0
-        for action in root.iter("action"):
-            annotations = {a.get("key"): (a.text or "").strip()
-                           for a in action.iter("annotate")}
-            if annotations.get(EXEC_PATH) != tr._PKEXEC_RUNNER_PATH:
-                continue
-            bound += 1
+        bound = self._runner_actions()
+        for action in bound:
             for key in ("allow_any", "allow_inactive", "allow_active"):
-                with self.subTest(action=action.get("id"), default=key):
-                    element = action.find("defaults").find(key)
+                with self.subTest(action=action["id"], default=key):
                     self.assertEqual(
-                        (element.text or "").strip() if element is not None else None,
-                        "auth_admin",
-                        f"{action.get('id')} {key} is not auth_admin",
+                        action["defaults"][key], "auth_admin",
+                        f"{action['id']} {key} is not auth_admin",
                     )
-        self.assertGreater(bound, 0, "no action is bound to the runner")
+        self.assertGreater(len(bound), 0, "no action is bound to the runner")
 
     def test_each_runner_action_names_one_privileged_tool_and_each_tool_has_one(self):
         names = [a["annotations"].get(EXEC_ARGV1) for a in self._runner_actions()]
@@ -348,6 +338,20 @@ class Leg3TheAgentIsAnInstrumentTests(unittest.TestCase):
             agent.pkexec(exec_argv, subject=USER_MANAGER, now=0)
             agent.pkexec(exec_argv, subject="some other process", now=60)
             self.assertEqual(len(agent.prompts), 2)
+
+    def test_control_the_model_reads_a_repeated_default_as_polkit_does(self):
+        """A repeated allow_active whose second value is a keep is PolicyKit's
+        keep: the model refuses the file, naming the element, and never reads it
+        as its first value (which would count a prompt PolicyKit never asks)."""
+        marker = "<allow_active>auth_admin</allow_active>"
+        text = POLICY.read_text().replace(
+            marker, marker + "<allow_active>auth_admin_keep</allow_active>", 1)
+        with tempfile.TemporaryDirectory(prefix="each-call-auth-") as d:
+            path = Path(d) / "repeated.policy"
+            path.write_text(text)
+            with self.assertRaises(AssertionError) as caught:
+                _actions(path)
+        self.assertIn("<allow_active> appears 2 times", str(caught.exception))
 
 
 def _user_manager_reachable():

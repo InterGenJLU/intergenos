@@ -61,6 +61,7 @@ service.
 from __future__ import annotations
 
 import ast
+import importlib.util
 import os
 import shutil
 import signal
@@ -68,13 +69,21 @@ import subprocess
 import sys
 import time
 import unittest
-from xml.etree import ElementTree
+from pathlib import Path
 
 from intergen import tool_registry as tr
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall
 from intergen.interfaces.provenance import Provenance
 
+#: The D-008 gates' reader of the policy (scripts/lib/check-privileged-runner-policy.py),
+#: which reads it as polkit 127 does, so this file reads it the way PolicyKit
+#: enforces it and the same way the gates certify it.
+_READER_SPEC = importlib.util.spec_from_file_location(
+    "check_privileged_runner_policy",
+    Path(__file__).resolve().parents[2] / "scripts" / "lib" / "check-privileged-runner-policy.py")
+policy_reader = importlib.util.module_from_spec(_READER_SPEC)
+_READER_SPEC.loader.exec_module(policy_reader)
 
 #: The installed policy file, and the prefix of the actions it binds to the
 #: privileged runner: one per privileged tool since 2026-10-22, each selected by
@@ -328,19 +337,20 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
     EXEC_PATH_ANNOTATION = "org.freedesktop.policykit.exec.path"
 
     def _runner_actions(self):
-        """Every <action> of the INSTALLED policy bound to the runner, or skip."""
+        """Every action of the INSTALLED policy bound to the runner, as PolicyKit
+        reads the file (the gates' reader), or skip. A file PolicyKit would not
+        read as written (it stops reading it, or keeps the last of a repeated
+        element) fails here, named."""
         if not os.path.exists(INSTALLED_POLICY):
             self.skipTest(
                 f"the policy-binding leg was NOT measured: {INSTALLED_POLICY} is absent"
             )
-        tree = ElementTree.parse(INSTALLED_POLICY)
-        bound = []
-        for action in tree.getroot().iter("action"):
-            annotations = {
-                a.get("key"): (a.text or "").strip() for a in action.iter("annotate")
-            }
-            if annotations.get(self.EXEC_PATH_ANNOTATION) == tr._PKEXEC_RUNNER_PATH:
-                bound.append(action)
+        reading = policy_reader.read_policy(INSTALLED_POLICY)
+        departures = policy_reader.reading_violations(reading)
+        if departures:
+            self.fail(f"PolicyKit does not read {INSTALLED_POLICY} as written: {departures}")
+        bound = [action for action in reading.actions.values()
+                 if action.annotations.get(self.EXEC_PATH_ANNOTATION) == tr._PKEXEC_RUNNER_PATH]
         if not bound:
             self.fail(f"{INSTALLED_POLICY} binds no <action> to {tr._PKEXEC_RUNNER_PATH}")
         return bound
@@ -357,7 +367,7 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
         installed InterGen package predates one authentication per call; that
         failure is the reading this leg exists to give."""
         for action in self._runner_actions():
-            action_id = action.get("id")
+            action_id = action.id
             with self.subTest(action=action_id):
                 completed = self._pkcheck(action_id)
                 combined = completed.stdout + completed.stderr
@@ -403,28 +413,25 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
         one such action per privileged tool, each named by exec.argv1, and
         every one of them carries the prefix of the tier's action id."""
         for action in self._runner_actions():
-            with self.subTest(action=action.get("id")):
+            with self.subTest(action=action.id):
                 self.assertTrue(
-                    action.get("id").startswith(POLICY_ACTION),
+                    action.id.startswith(POLICY_ACTION),
                     f"the runner is bound to an action outside the tier: "
-                    f"{action.get('id')}",
+                    f"{action.id}",
                 )
 
     def test_the_action_requires_an_administrator_for_an_active_session(self):
         """The other half of the binding: what a person has to do to satisfy it,
         on THIS action's own <defaults>, for every session class: auth_admin,
         with no keep. A permissive or kept default on the action that matters is
-        not made safe by a strict one elsewhere in the file."""
+        not made safe by a strict one elsewhere in the file. Read as PolicyKit
+        reads it: a default the file does not set is PolicyKit's "no"."""
         for action in self._runner_actions():
-            defaults = action.find("defaults")
-            self.assertIsNotNone(defaults, f"{action.get('id')} declares no <defaults>")
             for key in ("allow_any", "allow_inactive", "allow_active"):
-                with self.subTest(action=action.get("id"), default=key):
-                    element = defaults.find(key)
-                    self.assertIsNotNone(element, f"{action.get('id')} declares no {key}")
+                with self.subTest(action=action.id, default=key):
                     self.assertEqual(
-                        (element.text or "").strip(), "auth_admin",
-                        f"{action.get('id')} {key} does not require an "
+                        action.defaults[key], "auth_admin",
+                        f"{action.id} {key} does not require an "
                         f"administrator for each call",
                     )
 

@@ -19,6 +19,15 @@ The REAL gate scripts run here, against a scratch copy of exactly the files they
 read, with the tree's own policy and with planted ones. The positive control is
 the planted keep: a gate that cannot refuse it has not been shown to check
 anything.
+
+The checker reads the policy as polkit 127 reads it, because PolicyKit enforces
+the values IT reads: a repeated element's LAST value, a default's text taken
+exactly (any other text stops PolicyKit reading the file), an annotation's text
+untrimmed, an unknown element skipped with all it holds. Until 2026-10-22 it
+judged the FIRST <defaults> and <allow_*> and trimmed the text, so a repeated
+<allow_active> whose second value was a keep passed both gates. Each element
+PolicyKit reads once is now refused when it appears twice, naming the action and
+the element, and so is a file PolicyKit would stop reading.
 """
 
 from __future__ import annotations
@@ -180,6 +189,162 @@ def test_the_runtime_gate_passes_the_tree_and_refuses_a_planted_keep(tmp_path):
     assert keep.returncode == 1, keep.stdout + keep.stderr
     assert ("VIOLATION: deployed PolicyKit policy does not require one administrator "
             "authentication per privileged call") in keep.stdout
+
+
+ACTIVE = "<allow_active>auth_admin</allow_active>"
+PATH_LINE = ('<annotate key="org.freedesktop.policykit.exec.path">'
+             '/usr/bin/intergen-privileged-runner</annotate>')
+ARGV1_LINE = '<annotate key="org.freedesktop.policykit.exec.argv1">manage_services</annotate>'
+SERVICES = "org.intergenos.intergen.privileged-tool.manage-services"
+
+
+def _changed(old, new):
+    """The shipped policy with its first `old` replaced by `new`."""
+    text = POLICY.read_text()
+    assert old in text, f"the policy carries no {old!r} to change"
+    return text.replace(old, new, 1)
+
+
+def _with_a_repeated_keep():
+    """The reader's control: the first auth_admin allow_active followed by a keep."""
+    return _changed(ACTIVE, ACTIVE + "\n      <allow_active>auth_admin_keep</allow_active>")
+
+
+def _first_action():
+    text = POLICY.read_text()
+    start = text.index(f'<action id="{SERVICES}">')
+    return text[start:text.index("</action>", start) + len("</action>")]
+
+
+def _planted(tmp_path, name, text):
+    path = tmp_path / f"{name}.policy"
+    path.write_text(text)
+    return path
+
+
+def test_the_checker_refuses_a_repeated_allow_active_naming_the_action_and_element(tmp_path):
+    """The repeated keep passed as no keep: PolicyKit keeps the last value."""
+    completed = _checker(_planted(tmp_path, "repeated", _with_a_repeated_keep()))
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert f"{SERVICES}: <allow_active> appears 2 times" in completed.stdout
+    assert f"{SERVICES}: allow_active is 'auth_admin_keep', not 'auth_admin'" in completed.stdout
+
+
+#: Every element PolicyKit reads once per action or per file, repeated with a
+#: different value: (the change, what the refusal names).
+REPEATS = {
+    "allow_any": (("<allow_any>auth_admin</allow_any>",
+                   "<allow_any>auth_admin</allow_any><allow_any>yes</allow_any>"),
+                  f"{SERVICES}: <allow_any> appears 2 times"),
+    "allow_inactive": (("<allow_inactive>auth_admin</allow_inactive>",
+                        "<allow_inactive>auth_admin</allow_inactive><allow_inactive>yes</allow_inactive>"),
+                       f"{SERVICES}: <allow_inactive> appears 2 times"),
+    "defaults": (("</defaults>", "</defaults><defaults><allow_active>auth_admin_keep</allow_active></defaults>"),
+                 f"{SERVICES}: <defaults> appears 2 times"),
+    "exec.path": ((PATH_LINE, PATH_LINE + PATH_LINE.replace("intergen-privileged-runner", "true")),
+                  f'{SERVICES}: <annotate key="org.freedesktop.policykit.exec.path"> appears 2 times'),
+    "exec.argv1": ((ARGV1_LINE, ARGV1_LINE + ARGV1_LINE.replace("manage_services", "run_command")),
+                   f'{SERVICES}: <annotate key="org.freedesktop.policykit.exec.argv1"> appears 2 times'),
+    "action vendor": ((ARGV1_LINE, ARGV1_LINE + "<vendor>A</vendor><vendor>B</vendor>"),
+                      f"{SERVICES}: <vendor> appears 2 times"),
+    "action icon_name": ((ARGV1_LINE, ARGV1_LINE + "<icon_name>a</icon_name><icon_name>b</icon_name>"),
+                         f"{SERVICES}: <icon_name> appears 2 times"),
+    "file vendor": (("<vendor>InterGenOS</vendor>", "<vendor>InterGenOS</vendor><vendor>Another</vendor>"),
+                    "the file: <vendor> appears 2 times"),
+    "file icon_name": (("<icon_name>system-software-install</icon_name>",
+                        "<icon_name>system-software-install</icon_name><icon_name>dialog-password</icon_name>"),
+                       "the file: <icon_name> appears 2 times"),
+    "message": (("<message>", "<message>A different prompt</message><message>"),
+                f"{SERVICES}: <message> appears 2 times"),
+}
+
+
+@pytest.mark.parametrize("element", sorted(REPEATS))
+def test_the_checker_refuses_each_element_polkit_reads_once_when_repeated(tmp_path, element):
+    (old, new), named = REPEATS[element]
+    completed = _checker(_planted(tmp_path, "repeat", _changed(old, new)))
+    assert completed.returncode == 1, completed.stdout + completed.stderr
+    assert named in completed.stdout, completed.stdout
+    assert "PolicyKit keeps the last" in completed.stdout
+
+
+def test_the_checker_refuses_a_duplicated_action(tmp_path):
+    """PolicyKit holds the LAST action of an id; here that copy is a yes."""
+    copy = _first_action().replace(ACTIVE, "<allow_active>yes</allow_active>")
+    completed = _checker(_planted(tmp_path, "dup", _changed("</policyconfig>", copy + "</policyconfig>")))
+    assert completed.returncode == 1, completed.stdout
+    assert f"{SERVICES}: <action> appears 2 times" in completed.stdout
+    assert f"{SERVICES}: allow_active is 'yes', not 'auth_admin'" in completed.stdout
+
+
+@pytest.mark.parametrize("label,old,new", [
+    ("a padded default", ACTIVE, "<allow_active> auth_admin </allow_active>"),
+    ("a default across two lines", ACTIVE, "<allow_active>auth_admin\n</allow_active>"),
+    ("an annotate with a second attribute", ARGV1_LINE,
+     ARGV1_LINE.replace('exec.argv1"', 'exec.argv1" lang="x"')),
+])
+def test_the_checker_refuses_a_file_polkit_stops_reading(tmp_path, label, old, new):
+    """The old checker trimmed these and passed them; PolicyKit stops reading the
+    file there, so the actions from that point on do not exist for it."""
+    completed = _checker(_planted(tmp_path, "stop", _changed(old, new)))
+    assert completed.returncode == 1, f"{label}: {completed.stdout}"
+    assert "PolicyKit stops reading this file at line" in completed.stdout
+
+
+def test_the_checker_reads_a_padded_exec_path_as_polkit_does(tmp_path):
+    """PolicyKit keeps an annotation's spaces, so a padded path binds nothing."""
+    text = POLICY.read_text().replace(
+        ">/usr/bin/intergen-privileged-runner<", "> /usr/bin/intergen-privileged-runner <")
+    completed = _checker(_planted(tmp_path, "padded", text))
+    assert completed.returncode == 1, completed.stdout
+    assert "no action is bound to /usr/bin/intergen-privileged-runner" in completed.stdout
+
+
+def test_the_checker_skips_an_action_polkit_skips(tmp_path):
+    """An action inside an element PolicyKit does not know is skipped with all it
+    holds, by PolicyKit and by the checker alike: its yes is never enforced."""
+    nested = _first_action().replace(SERVICES, SERVICES + "-nested").replace(
+        ACTIVE, "<allow_active>yes</allow_active>").replace("manage_services", "manage_services_nested")
+    completed = _checker(_planted(tmp_path, "nested",
+                                  _changed("</policyconfig>", f"<extra>{nested}</extra></policyconfig>")))
+    assert completed.returncode == 0, completed.stdout
+    assert "-nested" not in completed.stdout
+
+
+def test_the_exec_paths_are_listed_as_polkit_reads_them(tmp_path):
+    """Gate F's reading: every action's exec.path, a comment's never."""
+    commented = _planted(tmp_path, "comment", _changed(
+        "<policyconfig>", "<!-- " + PATH_LINE.replace("privileged-runner", "evil") + " -->\n<policyconfig>"))
+    completed = subprocess.run(["python3", "-I", str(CHECKER), "--exec-paths", "--policy", str(commented)],
+                               capture_output=True, text=True, check=False, timeout=60)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    paths = [line.split("\t")[1] for line in completed.stdout.splitlines()]
+    assert paths.count("/usr/bin/intergen-privileged-runner") == 4, completed.stdout
+    assert "/usr/bin/intergen-evil" not in completed.stdout
+
+
+def test_both_gates_refuse_the_repeated_keep_at_a_real_firing(tmp_path):
+    compliance = _run_compliance(_compliance_tree(tmp_path / "source", _with_a_repeated_keep()))
+    assert compliance.returncode == 1, compliance.stdout + compliance.stderr
+    assert "<allow_active> appears 2 times" in compliance.stdout
+    assert ("VIOLATION: the PolicyKit policy does not require one administrator "
+            "authentication per privileged call") in compliance.stdout
+
+    runtime = _run_runtime(_runtime_root(tmp_path / "chroot", _with_a_repeated_keep()))
+    assert runtime.returncode == 1, runtime.stdout + runtime.stderr
+    assert "<allow_active> appears 2 times" in runtime.stdout
+    assert ("VIOLATION: deployed PolicyKit policy does not require one administrator "
+            "authentication per privileged call") in runtime.stdout
+
+
+def test_the_runtime_gate_reads_the_exec_path_as_polkit_does(tmp_path):
+    """Gate F read the first exec.path a grep met, a comment's included."""
+    text = POLICY.read_text().replace(
+        ">/usr/bin/intergen-privileged-runner<", "> /usr/bin/intergen-privileged-runner <")
+    text = text.replace("<policyconfig>", "<!-- " + PATH_LINE + " -->\n<policyconfig>", 1)
+    runtime = _run_runtime(_runtime_root(tmp_path, text))
+    assert runtime.returncode == 1, runtime.stdout + runtime.stderr
+    assert "VIOLATION: PolicyKit exec.path does not match canonical runner location" in runtime.stdout
 
 
 @pytest.mark.parametrize("gate", ["check-d008-compliance.sh", "check-d008-runtime.sh"])

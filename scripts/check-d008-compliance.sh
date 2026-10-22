@@ -262,7 +262,7 @@ if GATE_G_OUT=$(python3 -I "$REPO_ROOT/scripts/lib/check-privileged-runner-polic
 else
     printf '%s\n' "$GATE_G_OUT" | sed 's/^/  /'
     violation "the PolicyKit policy does not require one administrator authentication per privileged call" \
-              "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal _PRIVILEGED_TOOLS."
+              "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal _PRIVILEGED_TOOLS, read as PolicyKit reads the file, with no element it reads once appearing twice."
 fi
 
 # Gate H: IngressTracker + ConversationTrustState present (per D-008
