@@ -257,6 +257,19 @@ tools.
   through a temporary file hashed in full before the rename. The greeter's copy
   lands at 0600, and the seat config directory keeps the mode the display
   manager gives it.
+- **The root side holds a named object before it opens it.** Opening a FIFO
+  or a device runs what it does when it is opened, so a privileged helper
+  handed a path does not open it to learn what it is: `intergen.held_open`
+  walks the directory from `/` by descriptor without following a link, holds
+  the name with `O_PATH|O_NOFOLLOW`, which opens nothing, requires the held
+  object to be a regular file (and the caller's own, where that is asked),
+  and only then opens that same inode through `/proc/self/fd`, its device and
+  inode compared with the hold's. The model-storage provisioner's two staging
+  paths, the file tool's open of an existing name under the privileged runner
+  (the write, and the read of the old content for the diff) and the
+  privileged runner's request file open this way; a link, a FIFO or a device
+  there is refused before anything opens it, and the refusal says nothing was
+  opened.
 - **Retire** the autonomy-tier-blocks-reads behavior. If an "autonomy tier"
   axis survives, it may only modulate how many AUTH-PROMPT actions InterGen
   *offers* — it must never block a read.
@@ -274,3 +287,4 @@ tools.
 | 2026-10-22 | §8 "The root side re-derives the route": the privileged dispatcher runs only a call `_classify_risk_tier` sends across the boundary, refusing a read-only call and a change on the person's own service manager before the tool's own argument validation; `write_file` refuses a relative path in its own validation, which the dispatcher re-runs. |
 | 2026-10-22 | §8 "The root side installs the bytes it verified": the model-storage provisioner hashes and copies each staged file from one descriptor, opened without following a link and owned by the authenticated caller, and re-hashes the store's temporary copy before it replaces the entry. |
 | 2026-10-22 | §8 "The root side installs the bytes it verified" names the other root readers of a path an account controls: the greeter's monitor-layout sync and the backup engine's user-data restore read their source through one descriptor and hash their copy before the rename; the greeter's copy lands at 0600. |
+| 2026-10-22 | §8 "The root side holds a named object before it opens it": `intergen.held_open` holds a path a privileged helper is handed with `O_PATH` and checks the held object before any open for reading or writing, so a FIFO's or a device's open never runs as root; adopted by the model-storage provisioner's staging paths, the file tool's open of an existing name under the privileged runner and the runner's request file. |
