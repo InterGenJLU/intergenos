@@ -2006,6 +2006,16 @@ class WebServer:
                 "content": "Phone-a-friend is not available (no escalation manager).",
             })
             return
+        # A send the setting forbids (escalation.mode = never) is answered
+        # here, before the dialog: asking the person to approve it first would
+        # describe an act that cannot run.
+        refused = manager.refusal()
+        if refused is not None:
+            await ctx.ws.send_json({
+                "type": "frontier_response", "sent": False, "answered": False,
+                "content": refused,
+            })
+            return
         if manager._primary_provider_name() is None:
             await ctx.ws.send_json({
                 "type": "frontier_response", "sent": False, "answered": False,

@@ -39,6 +39,9 @@ class _FakeMgr:
     def _primary_provider_name(self):
         return self._provider
 
+    def refusal(self):
+        return None
+
     def escalate(self, messages, *, tools=None, reason="", user_consented=False):
         self.calls.append({"user_consented": user_consented, "messages": messages})
         return LLMResponse(text="frontier answer", model="anthropic-1", local=False)
@@ -140,18 +143,22 @@ def _real_manager(mode):
 
 class APersonInvokedSendReadsTheMode(unittest.IsolatedAsyncioTestCase):
     """The panel's "Ask my frontier model" with the real manager, once per
-    escalation.mode: never is refused with the setting named, nothing reaches
-    the provider and nothing is kept in the conversation; ask, auto and
-    fallback show the show-before-send dialog and send what was approved."""
+    escalation.mode: never is refused with the setting named before the
+    show-before-send dialog is put to the person, nothing reaches the provider
+    and nothing is kept in the conversation; ask, auto and fallback show the
+    dialog and send what was approved."""
 
-    async def test_never_refuses_with_the_setting_named(self):
+    async def test_never_refuses_with_the_setting_named_and_asks_nobody(self):
         manager, adapter = _real_manager("never")
         s = _server(manager)
         ctx = _FakeCtx()
         with mock.patch("intergen.consent_modal.prompt_send_consent",
-                        return_value=True):
+                        return_value=True) as consent:
             await s._handle_frontier_escalate(ctx, {"content": "help me"})
+        consent.assert_not_called()  # nobody is asked to approve what cannot run
         out = ctx.ws.sent[-1]
+        self.assertEqual(out["type"], "frontier_response")
+        self.assertFalse(out["answered"])
         self.assertFalse(out["sent"])
         self.assertIn("escalation.mode", out["content"])
         self.assertIn("never", out["content"])

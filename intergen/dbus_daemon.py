@@ -793,6 +793,7 @@ class InterGenDaemon(InterGenDBusInterface):
                 "source": "escalation", "sent": False,
             })
         try:
+            refused = escalation.refusal()
             provider = escalation._primary_provider_name()
         except Exception as exc:  # noqa: BLE001 -- the contract answers, never raises
             log.error("Escalate: the provider table could not be read: %s",
@@ -803,6 +804,13 @@ class InterGenDaemon(InterGenDBusInterface):
                              "nobody was asked; the daemon log carries the "
                              "reason."),
                 "source": "escalation", "sent": False,
+            })
+        # A send the setting forbids (escalation.mode = never) is answered
+        # here, before the dialog: asking the person to approve it first would
+        # describe an act that cannot run.
+        if refused is not None:
+            return json.dumps({
+                "response": refused, "source": "escalation", "sent": False,
             })
         if provider is None:
             return json.dumps({

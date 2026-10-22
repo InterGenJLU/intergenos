@@ -323,9 +323,10 @@ class EscalationManager(EscalationManagerInterface):
         sentence that names the setting, before any provider, scan or stop is
         consulted, whoever the caller is.
         """
-        if self._mode is EscalationMode.NEVER:
+        refused = self.refusal()
+        if refused is not None:
             logger.info("phone-a-friend not sent: escalation.mode is never")
-            return self._error_response(_REFUSED_BY_THE_SETTING)
+            return self._error_response(refused)
         from intergen.llm import bound_turn_stop
         stop = bound_turn_stop()
         provider = self._primary_provider()
@@ -396,6 +397,19 @@ class EscalationManager(EscalationManagerInterface):
             timestamp=self._clock(),
         ))
         return response
+
+    def refusal(self) -> str | None:
+        """The sentence every send is refused with under the current mode, or
+        None when a send the person asks for may go ahead.
+
+        The callers that put the show-before-send dialog in front of the person
+        ask this first, so nobody is asked to approve a send the setting
+        forbids: a dialog that describes an act which cannot run is a consent
+        surface saying something untrue. escalate() asks it again before
+        anything else, for every caller."""
+        if self._mode is EscalationMode.NEVER:
+            return _REFUSED_BY_THE_SETTING
+        return None
 
     # -- config / state ------------------------------------------------------
 

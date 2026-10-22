@@ -408,6 +408,18 @@ class NeverRefusesEverySendTests(unittest.TestCase):
             m.escalate(_msgs("hello"), user_consented=True))
         self.assertEqual(built, [])
 
+    def test_the_refusal_the_callers_ask_before_the_dialog(self):
+        # The callers put this question before the show-before-send dialog:
+        # the sentence under never, nothing under every other mode.
+        never = _mgr(mode=EscalationMode.NEVER, providers=[_cfg()])
+        self.assertEqual(never.refusal(),
+                         never.escalate(_msgs("x"), user_consented=True).text)
+        self.assertIn("escalation.mode", never.refusal())
+        for mode in (EscalationMode.ASK, EscalationMode.AUTO,
+                     EscalationMode.FALLBACK):
+            with self.subTest(mode=mode.value):
+                self.assertIsNone(_mgr(mode=mode, providers=[_cfg()]).refusal())
+
     def test_the_other_modes_send_the_consented_hop_unchanged(self):
         for mode in (EscalationMode.ASK, EscalationMode.AUTO,
                      EscalationMode.FALLBACK):

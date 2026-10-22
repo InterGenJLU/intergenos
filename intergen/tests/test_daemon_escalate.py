@@ -27,6 +27,9 @@ class _FakeMgr:
     def _primary_provider_name(self):
         return self._provider
 
+    def refusal(self):
+        return None
+
     def escalate(self, messages, *, tools=None, reason="", user_consented=False):
         self.escalate_calls.append({"messages": messages, "reason": reason,
                                     "user_consented": user_consented})
@@ -211,16 +214,19 @@ class APersonInvokedSendReadsTheMode(unittest.TestCase):
     """A send the person asks for, through the daemon's Escalate (the bus's
     method and both command-line routes reach this method), with the real
     manager, once per escalation.mode: never is refused with the setting named
-    and nothing reaches the provider; ask, auto and fallback show the
-    show-before-send dialog and send what the person approved."""
+    before the show-before-send dialog is put to the person, and nothing
+    reaches the provider; ask, auto and fallback show the dialog and send what
+    the person approved."""
 
-    def test_never_refuses_with_the_setting_named(self):
+    def test_never_refuses_with_the_setting_named_and_asks_nobody(self):
         manager, adapter = _real_manager("never")
         d = _daemon(manager)
         with mock.patch("intergen.consent_modal.prompt_send_consent",
-                        return_value=True):
+                        return_value=True) as consent:
             out = json.loads(d.escalate("please help with X"))
+        consent.assert_not_called()  # nobody is asked to approve what cannot run
         self.assertFalse(out["sent"])
+        self.assertEqual(out["source"], "escalation")
         self.assertIn("escalation.mode", out["response"])
         self.assertIn("never", out["response"])
         self.assertEqual(adapter.sent, [])
