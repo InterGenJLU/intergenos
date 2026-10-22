@@ -1332,6 +1332,19 @@ def print_status(status: dict) -> None:
         else:
             print("  Memory:     disabled (no embedder wired)")
 
+    # Phone-a-friend's setting as the daemon's escalation manager reads it. A
+    # value that is none of the four modes reads as never, and the line names
+    # it, so a person who wrote "off" or "disabled" sees what was read.
+    paf = status.get("phone_a_friend")
+    if isinstance(paf, dict) and paf.get("mode"):
+        written = paf.get("unreadable_mode")
+        if written is not None:
+            print(f"  Escalation: never: escalation.mode is {written}, which is")
+            print("              not one of never, fallback, ask or auto, so "
+                  "phone-a-friend is off")
+        else:
+            print(f"  Escalation: {paf['mode']} (escalation.mode, phone-a-friend)")
+
     # The daemon-down report. Everything above it that could be established by
     # looking has been; this says what was NOT established, so "the file is
     # there" is never read as "the file is the one it should be".

@@ -182,5 +182,66 @@ class APersonInvokedSendReadsTheMode(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(adapter.sent, [["help me"]])
 
 
+# escalation.mode as a person may write it in config.yml, and the words the
+# refusal names it by, as the config file's YAML reads it.
+UNREADABLE = [
+    ("off", "false (YAML reads off, no and false as false)"),
+    ("no", "false (YAML reads off, no and false as false)"),
+    ("false", "false (YAML reads off, no and false as false)"),
+    ("on", "true (YAML reads on, yes and true as true)"),
+    ("yes", "true (YAML reads on, yes and true as true)"),
+    ("true", "true (YAML reads on, yes and true as true)"),
+    ("none", "'none'"),
+    ("disabled", "'disabled'"),
+    ("0", "0"),
+    ("'never '", "'never '"),
+    ("", "empty"),
+]
+
+
+def _mode_as_written(directory, written):
+    """escalation.mode as the web server reads it (Config over a file holding
+    this mode, read by the same YAML reader as config.yml)."""
+    from intergen.config import Config
+    path = f"{directory}/config.yml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"escalation:\n  mode: {written}\n")
+    return Config(config_path=path).get("escalation")["mode"]
+
+
+class AnUnreadableModeIsRefusedAndNamed(unittest.IsolatedAsyncioTestCase):
+    """An escalation.mode the parser cannot read was read as ask, so the
+    panel's "Ask my frontier model" put the send to the dialog and sent it. It
+    is refused before the dialog now, the answer naming the value written and
+    the four accepted; nothing reaches the provider or the conversation."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    async def test_each_value_is_refused_before_the_dialog_and_named(self):
+        for written, words in UNREADABLE:
+            with self.subTest(written=written):
+                manager, adapter = _real_manager(
+                    _mode_as_written(self._dir.name, written))
+                s = _server(manager)
+                ctx = _FakeCtx()
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    await s._handle_frontier_escalate(ctx, {"content": "help me"})
+                consent.assert_not_called()
+                out = ctx.ws.sent[-1]
+                self.assertEqual(out["type"], "frontier_response")
+                self.assertFalse(out["sent"])
+                self.assertFalse(out["answered"])
+                self.assertIn(f"escalation.mode setting is {words}, ",
+                              out["content"])
+                self.assertIn("not one of never, fallback, ask or auto",
+                              out["content"])
+                self.assertEqual(adapter.sent, [])
+                self.assertEqual(ctx.session_history, [])
+
+
 if __name__ == "__main__":
     unittest.main()

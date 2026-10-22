@@ -21,6 +21,8 @@ so the mode decides when the assistant OFFERS one, and NEVER refuses the send to
                gate or is unsure, a multi-step or too-large request; with no
                provider set up, the offer points at the setup (DEFAULT).
   * AUTO     — the same offer as ASK, when a provider is set up.
+A value that is none of the four reads as NEVER, and its refusal and
+`intergen status` name the value written.
 The model client's own automatic cloud step (intergen/llm.py, the quality
 fallback described above, and its FALLBACK and AUTO modes) cannot run in the
 daemon: the daemon registers no cloud provider on the model client and gives it
@@ -115,6 +117,28 @@ _REFUSED_BY_THE_SETTING = (
     "setting is never. To use it, set escalation.mode to ask in "
     "~/.config/intergen/config.yml (the human-only config).")
 
+# What every send comes back as when escalation.mode holds a value that is none
+# of the four modes, which reads as never: the value written, and the four.
+_REFUSED_BY_AN_UNREADABLE_SETTING = (
+    "Nothing was sent: phone-a-friend is off because the escalation.mode "
+    "setting is {written}, which is not one of never, fallback, ask or auto, "
+    "so it is read as never. To use it, set escalation.mode to ask in "
+    "~/.config/intergen/config.yml (the human-only config).")
+
+
+def _describe_written(value) -> str:
+    """An escalation.mode value as the config file's YAML read it, in words a
+    person can match to what they wrote: YAML reads off, no and false as the
+    boolean false, on, yes and true as true, and a key written with no value
+    as null, named here as empty."""
+    if value is None:
+        return "empty"
+    if value is False:
+        return "false (YAML reads off, no and false as false)"
+    if value is True:
+        return "true (YAML reads on, yes and true as true)"
+    return repr(value)
+
 # Adapter factory signature (injectable for tests): ProviderConfig -> adapter.
 AdapterFactory = Callable[[ProviderConfig], CloudProviderAdapter]
 
@@ -130,8 +154,12 @@ class EscalationManager(EscalationManagerInterface):
         adapter_factory: AdapterFactory | None = None,
         scanner=None,
         clock: Callable[[], float] | None = None,
+        unreadable_mode: str | None = None,
     ) -> None:
         self._mode = mode
+        # The escalation.mode value as written, in words, when it was none of
+        # the four modes and is read as never (from_config); None otherwise.
+        self._unreadable_mode = unreadable_mode
         self._providers: list[ProviderConfig] = list(providers or [])
         self._adapter_factory: AdapterFactory = adapter_factory or create_adapter
         # ScannerPolicy (or any .scan(content, ctx)) for decision-#6 egress scanning
@@ -161,17 +189,24 @@ class EscalationManager(EscalationManagerInterface):
         ScannerPolicy the dispatch chokepoint uses is injected as `scanner`
         (decision #6 — derived egress is scanned through the shared floor).
 
-        Degrade-don't-crash: an unparseable mode falls back to ASK (the safe
-        consent-first default) and a malformed provider entry is skipped rather than
-        crashing daemon startup.
+        Degrade-don't-crash: a malformed provider entry is skipped rather than
+        crashing daemon startup. A mode that is none of the four fails CLOSED:
+        it reads as NEVER, and the refusal names the value written.
         """
         escalation_cfg = escalation_cfg or {}
+        written = escalation_cfg.get("mode", "ask")
+        unreadable = None
         try:
-            mode = EscalationMode(str(escalation_cfg.get("mode", "ask")).lower())
+            mode = EscalationMode(str(written).lower())
         except ValueError:
-            logger.warning("escalation.mode %r invalid; defaulting to ask",
-                           escalation_cfg.get("mode"))
-            mode = EscalationMode.ASK
+            # Read as ask, a value the parser does not take kept the offer and
+            # every send open behind the dialog for a person who had turned
+            # phone-a-friend off in another spelling: "off", "no" and "false"
+            # (YAML's false), "none", "disabled", 0, "never " with its space.
+            unreadable = _describe_written(written)
+            logger.warning("escalation.mode %r is not one of never, fallback, "
+                           "ask or auto; read as never", written)
+            mode = EscalationMode.NEVER
 
         providers: list[ProviderConfig] = []
         for entry in (providers_cfg or []):
@@ -195,7 +230,8 @@ class EscalationManager(EscalationManagerInterface):
             providers.sort(key=lambda p: p.name != primary)
 
         return cls(mode=mode, providers=providers, scanner=scanner,
-                   adapter_factory=adapter_factory, clock=clock)
+                   adapter_factory=adapter_factory, clock=clock,
+                   unreadable_mode=unreadable)
 
     # -- recognition (the heuristic half of decision #4) ---------------------
 
@@ -408,6 +444,9 @@ class EscalationManager(EscalationManagerInterface):
         surface saying something untrue. escalate() asks it again before
         anything else, for every caller."""
         if self._mode is EscalationMode.NEVER:
+            if self._unreadable_mode is not None:
+                return _REFUSED_BY_AN_UNREADABLE_SETTING.format(
+                    written=self._unreadable_mode)
             return _REFUSED_BY_THE_SETTING
         return None
 
@@ -420,11 +459,17 @@ class EscalationManager(EscalationManagerInterface):
     def get_mode(self) -> EscalationMode:
         return self._mode
 
+    def unreadable_mode(self) -> str | None:
+        """The escalation.mode value as written, in words, when it was none of
+        the four modes and is read as never; None when the setting was read."""
+        return self._unreadable_mode
+
     def set_mode(self, mode: EscalationMode) -> None:
         # NOTE: escalation.mode lives in the AI-immutable config (decision #5); a
         # programmatic set_mode here is for the wiring layer acting on a human's
         # authenticated choice, never an AI-self-driven flip.
         self._mode = mode
+        self._unreadable_mode = None
 
     def configure_provider(self, config: ProviderConfig) -> tuple[bool, str]:
         if not config.name or not config.adapter:

@@ -247,5 +247,99 @@ class APersonInvokedSendReadsTheMode(unittest.TestCase):
                 self.assertEqual(adapter.sent, [["please help with X"]])
 
 
+# escalation.mode as a person may write it in config.yml, and the words the
+# refusal and the status name it by, as the config file's YAML reads it.
+UNREADABLE = [
+    ("off", "false (YAML reads off, no and false as false)"),
+    ("no", "false (YAML reads off, no and false as false)"),
+    ("false", "false (YAML reads off, no and false as false)"),
+    ("on", "true (YAML reads on, yes and true as true)"),
+    ("yes", "true (YAML reads on, yes and true as true)"),
+    ("true", "true (YAML reads on, yes and true as true)"),
+    ("none", "'none'"),
+    ("disabled", "'disabled'"),
+    ("0", "0"),
+    ("'never '", "'never '"),
+    ("", "empty"),
+]
+
+
+def _mode_as_written(directory, written):
+    """escalation.mode as the daemon reads it (Config over a file holding this
+    mode, read by the same YAML reader as config.yml)."""
+    from intergen.config import Config
+    path = f"{directory}/config.yml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"escalation:\n  mode: {written}\n")
+    return Config(config_path=path).get("escalation")["mode"]
+
+
+class AnUnreadableModeIsRefusedAndNamed(unittest.TestCase):
+    """An escalation.mode the parser cannot read was read as ask, so a send the
+    person asked for was put to the dialog and sent. Through the daemon's
+    Escalate it is refused before the dialog, the answer naming the value
+    written and the four accepted, and nothing reaches the provider; the
+    daemon's status carries the same reading and `intergen status` prints it."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    def test_each_value_is_refused_before_the_dialog_and_named(self):
+        for written, words in UNREADABLE:
+            with self.subTest(written=written):
+                manager, adapter = _real_manager(
+                    _mode_as_written(self._dir.name, written))
+                d = _daemon(manager)
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    out = json.loads(d.escalate("please help with X"))
+                consent.assert_not_called()
+                self.assertFalse(out["sent"])
+                self.assertIn(f"escalation.mode setting is {words}, ",
+                              out["response"])
+                self.assertIn("not one of never, fallback, ask or auto",
+                              out["response"])
+                self.assertEqual(adapter.sent, [])
+
+    def test_the_status_carries_and_prints_the_value_read_as_never(self):
+        import contextlib
+        import io
+
+        from intergen.cli import print_status
+        for written, words in UNREADABLE:
+            with self.subTest(written=written):
+                manager, _ = _real_manager(
+                    _mode_as_written(self._dir.name, written))
+                status = json.loads(_status_daemon(escalation=manager).status())
+                self.assertEqual(status["phone_a_friend"],
+                                 {"mode": "never", "unreadable_mode": words})
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    print_status(status)
+                self.assertIn(f"  Escalation: never: escalation.mode is {words}, "
+                              "which is\n              not one of never, "
+                              "fallback, ask or auto, so phone-a-friend is off\n",
+                              out.getvalue())
+
+    def test_a_mode_read_is_printed_as_it_is(self):
+        import contextlib
+        import io
+
+        from intergen.cli import print_status
+        for mode in ("never", "fallback", "ask", "auto"):
+            with self.subTest(mode=mode):
+                manager, _ = _real_manager(mode)
+                status = json.loads(_status_daemon(escalation=manager).status())
+                self.assertEqual(status["phone_a_friend"],
+                                 {"mode": mode, "unreadable_mode": None})
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    print_status(status)
+                self.assertIn(f"  Escalation: {mode} (escalation.mode, "
+                              "phone-a-friend)\n", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

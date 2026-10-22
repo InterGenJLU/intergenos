@@ -1003,6 +1003,15 @@ class InterGenDaemon(InterGenDBusInterface):
                 "panel": panel_down is None,
             },
         }
+        # Phone-a-friend as this daemon's escalation manager reads its setting:
+        # the mode a send is refused or allowed by, and the value written when
+        # it was none of the four modes and is read as never.
+        escalation = getattr(self, "_escalation", None)
+        if escalation is not None:
+            status["phone_a_friend"] = {
+                "mode": escalation.get_mode().value,
+                "unreadable_mode": escalation.unreadable_mode(),
+            }
         # PI-Z26: surface the chat server's serving reality (backend + requested/
         # actual GPU offload) so a silent CPU fallback is queryable, not inferred.
         if self._llama is not None:

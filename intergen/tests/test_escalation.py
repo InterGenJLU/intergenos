@@ -285,10 +285,12 @@ class FromConfigTests(unittest.TestCase):
         # _primary_provider() picks providers[0]; primary must lead.
         self.assertEqual(m.list_providers()[0].name, "beta")
 
-    def test_invalid_mode_defaults_to_ask(self):
+    def test_invalid_mode_reads_as_never_and_names_the_value(self):
         m = EscalationManager.from_config(
             {"mode": "garbage"}, [], adapter_factory=self._FF)
-        self.assertIs(m.get_mode(), EscalationMode.ASK)
+        self.assertIs(m.get_mode(), EscalationMode.NEVER)
+        self.assertEqual(m.unreadable_mode(), "'garbage'")
+        self.assertIn("'garbage'", m.refusal())
 
     def test_malformed_provider_entry_skipped_not_crashed(self):
         m = EscalationManager.from_config(
@@ -431,6 +433,89 @@ class NeverRefusesEverySendTests(unittest.TestCase):
                 self.assertEqual(resp.text, "cloud answer")
                 self.assertEqual(len(built), 1)
                 self.assertEqual(len(built[0].sent), 1)
+
+
+# escalation.mode as a person may write it in config.yml, and the words the
+# refusal names it by, as the config file's YAML reads it.
+UNREADABLE = [
+    ("off", "false (YAML reads off, no and false as false)"),
+    ("no", "false (YAML reads off, no and false as false)"),
+    ("false", "false (YAML reads off, no and false as false)"),
+    ("on", "true (YAML reads on, yes and true as true)"),
+    ("yes", "true (YAML reads on, yes and true as true)"),
+    ("true", "true (YAML reads on, yes and true as true)"),
+    ("none", "'none'"),
+    ("disabled", "'disabled'"),
+    ("0", "0"),
+    ("'never '", "'never '"),
+    ("", "empty"),
+]
+
+
+def _section_as_written(directory, written):
+    """The escalation section as the daemon reads it (Config over a file
+    holding this mode, read by the same YAML reader as config.yml)."""
+    from intergen.config import Config
+    path = f"{directory}/config.yml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"escalation:\n  mode: {written}\n  primary_provider: acme\n")
+    return Config(config_path=path).get("escalation")
+
+
+class AnUnreadableModeReadsAsNever(unittest.TestCase):
+    """An escalation.mode the parser cannot read was read as ask: a person who
+    turned phone-a-friend off in any spelling but never kept the offer and
+    every send behind the dialog. It reads as never now, the refusal naming the
+    value written and the four accepted, and nothing reaches a provider."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    def _manager(self, written, built):
+        def factory(config):
+            adapter = _FakeAdapter(config.name)
+            built.append(adapter)
+            return adapter
+        return EscalationManager.from_config(
+            _section_as_written(self._dir.name, written),
+            [{"name": "acme", "adapter": "openai", "model": "acme-1",
+              "api_key_keyring_id": "intergen-acme"}],
+            adapter_factory=factory)
+
+    def test_each_unreadable_value_refuses_every_send_and_names_itself(self):
+        for written, words in UNREADABLE:
+            with self.subTest(written=written):
+                built = []
+                m = self._manager(written, built)
+                self.assertIs(m.get_mode(), EscalationMode.NEVER)
+                self.assertEqual(m.unreadable_mode(), words)
+                refused = m.refusal()
+                self.assertTrue(refused.startswith("Nothing was sent"), refused)
+                self.assertIn(f"escalation.mode setting is {words}, ", refused)
+                self.assertIn("not one of never, fallback, ask or auto", refused)
+                self.assertIn("read as never", refused)
+                resp = m.escalate(_msgs("please send this"), user_consented=True)
+                self.assertIsInstance(resp, EscalationNotSent)
+                self.assertEqual(resp.text, refused)
+                self.assertEqual(built, [])
+                self.assertFalse(m.should_escalate(
+                    "ask my frontier model about this", "", "failed",
+                    0.0).should_escalate)
+
+    def test_the_four_modes_read_as_themselves_in_any_case(self):
+        for written in ("never", "Never", "fallback", "ask", "AUTO"):
+            with self.subTest(written=written):
+                m = self._manager(written, [])
+                self.assertIs(m.get_mode(), EscalationMode(written.lower()))
+                self.assertIsNone(m.unreadable_mode())
+
+    def test_a_mode_set_by_the_wiring_clears_the_unreadable_value(self):
+        m = self._manager("off", [])
+        m.set_mode(EscalationMode.ASK)
+        self.assertIsNone(m.unreadable_mode())
+        self.assertIsNone(m.refusal())
 
 
 if __name__ == "__main__":
