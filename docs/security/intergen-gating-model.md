@@ -110,6 +110,52 @@ it.)
    gate; the OS enforces it.
 3. **FORBIDDEN** — InterGen will not do it, and **says so transparently** (§6).
 
+### What a consent surface shows
+
+A consent surface asks a person to approve one act, so it describes the act
+that runs and nothing else. Every surface that describes a held act renders ONE
+description, derived from the argv the tool's own builder returns for that
+call (`tool_registry.describe_call`): the web review card's sentence and command
+line, the honest handoff and the refusal message, the desktop dialog's
+headline, the zenity fallback's body, the console's prompt line, the router's
+offer, and the model's capability guard. The command line is the shell-joined
+argv, one per command, joined with `&&`.
+
+- **The update is one act.** A package update runs `pkm sync` and then
+  `pkm upgrade --all --yes` under the one approval (or `pkm upgrade --yes
+  <package>` when a package is named). `--all` upgrades every installed package
+  with a newer signed build and leaves held packages and the kernel
+  (`linux-kernel`) as they are; the card says so. `upgrade` and `uninstall` are
+  not actions of the package tool: an action outside its schema is refused
+  before any card, with the reason.
+- **Flags that run are shown:** `--yes`, `--user`, `--all`, and a write's
+  creation of missing parent directories.
+- **A change on the person's own service manager** (`systemctl --user`) runs in
+  the person's own process, never through the privileged runner (where
+  `--user` would reach root's manager), and its card says `--user`. It is
+  reviewed like every held act of that tool: a card every time.
+- **A call that will be refused is refused before any card,** with its reason:
+  an install or removal that names no package, a command line with a shell
+  construct, a write to a relative path, a `daemon-reload` that names a unit,
+  an unknown unit. A card names the act as resolved: `sshd` for `ssh`, the
+  absolute path of a write, the manager's configuration for `daemon-reload`.
+- **No raw argument dump.** A tool with no command line (`read_file`,
+  `analyze_file`, `web_search`, `take_screenshot`) is shown as a fixed sentence
+  naming its argument; an external handler as its name and the exact payload it
+  is sent.
+- **The terminal handoff** is the same command line as a person types it:
+  `sudo` on every command that runs as root and on none that runs on the
+  person's own manager, and pkm's `--yes` dropped, because a person at a
+  terminal answers pkm's own confirmation.
+- **The OS prompt** is PolicyKit's own, and it cannot carry the act. Its message
+  is the static text of the installed policy action
+  (`org.intergenos.intergen.privileged-tool`: "Authentication is required to
+  let InterGen perform the privileged system action you just approved"), and
+  the only values pkexec could put in it are its own: the program and the
+  command line it starts, which are the privileged runner and a request
+  identifier, never the act inside the request. It authenticates the person;
+  the card they have just answered is what describes the act.
+
 ### Secret reads mirror the OS
 
 A user can `sudo cat` their own shadow file, so InterGen reading a secret is
@@ -196,3 +242,4 @@ tools.
 | Date | Change |
 |---|---|
 | 2026-06-09 | Initial canonical spec, derived from the action-by-zone `sudo`-mirroring matrix. Establishes: inherit the OS privilege model, two-axis separation, Z1/Z2/Z3 zones, InterGen self-substrate in Z3 (no self-modification), the three outcomes (FREE/AUTH-PROMPT/FORBIDDEN), secret reads as AUTH-PROMPT, and the transparent-refusal rule. |
+| 2026-10-22 | §5 "What a consent surface shows": every surface renders one description derived from the argv the tool's own builder returns; the update is the refresh then the upgrade under one approval; flags that run are shown; a user-manager act runs as the person; a call that will be refused is refused before any card; no raw argument dump; the terminal handoff carries sudo on every root command and drops pkm's --yes; the OS prompt's text is static. |
