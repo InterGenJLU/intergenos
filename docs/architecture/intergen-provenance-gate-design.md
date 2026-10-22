@@ -149,7 +149,7 @@ A tool call without a `source_of_request` field is rejected at the dispatcher. N
 
 Orthogonal to provenance, every tool is one of:
 
-- **read-only** — returns information; does not modify system state. Examples: `read_file`, `list_directory`, `web_search`, `manage_services(action=status)`.
+- **read-only** — returns information; does not modify system state. Examples: `read_file`, `list_directory`, `web_search`, `manage_services(action=status)`. A `run_command` command is read-only only when no option of it runs a program, writes a path or sets a state (`safety.classify_command`, read from each program's own help: `rg --pre`, `sort --compress-program`, `time -o`, `strace -o`, `xargs -a`, an `env` assignment such as `PATH` or `LD_PRELOAD`, `git log --output`, `git branch NAME`, `journalctl --vacuum-size`, `ifconfig lo down`); those forms are privileged, and the person reviews each one before it runs.
 - **network egress** — modifies nothing here, but sends a request off the machine to a host or server its arguments name. Examples: `run_command` with `ping`, `dig`, `nslookup`, `host`, `traceroute`, `lpstat -h`, `git remote update` or `git remote set-url` (`safety.command_leaves_the_machine`), and every external (MCP) tool's call.
 - **state-changing — user-scope** — modifies state in the user's own namespace; no privilege escalation. Examples: `write_file` to `$HOME`, `manage_services` with `user_mode=True`.
 - **state-changing — privileged** — requires escalation. Examples: `manage_services(stop, <system-service>)`, `write_file` to `/etc/`, `run_command` with sudo.
