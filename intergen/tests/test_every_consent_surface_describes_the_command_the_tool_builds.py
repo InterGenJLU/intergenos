@@ -272,6 +272,37 @@ class TheModelsCallsTests(_Case):
                       cards[0]["zenity"])
 
 
+class TheTeachLineTests(_Case):
+    """A package action taught in words hands the person the registry's own
+    terminal line for that act (tool_registry.handoff_command): sudo on every
+    command that runs as root, without the --yes a person at a terminal
+    answers. Before, the teach map printed a bare pkm line with no sudo."""
+
+    def test_the_taught_line_is_the_registrys_on_both_floors(self):
+        for text, arguments, verb, app in (
+                ("how do i upgrade htop",
+                 {"action": "update", "package": "htop"}, "update", "htop"),
+                ("how do i install htop",
+                 {"action": "install", "package": "htop"}, "install", "htop"),
+                ("how do i remove htop",
+                 {"action": "remove", "package": "htop"}, "remove", "htop")):
+            line = tool_registry.handoff_command(ToolCall(
+                name="manage_packages", arguments=arguments,
+                source_of_request=Provenance.USER_DIRECT))
+            self.assertTrue(line.startswith("sudo "), line)
+            self.assertNotIn("--yes", line)
+            for locked in (True, False):
+                with self.subTest(text=text, locked=locked):
+                    # The teach parser offers only a name the package index
+                    # resolves; the index is stood in for, resolving htop.
+                    router = self._router(locked=locked)
+                    with mock.patch.object(type(router), "_package_in_index",
+                                           lambda self, name: name == "htop"):
+                        result = self._turn(router, text)
+                    self.assertIn(f"To {verb} {app}, run `{line}`.",
+                                  result.text)
+                    self.assertEqual((self.cards, self.runner), ([], []))
+
 class TheOffersTests(_Case):
     """An offered pkm line is staged as the package tool's call and shows that
     tool's builder's line; an offer whose call would be refused is not made."""

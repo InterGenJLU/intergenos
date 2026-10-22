@@ -6126,6 +6126,20 @@ class ConversationRouter(RouterInterface):
         self._stage_single_offer(action=(shown, staged_tool, original, args))
         return self._offer_line(shown)
 
+    def _taught_package_line(self, command: str) -> str:
+        """The command line a taught package action hands the person: the
+        registry's own terminal line for the package tool's call
+        (tool_registry.handoff_command), so it carries sudo where the act runs
+        as root and leaves out the --yes a person at a terminal answers
+        themselves. Empty when the call would be refused before any card,
+        and then nothing is taught."""
+        from intergen.tool_registry import handoff_command
+        args = _package_action_arguments(command)
+        if args is None:
+            return ""
+        return handoff_command(ToolCall(name="manage_packages", arguments=args,
+                                        source_of_request=Provenance.USER_DIRECT))
+
     def _offer_act(self, command: str, tool: str,
                    arguments: "dict | None" = None
                    ) -> "tuple[str, dict | None, str] | None":
@@ -7009,12 +7023,14 @@ class ConversationRouter(RouterInterface):
             # path where the 2B dispatches an empty manage_packages(install).
             if prior and not orientation:
                 teach = _package_action_teach(normalized, self._package_in_index)
-                if teach is not None:
+                line = (self._taught_package_line(teach[0])
+                        if teach is not None else "")
+                if line:
                     command, app, human_verb = teach
                     # the honest-handoff work: arm the offer, OR — if this action was already
                     # declined this conversation — substitute the honest handoff
                     # instead of re-arming it (loop-killer).
-                    answer = f"To {human_verb} {app}, run `{command}`."
+                    answer = f"To {human_verb} {app}, run `{line}`."
                     if offer_action:
                         offer = self._stage_action_offer_or_handoff(
                             command, "run_command", user_input)

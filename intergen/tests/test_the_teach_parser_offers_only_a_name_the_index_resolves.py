@@ -89,7 +89,7 @@ class OnlyANameTheIndexResolvesIsOffered(unittest.TestCase):
                 result, router, asked, _ = _turn_with_index(
                     "how do I install htop", locked=locked)
                 self.assertTrue(result.text.startswith(
-                    "To install htop, run `pkm install htop`."))
+                    f"To install htop, run `{_taught('pkm install htop')}`."))
                 # A pkm line is staged for the package manager's own tool.
                 self.assertEqual(tuple(router._conv.pending_action_offer[:2]),
                                  (_shown("pkm install htop"), "manage_packages"))
@@ -97,6 +97,18 @@ class OnlyANameTheIndexResolvesIsOffered(unittest.TestCase):
                                   result.answer_linkage.renderer),
                                  ("code", "package_action_teach"))
                 self.assertEqual(asked, 0)
+
+
+def _taught(command):
+    """The line a taught pkm `command` hands the person: the registry's own
+    terminal line for the package tool's call."""
+    from intergen.interfaces.provenance import Provenance
+    from intergen.interfaces.types import ToolCall
+    from intergen.tool_registry import handoff_command
+    return handoff_command(ToolCall(
+        name="manage_packages",
+        arguments=router_module._package_action_arguments(command),
+        source_of_request=Provenance.USER_DIRECT))
 
 
 def _shown(command):
@@ -165,7 +177,7 @@ class TheNameMustCloseTheVerbsObject(unittest.TestCase):
                     # A pkm line is staged for the package manager's own tool.
                     self.assertEqual(tuple(offer[:2]),
                                      (_shown(command), "manage_packages"))
-                    self.assertIn(f"run `{command}`.", result.text)
+                    self.assertIn(f"run `{_taught(command)}`.", result.text)
 
 
 class TheParserAsksTheIndexForTheWordAfterTheVerb(unittest.TestCase):
