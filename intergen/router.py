@@ -7716,15 +7716,19 @@ class ConversationRouter(RouterInterface):
                             kind="code", renderer="safety_block"),
                     )
 
-            # A CALL THE PERSON DENIED AT THE CARD is told in the code's words,
-            # as the keyword path (_dispatch_decline) and the web panel tell it:
-            # gate_refusal_message, the one renderer for every surface (the
-            # honest handoff for a state-changing action). Handed to the
-            # synthesis below, the denial was narrated by the model, worded as
-            # it chose ("the safety layer blocked it"), with no command for the
+            # A CALL THAT RAN NOTHING is told in the code's words, as the keyword
+            # path (_dispatch_decline) and the web panel tell it: the person
+            # denied it at the card, or nobody decided it (no review surface,
+            # a card unanswered before its deadline, a review that failed, a
+            # conversation that ended first), or the gate refused it. The
+            # panel's condition (not executed, not succeeded) and its one
+            # renderer for every surface, gate_refusal_message (the honest
+            # handoff for a state-changing action). Handed to the synthesis
+            # below, such a result was narrated by the model, worded as it
+            # chose ("the safety layer blocked it"), with no command for the
             # person to run it themselves.
             for _tc, _tr in zip(tool_calls, tool_results):
-                if getattr(_tr, "denied_by_user", False):
+                if not _tr.executed and not _tr.success:
                     from intergen.tool_registry import gate_refusal_message
                     response_text = gate_refusal_message(
                         _tc, _tr, self._tools.get_tool(_tc.name))

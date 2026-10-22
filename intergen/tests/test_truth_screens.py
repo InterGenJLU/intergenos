@@ -1884,31 +1884,30 @@ class DispatchSynthesisScreenTests(unittest.TestCase):
     answer now meets the same sequence, with `dispatched` true only when a tool
     ran — a denied dispatch ran nothing, so a claim that it did is unfounded."""
 
-    def test_a_fabricated_success_after_a_denied_dispatch_is_screened(self):
-        for name, regeneration, verdict, delivered in (
-                ("an honest regeneration is served", TURN41_SYNTHESIS,
-                 "violation_regenerated", TURN41_SYNTHESIS),
-                ("a repeated claim gets the honest line", FABRICATED_SUCCESS,
-                 "violation_regen_failed_fallback",
-                 safety.honest_action_fallback())):
+    def test_a_fabricated_success_after_a_denied_dispatch_never_reaches_the_person(self):
+        # A dispatch that ran nothing is told by the code, as the web panel
+        # tells it (gate_refusal_message, linked to the code): the model is not
+        # asked to compose an answer over it, so a success it might claim has
+        # nowhere to come from, and no screen or regeneration is needed.
+        from intergen.tool_registry import gate_refusal_message
+        for name, regeneration in (
+                ("an honest regeneration", TURN41_SYNTHESIS),
+                ("a repeated claim", FABRICATED_SUCCESS)):
             with self.subTest(regeneration=name):
                 result, decisions, dispatched, regenerations = _route_dispatch(
                     TURN41_CALL, TURN41_DENIED, FABRICATED_SUCCESS,
                     regeneration, TURN41_USER)
                 self.assertEqual(result.source, "llm_tools")
                 self.assertEqual(result.tool_results, [TURN41_DENIED])
-                self.assertEqual(result.text, delivered)
+                self.assertEqual(result.text, gate_refusal_message(
+                    TURN41_CALL, TURN41_DENIED,
+                    _router()._tools.get_tool("manage_packages")))
                 self.assertNotIn(FABRICATED_SUCCESS, result.text)
-                self.assertEqual(decisions[0][:2], ("claim_screen", verdict))
-                self.assertIsNotNone(decisions[0][2])
-                self.assertEqual(dispatched, [("claim_screen", False),
-                                              ("state_claim_screen", False)])
-                # Asked once, with the prompt of a turn that offers no tools.
-                self.assertEqual(len(regenerations), 1)
-                self.assertIn("You cannot run tools or commands on this turn",
-                              regenerations[0][0].content)
-                self.assertTrue(regenerations[0][-1].content.startswith(
-                    "You did NOT run"))
+                self.assertEqual(
+                    (result.answer_linkage.kind, result.answer_linkage.renderer),
+                    ("code", "gate_refusal"))
+                self.assertEqual(dispatched, [])
+                self.assertEqual(regenerations, [])
 
     def test_an_executed_dispatch_keeps_its_answer_and_meets_the_screens(self):
         # The control: a tool ran, so the claim and state screens pass the
@@ -2239,16 +2238,21 @@ class InventedToolResultTests(unittest.TestCase):
                                        UPDATES_USER)
         self.assertEqual(browser, console)
 
-    def test_a_result_presented_after_a_denied_dispatch_is_screened(self):
+    def test_a_result_presented_after_a_denied_dispatch_never_reaches_the_person(self):
+        # A dispatch that ran nothing is told by the code, as the web panel
+        # tells it (gate_refusal_message): the model is not asked to compose
+        # an answer over it, so a draft presenting a result it never got has
+        # nowhere to come from, and no screen has a model's text to read.
+        from intergen.tool_registry import gate_refusal_message
         result, decisions, dispatched, regenerations = _route_dispatch(
             TURN41_CALL, TURN41_DENIED, UPDATES_DRAFT, TURN41_SYNTHESIS,
             TURN41_USER)
-        self.assertEqual(result.text, TURN41_SYNTHESIS)
-        self.assertEqual(decisions[0], ("claim_screen", "violation_regenerated",
-                                        "here is what pkm returned"))
-        self.assertEqual(dispatched, [("claim_screen", False),
-                                      ("state_claim_screen", False)])
-        self.assertEqual(len(regenerations), 1)
+        self.assertEqual(result.text, gate_refusal_message(
+            TURN41_CALL, TURN41_DENIED,
+            _router()._tools.get_tool("manage_packages")))
+        self.assertNotIn("here is what pkm returned", result.text.lower())
+        self.assertEqual(dispatched, [])
+        self.assertEqual(regenerations, [])
 
     def test_the_routers_own_framing_of_a_denied_result_stays_clean(self):
         # When a synthesis is rejected the router serves the tool's own output

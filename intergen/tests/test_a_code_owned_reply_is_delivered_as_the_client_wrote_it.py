@@ -427,6 +427,104 @@ class ACallThePersonDeniedIsToldInTheCodesWords(unittest.TestCase):
         self.assertEqual([r.name for r in result.tool_results], ["manage_packages"])
 
 
+class ACallThatRanNothingIsToldAsThePanelTellsIt(unittest.TestCase):
+    """The native floor's tool route through the real registry: the model calls
+    a state-changing tool, the registry holds it for the person's review, and
+    the review answers anything but an approval. Every such call ran nothing,
+    and the route tells it as the web panel does, by the panel's condition (not
+    executed, not succeeded) and its one renderer, gate_refusal_message, one
+    case per review outcome: the model is never asked to narrate it. Before,
+    only the person's own denial was told that way, and a card that timed out
+    or a call with no review surface reached the synthesis."""
+
+    ASK = ACallThePersonDeniedIsToldInTheCodesWords.ASK
+    NARRATION = ACallThePersonDeniedIsToldInTheCodesWords.NARRATION
+
+    def _turn(self, review_callback):
+        from intergen import tool_registry as registry_module
+        router = _router(tier=HardwareTierLevel.TIER_2, locked=False)
+        del router._llm.chat
+        dispatched = []
+
+        def dispatch(call, *a, **k):
+            dispatched.append(call.arguments)
+            return ToolResult(call_id=call.call_id, name=call.name,
+                              content="ran", success=True)
+        call = ToolCall(name="manage_packages",
+                        arguments={"action": "install", "package": "htop"},
+                        call_id="c3", source_of_request=Provenance.USER_DIRECT)
+        router._llm.stream_with_tools = mock.Mock(return_value=iter([call]))
+        router._llm.continue_after_tool_call = mock.Mock(return_value=LLMResponse(
+            text=self.NARRATION, model="local", local=True, quality_passed=True))
+        reviewed = []
+
+        def review(call, decision):
+            reviewed.append(decision.action)
+            return review_callback(call, decision)
+        asked = []
+
+        def urlopen(request, *_, **__):
+            asked.append(request)
+            raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+
+        with mock.patch.object(urllib.request, "urlopen", side_effect=urlopen), \
+                mock.patch("intergen.router.glass.emit"), \
+                mock.patch.object(registry_module, "write_record", return_value=True), \
+                mock.patch.object(registry_module, "mint_token", return_value="case-token"), \
+                mock.patch.object(router._tools, "_dispatch_via_pkexec",
+                                  side_effect=dispatch):
+            # The callback is the turn's: route() takes it as the daemon and
+            # the panel hand it in, and a route() without one has no review
+            # surface.
+            result = router.route(
+                self.ASK,
+                review_callback=None if review_callback is None else review)
+        return result, router, call, dispatched, len(asked), reviewed
+
+    def assert_told_by_the_code(self, review_callback):
+        from intergen.tool_registry import gate_refusal_message
+        result, router, call, dispatched, asked, reviewed = self._turn(
+            review_callback)
+        # The call was held for the person's review and the review was asked,
+        # or there was no review surface to ask.
+        self.assertEqual(reviewed, [] if review_callback is None else ["execute"])
+        self.assertEqual(dispatched, [], "the held call ran")
+        self.assertEqual([r.name for r in result.tool_results], ["manage_packages"])
+        ran = result.tool_results[0]
+        self.assertFalse(ran.executed)
+        self.assertFalse(ran.success)
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, gate_refusal_message(
+            call, ran, router._tools.get_tool("manage_packages")))
+        self.assertNotIn(self.NARRATION, result.text)
+        router._llm.continue_after_tool_call.assert_not_called()
+        self.assertEqual(asked, 0)
+        self.assertEqual((result.answer_linkage.kind, result.answer_linkage.tool,
+                          result.answer_linkage.call_id, result.answer_linkage.renderer),
+                         ("code", "manage_packages", "c3", "gate_refusal"))
+        return ran
+
+    def test_each_review_answer_that_is_not_an_approval(self):
+        from intergen.tool_registry import (
+            REFUSED_WITHOUT_REVIEW, REVIEW_ENDED, REVIEW_FAILED, REVIEW_REFUSED,
+            REVIEW_TIMED_OUT)
+        for answer in ("deny", "deny_conversation", REVIEW_TIMED_OUT,
+                       REVIEW_REFUSED, REVIEW_FAILED, REFUSED_WITHOUT_REVIEW,
+                       REVIEW_ENDED, "an answer no review surface gives"):
+            with self.subTest(answer=answer):
+                ran = self.assert_told_by_the_code(lambda c, d, a=answer: a)
+                self.assertEqual(ran.denied_by_user,
+                                 answer in ("deny", "deny_conversation"))
+
+    def test_a_review_surface_that_raised(self):
+        def raises(call, decision):
+            raise RuntimeError("the card could not be drawn")
+        self.assertFalse(self.assert_told_by_the_code(raises).denied_by_user)
+
+    def test_no_review_surface(self):
+        self.assertFalse(self.assert_told_by_the_code(None).denied_by_user)
+
+
 # Every function of the router that asks the model client for a reply, with
 # what it does with a reply the client wrote.
 CHAT_CALLERS = {
