@@ -18,7 +18,9 @@ from intergen.interfaces.cloud import ProviderConfig
 from intergen.interfaces.scanner import (
     ScanContext, ScanDirection, ScanDisposition, ScanVerdict,
 )
-from intergen.interfaces.types import EscalationMode, LLMResponse, Message, MessageRole
+from intergen.interfaces.types import (
+    EscalationMode, EscalationNotSent, LLMResponse, Message, MessageRole,
+)
 
 
 class _FakeAdapter:
@@ -349,6 +351,74 @@ class OfferedPhraseIsRecognisedTests(unittest.TestCase):
                     or escalation._EXPLICIT_ASK_OWN.search(phrase),
                     f"the product tells the user to type {phrase!r} but the "
                     f"explicit-ask matcher does not recognise it")
+
+
+class NeverRefusesEverySendTests(unittest.TestCase):
+    """escalation.mode = never refuses the send itself, not only the offer.
+
+    The mode was read by should_escalate alone, so a send the person invoked
+    (the panel button, `intergen ask-frontier`, the bus's Escalate) went to the
+    provider under never. Now every send under never comes back not sent, with
+    a sentence naming the setting, before any adapter is built or any scan
+    runs; the other three modes send a consented hop as before."""
+
+    def _recording(self):
+        built = []
+
+        def factory(config):
+            adapter = _FakeAdapter(config.name)
+            built.append(adapter)
+            return adapter
+        return built, factory
+
+    def assert_refused_by_the_setting(self, resp):
+        self.assertIsInstance(resp, EscalationNotSent)
+        self.assertTrue(resp.text.startswith("Nothing was sent"), resp.text)
+        self.assertIn("escalation.mode", resp.text)
+        self.assertIn("never", resp.text)
+
+    def test_never_refuses_the_hop_the_person_consented_to(self):
+        built, factory = self._recording()
+        m = _mgr(mode=EscalationMode.NEVER, providers=[_cfg()],
+                 adapter_factory=factory)
+        resp = m.escalate(_msgs("please send this"), user_consented=True)
+        self.assert_refused_by_the_setting(resp)
+        self.assertEqual(built, [])  # no adapter was even built
+        self.assertEqual(m.get_usage(), [])
+
+    def test_never_refuses_a_derived_hop_before_any_scan(self):
+        built, factory = self._recording()
+        scanner = _FakeScanner(ScanDisposition.ALLOW)
+        m = _mgr(mode=EscalationMode.NEVER, providers=[_cfg()],
+                 adapter_factory=factory, scanner=scanner)
+        resp = m.escalate(_msgs("follow-on"), user_consented=False)
+        self.assert_refused_by_the_setting(resp)
+        self.assertEqual(scanner.calls, [])
+        self.assertEqual(built, [])
+
+    def test_never_read_from_config_refuses(self):
+        built, factory = self._recording()
+        m = EscalationManager.from_config(
+            {"mode": "never", "primary_provider": "acme"},
+            [{"name": "acme", "adapter": "openai", "model": "acme-1",
+              "api_key_keyring_id": "intergen-acme"}],
+            adapter_factory=factory)
+        self.assertIs(m.get_mode(), EscalationMode.NEVER)
+        self.assert_refused_by_the_setting(
+            m.escalate(_msgs("hello"), user_consented=True))
+        self.assertEqual(built, [])
+
+    def test_the_other_modes_send_the_consented_hop_unchanged(self):
+        for mode in (EscalationMode.ASK, EscalationMode.AUTO,
+                     EscalationMode.FALLBACK):
+            with self.subTest(mode=mode.value):
+                built, factory = self._recording()
+                m = _mgr(mode=mode, providers=[_cfg()], adapter_factory=factory)
+                resp = m.escalate(_msgs("hello"), user_consented=True)
+                self.assertNotIsInstance(resp, EscalationNotSent)
+                self.assertEqual(resp.text, "cloud answer")
+                self.assertEqual(len(built), 1)
+                self.assertEqual(len(built[0].sent), 1)
 
 
 if __name__ == "__main__":

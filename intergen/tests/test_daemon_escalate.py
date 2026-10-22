@@ -180,5 +180,66 @@ class DaemonEscalateTests(unittest.TestCase):
         self.assertIn("failed", out["response"].lower())
 
 
+class _RecordingAdapter:
+    """A provider that records what reached it and answers; nothing leaves."""
+
+    name = "acme"
+
+    def __init__(self):
+        self.sent = []
+
+    def send(self, messages, **_):
+        self.sent.append([m.content for m in messages])
+        return LLMResponse(text="frontier answer", model="acme-1", local=False)
+
+
+def _real_manager(mode):
+    """The manager the daemon builds at its start (EscalationManager.from_config
+    over the escalation and providers sections), one provider set up, the
+    adapter recording instead of reaching a network."""
+    from intergen.escalation import EscalationManager
+    adapter = _RecordingAdapter()
+    manager = EscalationManager.from_config(
+        {"mode": mode, "primary_provider": "acme"},
+        [{"name": "acme", "adapter": "openai", "model": "acme-1",
+          "api_key_keyring_id": "intergen-acme"}],
+        adapter_factory=lambda config: adapter)
+    return manager, adapter
+
+
+class APersonInvokedSendReadsTheMode(unittest.TestCase):
+    """A send the person asks for, through the daemon's Escalate (the bus's
+    method and both command-line routes reach this method), with the real
+    manager, once per escalation.mode: never is refused with the setting named
+    and nothing reaches the provider; ask, auto and fallback show the
+    show-before-send dialog and send what the person approved."""
+
+    def test_never_refuses_with_the_setting_named(self):
+        manager, adapter = _real_manager("never")
+        d = _daemon(manager)
+        with mock.patch("intergen.consent_modal.prompt_send_consent",
+                        return_value=True):
+            out = json.loads(d.escalate("please help with X"))
+        self.assertFalse(out["sent"])
+        self.assertIn("escalation.mode", out["response"])
+        self.assertIn("never", out["response"])
+        self.assertEqual(adapter.sent, [])
+
+    def test_the_other_modes_show_the_dialog_and_send(self):
+        for mode in ("ask", "auto", "fallback"):
+            with self.subTest(mode=mode):
+                manager, adapter = _real_manager(mode)
+                d = _daemon(manager)
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    out = json.loads(d.escalate("please help with X"))
+                consent.assert_called_once()
+                self.assertEqual(consent.call_args[0][:2],
+                                 ("please help with X", "acme"))
+                self.assertTrue(out["sent"])
+                self.assertEqual(out["response"], "frontier answer")
+                self.assertEqual(adapter.sent, [["please help with X"]])
+
+
 if __name__ == "__main__":
     unittest.main()

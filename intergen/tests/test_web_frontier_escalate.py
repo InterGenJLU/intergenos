@@ -111,5 +111,69 @@ class FrontierEscalateTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("failed", ctx.ws.sent[-1]["content"].lower())
 
 
+class _RecordingAdapter:
+    """A provider that records what reached it and answers; nothing leaves."""
+
+    name = "acme"
+
+    def __init__(self):
+        self.sent = []
+
+    def send(self, messages, **_):
+        self.sent.append([m.content for m in messages])
+        return LLMResponse(text="frontier answer", model="acme-1", local=False)
+
+
+def _real_manager(mode):
+    """The manager the web server rebuilds after a panel change
+    (EscalationManager.from_config over the escalation and providers
+    sections), one provider set up, the adapter recording."""
+    from intergen.escalation import EscalationManager
+    adapter = _RecordingAdapter()
+    manager = EscalationManager.from_config(
+        {"mode": mode, "primary_provider": "acme"},
+        [{"name": "acme", "adapter": "openai", "model": "acme-1",
+          "api_key_keyring_id": "intergen-acme"}],
+        adapter_factory=lambda config: adapter)
+    return manager, adapter
+
+
+class APersonInvokedSendReadsTheMode(unittest.IsolatedAsyncioTestCase):
+    """The panel's "Ask my frontier model" with the real manager, once per
+    escalation.mode: never is refused with the setting named, nothing reaches
+    the provider and nothing is kept in the conversation; ask, auto and
+    fallback show the show-before-send dialog and send what was approved."""
+
+    async def test_never_refuses_with_the_setting_named(self):
+        manager, adapter = _real_manager("never")
+        s = _server(manager)
+        ctx = _FakeCtx()
+        with mock.patch("intergen.consent_modal.prompt_send_consent",
+                        return_value=True):
+            await s._handle_frontier_escalate(ctx, {"content": "help me"})
+        out = ctx.ws.sent[-1]
+        self.assertFalse(out["sent"])
+        self.assertIn("escalation.mode", out["content"])
+        self.assertIn("never", out["content"])
+        self.assertEqual(adapter.sent, [])
+        self.assertEqual(ctx.session_history, [])
+
+    async def test_the_other_modes_show_the_dialog_and_send(self):
+        for mode in ("ask", "auto", "fallback"):
+            with self.subTest(mode=mode):
+                manager, adapter = _real_manager(mode)
+                s = _server(manager)
+                ctx = _FakeCtx()
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    await s._handle_frontier_escalate(ctx, {"content": "help me"})
+                consent.assert_called_once()
+                self.assertEqual(consent.call_args[0][:2], ("help me", "acme"))
+                out = ctx.ws.sent[-1]
+                self.assertTrue(out["sent"])
+                self.assertEqual(out["content"], "frontier answer")
+                self.assertEqual(adapter.sent, [["help me"]])
+
+
 if __name__ == "__main__":
     unittest.main()

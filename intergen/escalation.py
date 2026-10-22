@@ -9,11 +9,22 @@ ASSISTANCE — the System AI RECOGNIZES a task is multi-step / sensitive / "slig
 outside my scope" and OFFERS to reach the user's configured frontier model; on consent
 it routes via the vendor-neutral cloud substrate (intergen/cloud/).
 
-Modes (EscalationMode; config escalation.mode, default ask):
-  * NEVER    — offline, never offer or send.
-  * FALLBACK — auto-escalate only when the local quality gate fails.
-  * ASK      — OFFER on recognition; the user consents before anything is sent (DEFAULT).
-  * AUTO     — decide by confidence, no prompt.
+Modes (EscalationMode; config escalation.mode, default ask). In the daemon every
+send is one the person asks for (the panel's "Ask my frontier model" button,
+`intergen ask-frontier`, the bus's Escalate) and is shown to them before it goes,
+so the mode decides when the assistant OFFERS one, and NEVER refuses the send too:
+  * NEVER    — no offer, and escalate() refuses every send, one the person asked
+               for included, with a sentence naming the setting.
+  * FALLBACK — offer only when the local answer failed the quality gate and a
+               provider is set up.
+  * ASK      — offer on recognition: an explicit ask, an answer that failed the
+               gate or is unsure, a multi-step or too-large request; with no
+               provider set up, the offer points at the setup (DEFAULT).
+  * AUTO     — the same offer as ASK, when a provider is set up.
+The model client's own automatic cloud step (intergen/llm.py, the quality
+fallback described above, and its FALLBACK and AUTO modes) cannot run in the
+daemon: the daemon registers no cloud provider on the model client and gives it
+no mode, so it sends nothing.
 
 Recognition = HYBRID (ratified decision #4): the heuristic offer (local confidence +
 multi-step signal + query type + an explicit "ask Claude") PLUS a user-invoked
@@ -97,6 +108,12 @@ _EXPLICIT_ASK_OWN = re.compile(
 # What a call the caller's stop ended comes back as: not sent, and not a failure.
 _STOPPED = ("Phone-a-friend stopped: the conversation it was asked from ended, "
             "so no answer was kept.")
+
+# What every send comes back as under escalation.mode = never: the setting, named.
+_REFUSED_BY_THE_SETTING = (
+    "Nothing was sent: phone-a-friend is off because the escalation.mode "
+    "setting is never. To use it, set escalation.mode to ask in "
+    "~/.config/intergen/config.yml (the human-only config).")
 
 # Adapter factory signature (injectable for tests): ProviderConfig -> adapter.
 AdapterFactory = Callable[[ProviderConfig], CloudProviderAdapter]
@@ -298,7 +315,17 @@ class EscalationManager(EscalationManagerInterface):
         each item of its reply, and a call it stopped comes back as not sent,
         never as an answer. A caller that binds nothing (the command line, the
         bus) calls the provider as before.
+
+        NEVER MEANS NEVER, a send the person asked for included. The mode was
+        read only by the offer (should_escalate), so a person-invoked send went
+        to the provider under never: the setting named a promise the send path
+        did not keep. Every send now stops here first under never, with the
+        sentence that names the setting, before any provider, scan or stop is
+        consulted, whoever the caller is.
         """
+        if self._mode is EscalationMode.NEVER:
+            logger.info("phone-a-friend not sent: escalation.mode is never")
+            return self._error_response(_REFUSED_BY_THE_SETTING)
         from intergen.llm import bound_turn_stop
         stop = bound_turn_stop()
         provider = self._primary_provider()

@@ -70,7 +70,15 @@ _DEFAULTS = {
         },
     },
     "escalation": {
-        "mode": "ask",                  # never | fallback | ask | auto (default ask)
+        # When the assistant OFFERS to ask your frontier model. Every send is
+        # one you ask for, shown to you before it goes. never: no offer, and a
+        # send you ask for is refused. fallback: an offer when the local answer
+        # failed its quality gate. ask (default): an offer when you ask for
+        # one, when the answer failed or is unsure, or when the request is
+        # multi-step or too large. auto: the same offer as ask. No mode sends
+        # on its own: the model client's automatic cloud step is not wired in
+        # the daemon.
+        "mode": "ask",                  # never | fallback | ask | auto
         "primary_provider": None,       # NO default provider
     },
     # Cloud provider configs (phone-a-friend + cloud scanner). Each entry:
