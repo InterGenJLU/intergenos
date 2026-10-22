@@ -35,7 +35,10 @@ Caller policy   : the bus policy admits root, the administrators' group and,
                   caller hands this service, is established from the object
                   itself before anything is written or started: a block
                   device node owned by root directly under /dev
-                  (establish_target_disk).
+                  (establish_target_disk). The identity established travels
+                  with the install into the worker, and every later act on the
+                  disk is refused unless the object at the name is still that
+                  one (installer/backend/disks.py confirm_target_disk).
 
 State model — at most ONE concurrent install ever. StartInstall returns
 an opaque install_id (UUID4 string); subsequent CancelInstall /
@@ -61,7 +64,6 @@ Cancel flow:
 import logging
 import os
 import queue
-import stat
 import sys
 import threading
 import time
@@ -73,6 +75,7 @@ from gi.repository import Gio, GLib
 
 from installer.backend import install as backend_install
 from installer.backend import integrity as backend_integrity
+from installer.backend.disks import TargetDiskRefused, establish_target_disk
 
 
 LOG = logging.getLogger("forge.backend_service")
@@ -195,67 +198,6 @@ class _IntegrityAckBridge:
             return q.get(timeout=timeout_seconds)
         except queue.Empty:
             return False
-
-
-class TargetDiskRefused(Exception):
-    """The disk a caller named was not established as a block device node."""
-
-
-def _kind(mode):
-    for test, name in ((stat.S_ISREG, "a regular file"), (stat.S_ISDIR, "a directory"),
-                       (stat.S_ISLNK, "a symbolic link"), (stat.S_ISFIFO, "a FIFO"),
-                       (stat.S_ISCHR, "a character device"), (stat.S_ISSOCK, "a socket")):
-        if test(mode):
-            return name
-    return f"mode {mode:o}"
-
-
-def establish_target_disk(path, device_dir="/dev"):
-    """Establishes, from the object itself, that `path` names a block device
-    node before anything acts on it, and returns its identity (st_dev, st_ino,
-    st_rdev). Raises TargetDiskRefused naming the check that failed.
-
-    The name must be an entry directly under /dev, a directory only root
-    writes, so the name cannot be moved to another object by the caller
-    between this check and the disk phase's commands, which open the device by
-    name. It is opened with O_PATH | O_NOFOLLOW, which runs no open-time effect
-    of a device or a FIFO and does not follow a symlink; the type (a block
-    device) and the owner (root) are read from that descriptor's fstat; then
-    the object is re-opened through /proc/self/fd/<n>, read-only and
-    non-blocking, and must be the same object (st_dev, st_ino and st_rdev
-    equal). Never a stat by name followed by an open by name. `device_dir`
-    exists for tests that build their objects in a scratch directory."""
-    if not isinstance(path, str) or "\0" in path:
-        raise TargetDiskRefused("the disk is not given as a path")
-    if os.path.dirname(path) != device_dir or os.path.basename(path) in ("", ".", ".."):
-        raise TargetDiskRefused(
-            f"{path!r} is not a device node directly under {device_dir} "
-            "(for example /dev/sda or /dev/nvme0n1)")
-    try:
-        fd = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
-    except OSError as exc:
-        raise TargetDiskRefused(f"{path}: {exc.strerror}") from None
-    try:
-        st = os.fstat(fd)
-        if not stat.S_ISBLK(st.st_mode):
-            raise TargetDiskRefused(f"{path} is not a block device: it is {_kind(st.st_mode)}")
-        if st.st_uid != 0:
-            raise TargetDiskRefused(f"{path} is not owned by root (uid {st.st_uid})")
-        try:
-            again_fd = os.open(f"/proc/self/fd/{fd}",
-                               os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC)
-        except OSError as exc:
-            raise TargetDiskRefused(f"{path}: the device could not be re-opened: {exc.strerror}") from None
-        try:
-            again = os.fstat(again_fd)
-        finally:
-            os.close(again_fd)
-        identity = (st.st_dev, st.st_ino, st.st_rdev)
-        if (again.st_dev, again.st_ino, again.st_rdev) != identity:
-            raise TargetDiskRefused(f"{path}: the re-opened object is not the one checked")
-        return identity
-    finally:
-        os.close(fd)
 
 
 class PolkitAuthority:
@@ -433,9 +375,11 @@ class ForgeInstallerService:
             if method == "StartInstall":
                 yaml_content, install_io_variant, dry_run = params.unpack()
                 # The disk is the one path the caller names: established from
-                # the object itself before anything is written or started.
+                # the object itself before anything is written or started, and
+                # acted on later only as that object (its identity goes with
+                # the install into the worker).
                 try:
-                    establish_target_disk(install_io_variant.get("disk"))
+                    disk_identity = establish_target_disk(install_io_variant.get("disk"))
                 except TargetDiskRefused as exc:
                     LOG.warning("StartInstall from %s refused: %s", sender, exc)
                     invocation.return_dbus_error(
@@ -443,6 +387,7 @@ class ForgeInstallerService:
                     return
                 install_id = self._handle_start_install(
                     sender, yaml_content, install_io_variant, bool(dry_run),
+                    disk_identity,
                 )
                 invocation.return_value(GLib.Variant("(s)", (install_id,)))
             elif method == "CancelInstall":
@@ -475,7 +420,7 @@ class ForgeInstallerService:
     # ------------------------------------------------------------------
     def _handle_start_install(self, sender: str, yaml_content: str,
                               install_io: Dict[str, Any],
-                              dry_run: bool) -> str:
+                              dry_run: bool, disk_identity) -> str:
         with self._lock:
             if self._worker_thread is not None and self._worker_thread.is_alive():
                 raise RuntimeError(
@@ -499,7 +444,7 @@ class ForgeInstallerService:
 
             self._worker_thread = threading.Thread(
                 target=self._install_worker,
-                args=(install_id, yaml_path, install_io, dry_run),
+                args=(install_id, yaml_path, install_io, dry_run, disk_identity),
                 daemon=True,
                 name=f"forge-install-{install_id[:8]}",
             )
@@ -508,7 +453,8 @@ class ForgeInstallerService:
         return install_id
 
     def _install_worker(self, install_id: str, yaml_path: Path,
-                        install_io: Dict[str, Any], dry_run: bool) -> None:
+                        install_io: Dict[str, Any], dry_run: bool,
+                        disk_identity) -> None:
         try:
             verify_config = self._build_verify_config(install_id, dry_run)
         except backend_integrity.ReleaseMediaIntegrityError as exc:
@@ -532,6 +478,9 @@ class ForgeInstallerService:
                 )
             ),
             "dry_run": dry_run,
+            # The identity the bus check established for the disk: every act on
+            # the disk re-checks that the object at its name is still this one.
+            "disk_identity": disk_identity,
             "cancel_event": self._cancel_event,
             # Plumb the D-Bus install_id through so the verbose forensic
             # trace (FORGE_DEBUG_VERBOSE=1) names its log file by this id,

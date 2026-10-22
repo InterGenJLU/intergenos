@@ -520,7 +520,8 @@ def ai_panel_reads_enabled(target):
 
 def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                 progress_callback=None, dry_run=False, target=DEFAULT_TARGET,
-                verify_config=None, cancel_event=None, install_id=None):
+                verify_config=None, cancel_event=None, install_id=None,
+                disk_identity=None):
     """Run the full Forge install pipeline.
 
     Args:
@@ -555,6 +556,16 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
                       None disables cancellation (TUI + headless flows pass
                       None; the GUI passes a threading.Event tied to the
                       Cancel button).
+        disk_identity: the identity (st_dev, st_ino, st_rdev) the installer
+                       backend's bus check established for install_io's disk
+                       (disks.establish_target_disk). A caller that made no
+                       such check (the TUI) passes None, and the run
+                       establishes the disk itself before the verify phase.
+                       Every later act on the disk (each disk-phase step, the
+                       target's mount, the bootloader install) is refused in
+                       words unless the object at the name is still this one
+                       (disks.confirm_target_disk). A dry run acts on nothing
+                       and checks nothing.
 
     Returns:
         InstallResult dataclass.
@@ -599,6 +610,11 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         _emit(PHASE_VALIDATE, 0, "loading + validating install config")
         cfg = load_yaml_config(yaml_path)
         validate_install_inputs(cfg, install_io)
+        # The disk is acted on only as the object established for it, by the
+        # bus check or here, never as whatever its name leads to later.
+        disk = install_io["disk"]
+        if not dry_run and disk_identity is None:
+            disk_identity = disks.establish_target_disk(disk)
 
         # C-021: live-ISO PATH pre-flight + per-group archive availability.
         # Both raise BEFORE PHASE_PARTITION so a broken live ISO or empty
@@ -687,7 +703,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # NOTE: this is the last chance to cancel before any destructive
         # disk write. Once partition_disk runs, the target disk is
         # modified and cancel-cleanup cannot undo the change.
-        _emit(PHASE_PARTITION, 2, f"partitioning {install_io['disk']}")
+        _emit(PHASE_PARTITION, 2, f"partitioning {disk}")
         efi = disks.is_efi()
         if efi:
             # C-003 pre-flight: shim-signed binaries must exist on the
@@ -724,7 +740,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             _emit(PHASE_PARTITION, 2, f"FIDO2 enrollment: {msg}")
 
         partitions = disks.partition_disk(
-            install_io["disk"],
+            disk,
             efi=efi,
             luks_enabled=luks_enabled,
             luks_passphrase=install_io.get("luks_passphrase") if luks_enabled else None,
@@ -732,6 +748,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             fido2_enabled=fido2_enabled,
             fido2_progress_callback=_fido2_status if fido2_enabled else None,
             recovery_key_enabled=recovery_key_enabled,
+            disk_identity=disk_identity,
         )
         if partitions.get("recovery_key"):
             # Carried to the frontend for the one time it is shown, and
@@ -757,6 +774,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
 
         # 4: mount target
         _emit(PHASE_MOUNT, 3, f"mounting target {target}")
+        disks.confirm_target_disk(disk, disk_identity, "mounting the target")
         disks.mount_target(partitions, target=target)
         result.phase_completed = PHASE_MOUNT
         # Target is now mounted — attach durable trace sink. Events written
@@ -984,9 +1002,10 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
 
         # 10: bootloader (signs binaries with mok_keypair on EFI)
         _emit(PHASE_BOOTLOADER, 9, "installing bootloader")
+        disks.confirm_target_disk(disk, disk_identity, "the bootloader install")
         bootloader.install_bootloader(
             target,
-            install_io["disk"],
+            disk,
             partitions,
             mok_keypair=mok_keypair,
             # Option C 2026-05-24: thread the user's choice through to

@@ -137,10 +137,12 @@ class TestTheRecoveryKeyNeverReachesTheRecord(unittest.TestCase):
 
         with patch.object(disks.trace, "trace_event", side_effect=fake_event), \
              patch.object(disks, "_disk_size_bytes", return_value=10 ** 12), \
+             patch.object(disks, "confirm_target_disk"), \
              patch.object(disks, "_partition_disk", return_value=layout):
             returned = disks.partition_disk("/dev/sda", efi=True, luks_enabled=True,
                                             luks_passphrase="x",
-                                            recovery_key_enabled=True)
+                                            recovery_key_enabled=True,
+                                            disk_identity=(0, 0, 0))
 
         self.assertEqual(returned["recovery_key"], "AAAAA-BBBBB-CCCCC",
                          "the frontend still needs the key to show it once")

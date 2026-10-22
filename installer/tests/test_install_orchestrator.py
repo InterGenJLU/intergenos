@@ -231,7 +231,11 @@ class TestRunInstallHappyPath(_RunInstallTestBase):
             fido2_enabled=False,
             fido2_progress_callback=None,
             recovery_key_enabled=False,
+            # The identity the run established for the disk, since no bus
+            # check handed it one.
+            disk_identity=self.disks.establish_target_disk.return_value,
         )
+        self.disks.establish_target_disk.assert_called_once_with("/dev/sda")
         self.disks.mount_target.assert_called_once()
         self.hooks.mount_virtual_fs.assert_called_once()
         self.packages.install_packages.assert_called_once()

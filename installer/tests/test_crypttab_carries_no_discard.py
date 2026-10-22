@@ -101,6 +101,8 @@ class _PartitionDiskCase(unittest.TestCase):
                 tpm2_enabled=False,
                 fido2_enabled=False,
                 fido2_progress_callback=None,
+                # The disk check stands in, as the commands do.
+                confirm=lambda step: None,
             )
 
 

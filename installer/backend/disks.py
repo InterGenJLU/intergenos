@@ -48,6 +48,7 @@ import logging
 import os
 import re
 import shutil
+import stat
 import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -370,6 +371,117 @@ def detect_disks():
     return disks
 
 
+# --- The target disk, established once and acted on only as itself ---------
+#
+# The disk an install names is established from the object itself, and every
+# later act on it, or on a name derived from it, is taken only while the object
+# at the name is still that one: immediately before each step, the name is
+# re-read the way the check reads it and the step is refused, in words, unless
+# it is the same object. A caller cannot move a name under /dev; the kernel can
+# (a hotplug replaces a node under the same name), so the identity is carried
+# from the check to every act instead of the name being trusted again.
+
+
+class TargetDiskRefused(Exception):
+    """The disk a caller named was not established as a block device node."""
+
+
+class TargetDiskChanged(TargetDiskRefused):
+    """The object at the disk's name is no longer the one established."""
+
+
+def _kind(mode):
+    for test, name in ((stat.S_ISREG, "a regular file"), (stat.S_ISDIR, "a directory"),
+                       (stat.S_ISLNK, "a symbolic link"), (stat.S_ISFIFO, "a FIFO"),
+                       (stat.S_ISCHR, "a character device"), (stat.S_ISSOCK, "a socket")):
+        if test(mode):
+            return name
+    return f"mode {mode:o}"
+
+
+def establish_target_disk(path, device_dir="/dev"):
+    """Establishes, from the object itself, that `path` names a block device
+    node before anything acts on it, and returns its identity (st_dev, st_ino,
+    st_rdev). Raises TargetDiskRefused naming the check that failed.
+
+    The name must be an entry directly under /dev, a directory only root
+    writes, so a caller cannot move the name to another object; the kernel can
+    (a hotplug replaces a node under the same name), so every later act on the
+    disk re-checks the identity returned here (confirm_target_disk). It is
+    opened with O_PATH | O_NOFOLLOW, which runs no open-time effect of a device
+    or a FIFO and does not follow a symlink; the type (a block device) and the
+    owner (root) are read from that descriptor's fstat; then the object is
+    re-opened through /proc/self/fd/<n>, read-only and non-blocking, and must
+    be the same object (st_dev, st_ino and st_rdev equal). Never a stat by
+    name followed by an open by name. `device_dir` exists for tests that build
+    their objects in a scratch directory."""
+    if not isinstance(path, str) or "\0" in path:
+        raise TargetDiskRefused("the disk is not given as a path")
+    if os.path.dirname(path) != device_dir or os.path.basename(path) in ("", ".", ".."):
+        raise TargetDiskRefused(
+            f"{path!r} is not a device node directly under {device_dir} "
+            "(for example /dev/sda or /dev/nvme0n1)")
+    try:
+        fd = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except OSError as exc:
+        raise TargetDiskRefused(f"{path}: {exc.strerror}") from None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISBLK(st.st_mode):
+            raise TargetDiskRefused(f"{path} is not a block device: it is {_kind(st.st_mode)}")
+        if st.st_uid != 0:
+            raise TargetDiskRefused(f"{path} is not owned by root (uid {st.st_uid})")
+        try:
+            again_fd = os.open(f"/proc/self/fd/{fd}",
+                               os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC)
+        except OSError as exc:
+            raise TargetDiskRefused(f"{path}: the device could not be re-opened: {exc.strerror}") from None
+        try:
+            again = os.fstat(again_fd)
+        finally:
+            os.close(again_fd)
+        identity = (st.st_dev, st.st_ino, st.st_rdev)
+        if (again.st_dev, again.st_ino, again.st_rdev) != identity:
+            raise TargetDiskRefused(f"{path}: the re-opened object is not the one checked")
+        return identity
+    finally:
+        os.close(fd)
+
+
+def confirm_target_disk(path, identity, step):
+    """Refuses `step` unless the object at `path` is still the one established
+    as `identity` (st_dev, st_ino, st_rdev, as establish_target_disk returns
+    it). Called immediately before each act on the target disk or on a name
+    derived from it. The name is read the way the check reads it, the fstat of
+    an O_PATH | O_NOFOLLOW descriptor, which runs no open-time effect and
+    follows no symlink. The refusal (TargetDiskChanged) names the step, the
+    disk checked by its device numbers and what is at the name now."""
+    try:
+        fd = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except FileNotFoundError:
+        st = None
+    except OSError as exc:
+        raise TargetDiskChanged(
+            f"{step} was refused: {path} could not be read again ({exc.strerror})") from None
+    else:
+        try:
+            st = os.fstat(fd)
+        finally:
+            os.close(fd)
+    if st is not None and (st.st_dev, st.st_ino, st.st_rdev) == tuple(identity):
+        return
+    checked = f"device {os.major(identity[2])}:{os.minor(identity[2])}, inode {identity[1]}"
+    if st is None:
+        now = "nothing is at that name now"
+    elif stat.S_ISBLK(st.st_mode):
+        now = (f"the object there now is a block device {os.major(st.st_rdev)}:"
+               f"{os.minor(st.st_rdev)} (inode {st.st_ino})")
+    else:
+        now = f"the object there now is {_kind(st.st_mode)} (inode {st.st_ino})"
+    raise TargetDiskChanged(
+        f"{step} was refused: {path} is not the disk that was checked ({checked}); {now}")
+
+
 def _release_disk(disk_path):
     """Best-effort release of every holder on the target disk so wipefs +
     repartition can take exclusive ownership.
@@ -475,7 +587,7 @@ def _release_disk(disk_path):
 def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=None,
                    tpm2_enabled=False, fido2_enabled=False,
                    recovery_key_enabled=False,
-                   fido2_progress_callback=None):
+                   fido2_progress_callback=None, disk_identity=None):
     """Partition a disk for InterGenOS installation.
 
     Creates a GPT partition table with:
@@ -525,6 +637,14 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
       down to the drive, so the pattern of blocks the filesystem is
       using is not published to the hardware (decided 2026-09-19).
 
+    The disk acted on is the one established: disk_identity is the identity
+    establish_target_disk returned for disk_path. Before each step that writes
+    to the disk or opens it, or a partition of it, by name, the name is
+    re-read and the step is refused unless the object there is still that one
+    (confirm_target_disk). Outside a dry run a call without an identity is
+    refused before anything is read or written; a dry run acts on nothing, so
+    it needs none.
+
     Returns dict with partition paths.
     """
     # A recovery key is a second slot on a LUKS volume; without encryption
@@ -535,7 +655,17 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
             "recovery_key_enabled requires luks_enabled: a recovery key is a "
             "second unlock slot on the encrypted volume, and an unencrypted "
             "install has none")
+    if disk_identity is None and not _DRY_RUN:
+        raise TargetDiskRefused(
+            f"{disk_path}: the disk phase acts only on a disk whose identity was "
+            "established before it starts (establish_target_disk), and none was")
 
+    def confirm(step):
+        # No identity only in a dry run, which acts on nothing.
+        if disk_identity is not None:
+            confirm_target_disk(disk_path, disk_identity, step)
+
+    confirm("the partition phase")
     # D-005 Phase B pre-check: disk size sufficient for ESP + meaningful root
     disk_size = _disk_size_bytes(disk_path)
     trace.trace_event("disk_phase_begin", phase=TRACE_PHASE_PARTITION,
@@ -546,7 +676,8 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
         layout = _partition_disk(disk_path, disk_size, efi, luks_enabled,
                                  luks_passphrase, tpm2_enabled, fido2_enabled,
                                  fido2_progress_callback,
-                                 recovery_key_enabled=recovery_key_enabled)
+                                 recovery_key_enabled=recovery_key_enabled,
+                                 confirm=confirm)
     except BaseException as exc:
         # The failure is a row before it is an exception: the command rows
         # above it already carry the rc and stderr; this names the step's
@@ -568,8 +699,16 @@ def partition_disk(disk_path, efi=False, luks_enabled=False, luks_passphrase=Non
 
 def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                     tpm2_enabled, fido2_enabled, fido2_progress_callback,
-                    recovery_key_enabled=False):
-    """partition_disk's body; the wrapper above opens and closes the trace phase."""
+                    recovery_key_enabled=False, *, confirm):
+    """partition_disk's body; the wrapper above opens and closes the trace phase.
+    confirm(step) refuses `step` unless the disk is still the one established;
+    it runs immediately before each step below that acts on the disk or on a
+    partition of it."""
+
+    def act(cmd, step):
+        confirm(step)
+        _run(cmd)
+
     if disk_size < FRESH_INSTALL_MIN_DISK_BYTES:
         raise RuntimeError(
             f"target disk {disk_path} is {_human_size(disk_size)} — "
@@ -638,18 +777,21 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
     # the target before wiping. Reinstalling over a prior LVM/LUKS install
     # otherwise fails on the next line with `wipefs ... Device or resource
     # busy` (GBC001.5 first bare-metal install). Best-effort; see _release_disk.
+    confirm("releasing the disk's holders")
     _release_disk(disk_path)
     # Wipe existing partition table (routed through _run so dry_run is honored)
-    _run(["wipefs", "-a", disk_path])
+    act(["wipefs", "-a", disk_path], "wiping the partition table")
 
     if efi:
         # GPT + EFI System Partition + root. ESP sized per ESP_SIZE_MIB
         # (D-005 Phase B). End offset = 1 MiB header + ESP_SIZE_MIB.
         esp_end_mib = 1 + ESP_SIZE_MIB
-        _run(f"parted -s {disk_path} mklabel gpt")
-        _run(f"parted -s {disk_path} mkpart ESP fat32 1MiB {esp_end_mib}MiB")
-        _run(f"parted -s {disk_path} set 1 esp on")
-        _run(f"parted -s {disk_path} mkpart root ext4 {esp_end_mib}MiB 100%")
+        act(f"parted -s {disk_path} mklabel gpt", "writing the partition table")
+        act(f"parted -s {disk_path} mkpart ESP fat32 1MiB {esp_end_mib}MiB",
+            "writing the partition table")
+        act(f"parted -s {disk_path} set 1 esp on", "writing the partition table")
+        act(f"parted -s {disk_path} mkpart root ext4 {esp_end_mib}MiB 100%",
+            "writing the partition table")
 
         # Settle udev before touching the new partition nodes: parted writes the
         # table, but /dev/<disk>p1,p2 are (re)created asynchronously by udev, so
@@ -657,7 +799,7 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
         # the install AFTER the table is written (disk wiped, no system). The
         # alongside path already guards this; the primary fresh-install path did
         # not.
-        _run(f"partprobe {disk_path}")
+        act(f"partprobe {disk_path}", "re-reading the partition table")
         _run("udevadm settle")
 
         # Determine partition paths (handles nvme vs sda naming)
@@ -665,15 +807,17 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
 
         # ESP formatted FAT32 with canonical label (D-001 EXPERIMENTAL:
         # fde-init.sh's `blkid -L IGOS_ESP` ESP discovery depends on this).
-        _run(f"mkfs.fat -F32 -n {ESP_LABEL} {p1}")
+        act(f"mkfs.fat -F32 -n {ESP_LABEL} {p1}", "formatting the EFI system partition")
 
         if luks_enabled:
             # LUKS2 format the root partition, open as cryptroot,
             # then mkfs.ext4 on /dev/mapper/cryptroot. Passphrase
             # flows over stdin (never argv); zeroized in finally.
+            confirm("formatting the root partition as LUKS2")
             luks2_format(p2, luks_passphrase)
+            confirm("opening the encrypted root partition")
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
-            _run(f"mkfs.ext4 -L intergenos {mapper}")
+            act(f"mkfs.ext4 -L intergenos {mapper}", "formatting the root filesystem")
 
             crypt_opts = ["luks"]
             recovery_key = None
@@ -682,8 +826,10 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 # whose TPM or security key enrolment fails still leaves the
                 # person with the second way in they asked for.
                 recovery_key = generate_recovery_key()
+                confirm("adding the recovery key slot")
                 add_recovery_key_slot(p2, luks_passphrase, recovery_key)
             if tpm2_enabled or fido2_enabled:
+                confirm("enrolling the experimental unlock methods")
                 _enroll_experimental_unlock_methods(
                     p1, p2, luks_passphrase,
                     tpm2_enabled=tpm2_enabled,
@@ -703,27 +849,29 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 layout["recovery_key"] = recovery_key
             return layout
         else:
-            _run(f"mkfs.ext4 -L intergenos {p2}")
+            act(f"mkfs.ext4 -L intergenos {p2}", "formatting the root filesystem")
             return {"esp": p1, "root": p2, "efi": True}
     else:
         # GPT + BIOS boot + root
-        _run(f"parted -s {disk_path} mklabel gpt")
-        _run(f"parted -s {disk_path} mkpart bios_grub 1MiB 2MiB")
-        _run(f"parted -s {disk_path} set 1 bios_grub on")
-        _run(f"parted -s {disk_path} mkpart root ext4 2MiB 100%")
+        act(f"parted -s {disk_path} mklabel gpt", "writing the partition table")
+        act(f"parted -s {disk_path} mkpart bios_grub 1MiB 2MiB", "writing the partition table")
+        act(f"parted -s {disk_path} set 1 bios_grub on", "writing the partition table")
+        act(f"parted -s {disk_path} mkpart root ext4 2MiB 100%", "writing the partition table")
 
         # Settle udev before touching the new partition nodes (see the EFI
         # branch above): avoids the mkfs-races-udev abort after the table is
         # written.
-        _run(f"partprobe {disk_path}")
+        act(f"partprobe {disk_path}", "re-reading the partition table")
         _run("udevadm settle")
 
         p1, p2 = _partition_paths(disk_path, 2)
 
         if luks_enabled:
+            confirm("formatting the root partition as LUKS2")
             luks2_format(p2, luks_passphrase)
+            confirm("opening the encrypted root partition")
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
-            _run(f"mkfs.ext4 -L intergenos {mapper}")
+            act(f"mkfs.ext4 -L intergenos {mapper}", "formatting the root filesystem")
             # EXPERIMENTAL TPM2/FIDO2 require EFI (pre-flight rejected
             # this combination above). Plain LUKS on BIOS continues to
             # work, just passphrase-only.
@@ -736,7 +884,7 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 "efi": False,
             }
         else:
-            _run(f"mkfs.ext4 -L intergenos {p2}")
+            act(f"mkfs.ext4 -L intergenos {p2}", "formatting the root filesystem")
             return {"bios_grub": p1, "root": p2, "efi": False}
 
 

@@ -120,10 +120,13 @@ def _tools(rows):
 class DiskPhaseTraced(unittest.TestCase):
 
     def _partition(self, fake, **kw):
+        # The disk named exists on no machine: its identity and the check of
+        # it stand in, as its size does.
         with patch.object(_shared.subprocess, "run", fake), \
              patch.object(disks, "_disk_size_bytes", lambda d: SIZE), \
-             patch.object(disks, "cryptsetup_available", lambda: True):
-            return disks.partition_disk(DISK, **kw)
+             patch.object(disks, "cryptsetup_available", lambda: True), \
+             patch.object(disks, "confirm_target_disk", lambda *a: None):
+            return disks.partition_disk(DISK, disk_identity=(0, 0, 0), **kw)
 
     def test_efi_luks_every_command_is_a_row_and_the_passphrase_is_not(self):
         fake = _FakeRun()
