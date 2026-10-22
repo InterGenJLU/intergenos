@@ -151,27 +151,27 @@ projector and the key/value cache.
 
 ### 5b. InterGen Sentinel — Pluggable Security Scanning
 
-InterGen Sentinel is the security-scanning layer for the local assistant: a vendor-neutral, pluggable provider chain that classifies installed packages, configurations, and runtime activity for known and emerging risks.
+InterGen Sentinel supplies local scanning in the assistant's dispatch path. The shipped service uses a rules floor and can attach a separate local model for deeper review.
 
-**Default chain (always available, fully local):**
-- `Local-Rules` — rule-based classifier (known-bad-pattern matchers, supply-chain checks)
-- `Local-Qwen` — local-LLM-backed safety review using the same tier model already loaded for the AI assistant
+**Shipped local scanning:**
+- `Local-Rules` — the always-on, network-free rules floor
+- `Local-Qwen` — a separate local classifier, using InternVL3.5-2B by default. It is attached when the configured model is present and passes pin verification, and runs in its own on-demand server.
 
-**Optional cloud providers (opt-in, off by default):** Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Each provider is a discrete plug-in; users select zero or more, and credentials are stored in GNOME Keyring (libsecret) — never plaintext.
+**Cloud scanning:** No cloud scanner is connected in the shipped daemon.
 
 **How it runs today:** Sentinel is not a command you invoke — it sits in the dispatch
-path. Every tool call the assistant makes is classified by the provider chain before it
-executes, and every dispatch is written to an append-only per-user audit log
-(`intergen tool-log` shows it). That gate is shipped and validated live.
+path. External/MCP interactions are scanned by the local policy, and tool-dispatch
+decisions are recorded in an append-only per-user audit log (`intergen tool-log` shows it). The scan
+policy is wired into the shipped daemon.
 
 **Planned commands** (designed, not yet implemented):
 - `intergen scan` — scan installed packages for known vulnerabilities (default chain)
 - `intergen harden` — AI-guided system hardening recommendations (default chain plus any opt-in providers)
 - `intergen audit` — full security audit of the running system
 
-**Design rationale:** The assistant doesn't just find vulnerabilities — it explains what they are, why they matter, and how to fix them. Users understand their security posture, not just their system configuration. The vendor-neutral provider chain means the project doesn't bind itself to any single security ecosystem; users keep control of where their data flows.
+**Design rationale:** The assistant doesn't just find vulnerabilities — it explains what they are, why they matter, and how to fix them. Users understand their security posture, not just their system configuration. The scanner interface leaves room for additional providers; the shipped dispatch path uses local scanning.
 
-**Availability:** The Sentinel module is always installed. The default Local-Rules + Local-Qwen chain works fully offline. Cloud providers activate only when explicitly opted in and credentials are configured.
+**Availability:** The rules floor works offline without a downloaded classifier model. If the configured local classifier is unavailable, the rules floor remains active. Configuring cloud credentials does not attach a cloud scanner.
 
 ### 6. The AI Teaches, Not Hides
 
@@ -338,7 +338,7 @@ Full research archives in [docs/research/](research/INDEX.md) (180+ documents ac
 31. ☑ Application roadmap Phase 2 — Firefox 140.9.0esr, Audacity 3.7.7, Transmission 4.1.1, Rhythmbox 3.4.9 + LV2 plugin host stack landed, and LibreOffice, Thunderbird, GIMP and Inkscape have since landed too. VLC is not packaged; `mpv` and `celluloid` are the shipped video players.
 32. ☐ Multi-DE with config isolation (KDE Plasma, COSMIC)
 33. ☑ AI Tier 1 + Tier 2 integration — `intergen daemon` + console live; hardware-tier detection and `intergen ask` (tool-calling) validated end-to-end on a bare-metal install. The Tier-2 9B ships and auto-selects on capable hardware, and vision — screenshot/image understanding — ships on every tier. All three tiers, and their paired vision projectors, are SHA-256-pinned in the signed model manifest, and the Tier-3 35B has been served on high-end GPU hardware. The Tier-3 NATIVE DISPATCH LANE is what remains unshipped: `SHIPPED_LOGIC_LANES` in `intergen/dispatch_policy.py` holds Tier 2 alone, so a machine serving the 35B decides actions through the code-owned locked path
-34. ☑ InterGen Sentinel security scanning (Local-Rules + Local-Qwen default; opt-in cloud providers) — validated live: Sentinel scan active over the tool registry, LocalQwen deep scanner attached, every tool dispatch audited
+34. ☑ InterGen Sentinel security scanning (Local-Rules floor; separate Local-Qwen classifier when available; no connected cloud scanner) — scan policy wired into the tool registry, tool-dispatch decisions audited
 35. ☑ Public binary mirror — `repo.intergenos.org` is live, serving signed per-package `.igos.tar.gz` archives, a signed `InterGenOS.db` index, and the GPL source-archive tree under `sources/`; `pkm sync` validates the index signature. The ISO download path is live on the same host — the image, its checksum file and the signature over that checksum are published under `iso/` and linked from the project's front page. Remaining: full v1.0 package coverage.
 
 ### Release
