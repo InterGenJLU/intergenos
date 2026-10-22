@@ -26,6 +26,7 @@ semantics — this layer only needs to snapshot the current bytes.
 import os
 from pathlib import Path
 
+from . import held_open as _held
 from . import manifest as _manifest
 from . import paths as _paths
 
@@ -63,16 +64,21 @@ def capture(config_paths, store_root, store, sequence, wall_clock, reason,
     entries = []
     unreadable = []
     for base in config_paths:
-        if not os.path.lexists(base):
-            continue
         if _excluded(base, ex):
             continue
-        if os.path.isdir(base) and not os.path.islink(base):
+        # The hold says what the base is; a scope entry that is a FIFO, a
+        # device, or reached through a link is recorded as not captured.
+        try:
+            e = _manifest.capture_entry(base, base, store)
+        except _held.HeldOpenRefused as refused:
+            unreadable.append(_manifest.refusal_record(base, refused))
+            continue
+        if e is None:
+            continue
+        if e["type"] == _manifest.T_DIR:
             _walk_into(base, store, entries, ex, unreadable)
         else:
-            e = _manifest.capture_entry(base, base, store)
-            if e is not None:
-                entries.append(e)
+            entries.append(e)
 
     m = _manifest.build_manifest(
         _paths.LAYER_CONFIG_STATE, sequence, wall_clock, reason, entries,
@@ -100,6 +106,10 @@ def _walk_into(base, store, entries, excludes, unreadable=None):
             "error": f"{type(error).__name__}: {error.strerror or error}",
         })
 
+    def record(path, error):
+        if unreadable is not None:
+            unreadable.append(_manifest.refusal_record(path, error))
+
     for dirpath, dirnames, filenames in os.walk(
         base, topdown=True, onerror=record_unreadable
     ):
@@ -108,22 +118,34 @@ def _walk_into(base, store, entries, excludes, unreadable=None):
             d for d in dirnames
             if not _excluded(os.path.join(dirpath, d), excludes)
         ]
-        for name in [dirpath] if dirpath == base else []:
-            pass  # base dir entry captured below via the per-dir capture
-        # Capture the directory node itself.
-        e = _manifest.capture_entry(dirpath, dirpath, store)
-        if e is not None:
-            entries.append(e)
-        # os.walk lists directory symlinks in dirnames but does not visit
-        # them. Capture the links themselves alongside the file entries.
-        directory_links = [
-            name for name in dirnames
-            if os.path.islink(os.path.join(dirpath, name))
-        ]
-        for fn in filenames + directory_links:
-            ap = os.path.join(dirpath, fn)
-            if _excluded(ap, excludes):
-                continue
-            fe = _manifest.capture_entry(ap, ap, store)
-            if fe is not None:
+        # The names os.walk listed are only names: the directory is walked to
+        # from / by descriptor and each name is held there before any act.
+        try:
+            dir_fd = _held.held_directory(dirpath)
+        except OSError as error:
+            record(dirpath, error)
+            dirnames[:] = []
+            continue
+        try:
+            # Capture the directory node itself, from its hold.
+            e = _manifest.capture_entry_at(
+                dir_fd, ".", dirpath, dirpath, store)
+            if e is not None:
+                entries.append(e)
+            # os.walk lists directory symlinks in dirnames but does not visit
+            # them; the hold tells them apart from the directories it visits.
+            for fn in filenames + dirnames:
+                ap = os.path.join(dirpath, fn)
+                if _excluded(ap, excludes):
+                    continue
+                try:
+                    fe = _manifest.capture_entry_at(dir_fd, fn, ap, ap, store)
+                except _held.HeldOpenRefused as refused:
+                    record(ap, refused)
+                    continue
+                if fe is None or (fe["type"] == _manifest.T_DIR
+                                  and fn in dirnames):
+                    continue
                 entries.append(fe)
+        finally:
+            os.close(dir_fd)

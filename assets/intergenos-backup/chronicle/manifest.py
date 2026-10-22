@@ -18,6 +18,7 @@ only displayed. A backward wall-clock jump is detected and flagged, never
 allowed to mis-order or overwrite a version.
 """
 
+import errno
 import json
 import re
 import os
@@ -26,6 +27,7 @@ import tempfile
 from pathlib import Path
 
 from . import cas as _cas
+from . import held_open as _held
 from . import paths as _paths
 
 
@@ -47,38 +49,85 @@ def capture_entry(abs_path, rel_path, store):
     """Capture one path into a manifest entry, storing file bytes in the CAS.
 
     Args:
-        abs_path: the source path on disk (not followed if a symlink).
+        abs_path: the source path on disk, absolute and written out in full
+            (not followed if a symlink).
         rel_path: the path as recorded in the manifest (store-relative or
             absolute, caller's choice — used verbatim for restore).
         store: a ContentStore; regular-file bytes are put into it.
+
+    A capture scope can name any path, including one in a directory another
+    account controls, so the path is walked to from / by descriptor without
+    following a link and the name is held before anything opens it
+    (capture_entry_at). Raises chronicle.held_open.HeldOpenRefused for a path
+    reached through a link and for anything but a directory, a link or a
+    regular file; the caller records it as a path the capture could not read.
 
     Returns:
         an entry dict, or None if the path does not exist (a caller capturing a
         footprint of not-yet-existing paths simply records their absence).
     """
     try:
-        st = os.lstat(abs_path)
+        dir_fd, name, text = _held.held_parent(abs_path)
+    except FileNotFoundError:
+        return None
+    except _held.HeldOpenRefused as refused:
+        if refused.errno == errno.ENOTDIR:
+            return None  # a file where a directory was: the path is absent
+        raise
+    try:
+        return capture_entry_at(dir_fd, name, text, rel_path, store)
+    finally:
+        os.close(dir_fd)
+
+
+def capture_entry_at(dir_fd, name, abs_path, rel_path, store):
+    """capture_entry for the name `name` in the directory `dir_fd`, a
+    descriptor reached by the walk. The name is held with O_PATH|O_NOFOLLOW,
+    which opens nothing: a directory and a link are recorded from the hold
+    (a link's target read from the held link), a regular file's bytes are
+    read from the descriptor opened through the hold, and a FIFO, socket or
+    device is refused, never opened and never stored as a file."""
+    try:
+        held, st = _held.hold_at(dir_fd, name)
     except (FileNotFoundError, NotADirectoryError):
         return None
-    mode = st.st_mode
-    entry = {
-        "path": str(rel_path),
-        "mode": stat.S_IMODE(mode),
-        "uid": st.st_uid,
-        "gid": st.st_gid,
-        "mtime": int(st.st_mtime),
-    }
-    if stat.S_ISDIR(mode):
-        entry["type"] = T_DIR
-    elif stat.S_ISLNK(mode):
-        entry["type"] = T_SYMLINK
-        entry["target"] = os.readlink(abs_path)
-    else:
-        # Regular file (and, conservatively, anything else with bytes).
-        entry["type"] = T_FILE
-        entry["size"] = st.st_size
-        entry["sha256"] = store.put_file(abs_path)
-    return entry
+    try:
+        mode = st.st_mode
+        entry = {
+            "path": str(rel_path),
+            "mode": stat.S_IMODE(mode),
+            "uid": st.st_uid,
+            "gid": st.st_gid,
+            "mtime": int(st.st_mtime),
+        }
+        if stat.S_ISDIR(mode):
+            entry["type"] = T_DIR
+        elif stat.S_ISLNK(mode):
+            entry["type"] = T_SYMLINK
+            entry["target"] = _held.read_link(held)
+        elif stat.S_ISREG(mode):
+            fd, _opened = _held.reopened(held, st, os.O_RDONLY, abs_path)
+            try:
+                entry["type"] = T_FILE
+                entry["size"] = st.st_size
+                entry["sha256"] = store.put_fd(fd)
+            finally:
+                os.close(fd)
+        else:
+            raise _held.HeldOpenRefused(
+                "kind", f"{abs_path} is {_held.kind_of(mode)}, not a regular "
+                f"file, a directory or a link, so it was not captured and "
+                f"nothing was opened.", errno.EINVAL, abs_path)
+        return entry
+    finally:
+        os.close(held)
+
+
+def refusal_record(path, error):
+    """The unreadable-path record for a path a capture refused or could not
+    read, in the shape every capture records."""
+    return {"path": str(path),
+            "error": f"{type(error).__name__}: {error.strerror or error}"}
 
 
 def canonical_bytes(entries):

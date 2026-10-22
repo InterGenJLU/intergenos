@@ -26,6 +26,7 @@ import hashlib
 import os
 from pathlib import Path
 
+from . import held_open as _held
 from . import paths as _paths
 
 _CHUNK = 1024 * 1024
@@ -96,20 +97,42 @@ class ContentStore:
             raise
 
     def put_file(self, src_path):
-        """Store a file's contents; return the sha256. The file is streamed, so
+        """Store a regular file's contents; return the sha256. The file is
+        held before it is opened (chronicle.held_open), so a FIFO, a device or
+        a link at the path is refused without being opened, then streamed
+        from that one descriptor (put_fd)."""
+        fd, _info = _held.open_held(os.fspath(src_path), os.O_RDONLY)
+        try:
+            return self.put_fd(fd)
+        finally:
+            os.close(fd)
+
+    def put_fd(self, src_fd):
+        """Store the bytes readable from an open descriptor; return the
+        sha256. The descriptor is read from its start twice, once to name the
+        blob and once to copy it, and the copy must hash to the same name, so
+        a source that changes between the reads stores nothing. Streamed, so
         arbitrarily large files never load whole into memory."""
-        sha = sha256_file(src_path)
+        sha = _sha256_fd(src_fd)
         if self.exists(sha):
             return self.require_valid(sha)
         shard = _paths.blob_path(self.root, sha).parent
         shard.mkdir(parents=True, exist_ok=True)
         fd, tmp = _mkstemp_in(shard)
         try:
-            with os.fdopen(fd, "wb") as out, open(src_path, "rb") as src:
-                for chunk in iter(lambda: src.read(_CHUNK), b""):
+            copied = hashlib.sha256()
+            with os.fdopen(fd, "wb") as out:
+                os.lseek(src_fd, 0, os.SEEK_SET)
+                for chunk in iter(lambda: os.read(src_fd, _CHUNK), b""):
+                    copied.update(chunk)
                     out.write(chunk)
                 out.flush()
                 os.fsync(out.fileno())
+            if copied.hexdigest() != sha:
+                raise CorruptBlob(
+                    f"the source changed while it was stored: it hashed to "
+                    f"{sha}, then copied as {copied.hexdigest()}"
+                )
             return self._finalize(tmp, sha)
         except BaseException:
             _silent_unlink(tmp)
@@ -194,6 +217,15 @@ class ContentStore:
                     except OSError:
                         pass
         return sorted(deleted)
+
+
+def _sha256_fd(fd):
+    """The sha256 of everything readable from `fd`, from its start."""
+    os.lseek(fd, 0, os.SEEK_SET)
+    h = hashlib.sha256()
+    for chunk in iter(lambda: os.read(fd, _CHUNK), b""):
+        h.update(chunk)
+    return h.hexdigest()
 
 
 def _mkstemp_in(directory):

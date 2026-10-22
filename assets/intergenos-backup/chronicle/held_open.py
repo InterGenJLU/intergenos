@@ -125,10 +125,22 @@ def _hold_directory_at(fd, part, here, create):
                 pass
         except OSError as exc:
             if exc.errno in (errno.ENOTDIR, errno.ELOOP):
+                # O_PATH|O_DIRECTORY on a link says ENOTDIR, as on a file:
+                # the component's own lstat at the walked descriptor tells a
+                # link (refused as one) from an object that is not a
+                # directory (a path that does not exist as written).
+                try:
+                    kind = os.stat(part, dir_fd=fd, follow_symlinks=False)
+                    code = (errno.ELOOP if stat.S_ISLNK(kind.st_mode)
+                            else errno.ENOTDIR)
+                except OSError:
+                    code = exc.errno
+                words = ("a link" if code == errno.ELOOP
+                         else "not a directory")
                 raise HeldOpenRefused(
-                    "walk", f"{here} is not a directory reached without a "
-                    f"link ({exc.strerror}), so nothing was opened.",
-                    exc.errno, here) from exc
+                    "walk", f"{here} is {words}, and a path is walked only "
+                    f"through directories, never a link, so nothing was "
+                    f"opened.", code, here) from exc
             raise
     raise AssertionError("unreachable")  # pragma: no cover
 

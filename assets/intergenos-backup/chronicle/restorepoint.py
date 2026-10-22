@@ -16,6 +16,7 @@ Paths in the footprint that do NOT exist at capture (a fresh install's not-yet-
 created files) are recorded as absent, so a reversal knows to delete them.
 """
 
+from . import held_open as _held
 from . import manifest as _manifest
 from . import paths as _paths
 
@@ -73,8 +74,15 @@ def capture_from_footprint(footprint, store_root, store, sequence, wall_clock):
 
     entries = []
     absent = []
+    unreadable = []
     for p in paths:
-        e = _manifest.capture_entry(p, p, store)
+        # A path reached through a link, or a FIFO or a device, is recorded as
+        # not captured; nothing opens it (capture_entry holds it first).
+        try:
+            e = _manifest.capture_entry(p, p, store)
+        except _held.HeldOpenRefused as refused:
+            unreadable.append(_manifest.refusal_record(p, refused))
+            continue
         if e is None:
             absent.append(p)
         else:
@@ -82,7 +90,8 @@ def capture_from_footprint(footprint, store_root, store, sequence, wall_clock):
 
     reason = footprint.get("reason") or "pre-transaction restore point"
     m = _manifest.build_manifest(
-        _paths.LAYER_RESTORE_POINT, sequence, wall_clock, reason, entries
+        _paths.LAYER_RESTORE_POINT, sequence, wall_clock, reason, entries,
+        unreadable
     )
     # Transaction metadata rides alongside the entries. It does not enter the
     # root hash (which covers file integrity); it records what the point is for
