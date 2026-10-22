@@ -51,6 +51,10 @@ dependencies:
   # audit log had no bound on its growth. Declared here so an install that
   # carries InterGen also carries the thing that rotates its log.
   - logrotate
+  # pkm's own resolver answers whether the package index has a name before
+  # the assistant offers to install it (the router imports pkm.repo); without
+  # pkm nothing resolves and no install is ever offered.
+  - pkm
 verify_paths:
   - /usr/lib/python3.14/site-packages/intergen
   - /usr/lib/python3.14/site-packages/intergen/tools
