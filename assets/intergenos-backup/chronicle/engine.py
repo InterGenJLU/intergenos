@@ -13,7 +13,6 @@ and flagged, never allowed to mis-order.
 """
 
 import contextlib
-import errno
 import fcntl
 import functools
 import hashlib
@@ -32,6 +31,7 @@ from . import config as _config
 from . import configstate as _configstate
 from . import enumerate as _enumerate
 from . import escalate as _escalate
+from . import held_open as _held
 from . import manifest as _manifest
 from . import paths as _paths
 from . import queue as _queue
@@ -1206,24 +1206,57 @@ class Engine:
 
     def _restore_one(self, layer, version_id, entry, root, store, mode):
         src_type = entry.get("type")
-        target_path = Path(entry["path"])
+        target_path = entry["path"]
         if mode == "beside":
-            dest = Path(str(target_path) + f".chronicle-restored-{version_id}")
+            dest = target_path + f".chronicle-restored-{version_id}"
         elif layer == _paths.LAYER_CONFIG_STATE:
             # Reviewed change, not a silent revert (spec §8).
-            dest = Path(str(target_path) + ".pkmnew")
+            dest = target_path + ".pkmnew"
         else:
             dest = target_path
 
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        # The destination's directory is walked to from / by descriptor,
+        # never through a link, a missing directory made at the descriptor
+        # above it, and every act lands at that descriptor: a directory an
+        # account controls cannot turn root's write toward another file.
+        dir_fd, name, dest = _held.held_parent(dest, create=True)
+        try:
+            return Path(Engine._restore_at(layer, version_id, entry, root,
+                                           store, dir_fd, name, dest,
+                                           src_type))
+        finally:
+            os.close(dir_fd)
+
+    @staticmethod
+    def _restore_at(layer, version_id, entry, root, store, dir_fd, name,
+                    dest, src_type):
         if src_type == _manifest.T_DIR:
-            dest.mkdir(parents=True, exist_ok=True)
-            _apply_meta(dest, entry)
+            try:
+                os.mkdir(name, 0o777, dir_fd=dir_fd)
+            except FileExistsError:
+                pass
+            held, info = _held.hold_at(dir_fd, name)
+            try:
+                if not stat.S_ISDIR(info.st_mode):
+                    raise EngineError(
+                        f"{dest} is {_held.kind_of(info.st_mode)}, not a "
+                        f"directory; its mode and owner were not set")
+                opened = _held.opened_directory(held, info, dest)
+            finally:
+                os.close(held)
+            try:
+                _apply_meta(opened, entry)
+            finally:
+                os.close(opened)
             return dest
         if src_type == _manifest.T_SYMLINK:
-            if dest.lexists() if hasattr(dest, "lexists") else os.path.lexists(dest):
-                os.unlink(dest)
-            os.symlink(entry["target"], dest)
+            try:
+                os.stat(name, dir_fd=dir_fd, follow_symlinks=False)
+            except FileNotFoundError:
+                pass
+            else:
+                os.unlink(name, dir_fd=dir_fd)
+            os.symlink(entry["target"], name, dir_fd=dir_fd)
             return dest
         # Regular file: fetch bytes, re-hash before writing (spec §3.2). The
         # bytes hashed are the bytes written: a user-data file is read once,
@@ -1242,26 +1275,36 @@ class Engine:
                 f"integrity check failed for {entry['path']}: version "
                 f"{version_id} blob hashes to {actual}, manifest says {sha}"
             )
-        # The copy is hashed in full from its own descriptor before it
-        # replaces anything, so what lands is the verified version or nothing.
-        fd, tmp = _mkstemp_in(dest.parent)
+        # The copy is a new name made at the walked directory's descriptor,
+        # hashed in full from its own descriptor and given its recorded mode
+        # and owner there before it is renamed over the name, so what lands
+        # is the verified version or nothing, and nothing is set by path.
+        tmp = f".tmp-{uuid.uuid4().hex}"
+        fd = os.open(tmp, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                     | os.O_CLOEXEC, 0o600, dir_fd=dir_fd)
         try:
-            with os.fdopen(fd, "r+b") as f:
-                f.write(data)
-                f.flush()
-                os.fsync(f.fileno())
-                f.seek(0)
-                landed = _sha256_stream(f)
-            if landed != sha:
-                raise EngineError(
-                    f"the restored copy of {entry['path']} hashes to {landed}, "
-                    f"manifest says {sha}; nothing was replaced"
-                )
+            try:
+                with os.fdopen(os.dup(fd), "r+b") as f:
+                    f.write(data)
+                    f.flush()
+                    os.fsync(f.fileno())
+                    f.seek(0)
+                    landed = _sha256_stream(f)
+                if landed != sha:
+                    raise EngineError(
+                        f"the restored copy of {entry['path']} hashes to "
+                        f"{landed}, manifest says {sha}; nothing was replaced"
+                    )
+                _apply_meta(fd, entry)
+            finally:
+                os.close(fd)
+            os.rename(tmp, name, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
         except BaseException:
-            _silent_unlink(tmp)
+            try:
+                os.unlink(tmp, dir_fd=dir_fd)
+            except OSError:
+                pass
             raise
-        os.replace(tmp, dest)
-        _apply_meta(dest, entry)
         return dest
 
     # -- queue / status -------------------------------------------------
@@ -1335,18 +1378,15 @@ class Engine:
         return total
 
 
-def _apply_meta(path, entry):
+def _apply_meta(fd, entry):
+    """The recorded mode and owner, set on the descriptor of the object the
+    restore made or walked to (never by path, so never through a link). A
+    process without CAP_CHOWN keeps its own ownership, as before; restore_apply
+    escalates to the unit that holds it."""
+    os.fchmod(fd, entry.get("mode", 0o644))
     try:
-        os.chmod(path, entry.get("mode", 0o644), follow_symlinks=False)
-    except (OSError, NotImplementedError):
-        try:
-            os.chmod(path, entry.get("mode", 0o644))
-        except OSError:
-            pass
-    try:
-        os.chown(path, entry.get("uid", -1), entry.get("gid", -1),
-                 follow_symlinks=False)
-    except (OSError, AttributeError, PermissionError):
+        os.fchown(fd, entry.get("uid", -1), entry.get("gid", -1))
+    except PermissionError:
         pass
 
 
@@ -1356,38 +1396,43 @@ _READ_CHUNK = 1024 * 1024
 def _read_stored_once(path, entry):
     """The bytes of a stored user-data file, read from ONE descriptor.
 
-    The file is opened without following a link at its name and without
-    blocking on a FIFO put there; the open file itself must be a regular file
-    owned by the uid this process runs as (the store's only writer: capture and
-    restore run as the same account) and must have the manifest's size. Every
-    byte returned comes from that descriptor, so a name swapped after the open
-    cannot change what is hashed or what is written.
+    The file is held with O_PATH (chronicle.held_open) before anything opens
+    it: the held object must be a regular file owned by the uid this process
+    runs as (the store's only writer: capture and restore run as the same
+    account) with the manifest's size, and only then is that inode opened.
+    Every byte returned comes from that descriptor, so a name swapped after
+    the hold cannot change what is hashed or what is written.
     """
+    def check(info):
+        if info.st_uid != os.geteuid():
+            return (f"stored file for {entry['path']} is owned by uid "
+                    f"{info.st_uid}, not by the store's writer (uid "
+                    f"{os.geteuid()}); refused")
+        size = entry.get("size")
+        if size is not None and info.st_size != size:
+            return (f"stored file for {entry['path']} is {info.st_size} "
+                    f"bytes, manifest says {size}; refused")
+        return None
+
+    # The stored file is held before it is opened: a FIFO or a device put in
+    # the store is refused without being opened, and a link is never followed.
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        fd, _info = _held.open_held(str(path), os.O_RDONLY, check)
     except FileNotFoundError:
         raise EngineError(f"stored file missing for {entry['path']}") from None
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
+    except _held.HeldOpenRefused as refused:
+        if refused.refusal == "link":
             raise EngineError(
                 f"stored file for {entry['path']} is a symbolic link; refused"
             ) from None
-        raise
+        if refused.refusal == "kind":
+            raise EngineError(f"stored file for {entry['path']} is not a regular file; refused") from None
+        if refused.refusal == "check":
+            raise EngineError(str(refused)) from None
+        raise EngineError(
+            f"stored file for {entry['path']} was not opened: {refused}"
+        ) from None
     try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            raise EngineError(f"stored file for {entry['path']} is not a regular file; refused")
-        if info.st_uid != os.geteuid():
-            raise EngineError(
-                f"stored file for {entry['path']} is owned by uid {info.st_uid}, "
-                f"not by the store's writer (uid {os.geteuid()}); refused"
-            )
-        size = entry.get("size")
-        if size is not None and info.st_size != size:
-            raise EngineError(
-                f"stored file for {entry['path']} is {info.st_size} bytes, "
-                f"manifest says {size}; refused"
-            )
         chunks = []
         for chunk in iter(lambda: os.read(fd, _READ_CHUNK), b""):
             chunks.append(chunk)
