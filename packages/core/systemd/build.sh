@@ -108,6 +108,10 @@ do_install() {
     cd build
     DESTDIR="$DESTDIR" ninja install
 
+    # No polkit grant for the empower group, and no empower group (see
+    # drop_empower_grant below).
+    drop_empower_grant "$DESTDIR"
+
     # Install man pages from separate tarball
     mkdir -pv "${DESTDIR}/usr/share/man"
     tar -xf ${IGOS_SOURCES}/systemd-man-pages-259.1.tar.xz \
@@ -188,6 +192,41 @@ EOF
 [Manager]
 DefaultDeviceTimeoutSec=15s
 EOF
+}
+
+# The release ships no polkit grant for the empower group, and no empower group.
+#
+# systemd 259 installs src/run/empower.rules whenever polkit support is built
+# (src/run/meson.build; no meson option turns it off): a rule that answers YES
+# to EVERY polkit action for any member of the group "empower", without a
+# prompt. sysusers.d/basic.conf declares that group. run0 --empower is the only
+# thing in systemd that puts a process in it, and it skips the group when NSS
+# does not resolve it (src/run/run.c looks the name up and tolerates its
+# absence), still granting the ambient capabilities it was asked for behind the
+# manage-units authorization. Nothing else in systemd, in this tree or on an
+# installed system names the group. A rule that grants every action on one
+# group membership is a way around every prompt the system makes, so both lines
+# are taken out of the staged payload here. The two files are named exactly;
+# a rule file that still names the group afterwards, or a declaration that
+# survives, fails the build loudly rather than shipping.
+drop_empower_grant() {
+    local root="$1"
+    local rules="${root}/usr/share/polkit-1/rules.d"
+    local basic="${root}/usr/lib/sysusers.d/basic.conf"
+    rm -f "${rules}/empower.rules"
+    if [ ! -f "$basic" ]; then
+        echo "ERROR: ${basic} is missing; upstream moved the group declarations, so the empower line cannot be removed. Update drop_empower_grant." >&2
+        return 1
+    fi
+    sed -i '/^g[[:space:]]\+empower[[:space:]]/d' "$basic"
+    if grep -qE '^g[[:space:]]+empower([[:space:]]|$)' "$basic"; then
+        echo "ERROR: ${basic} still declares the empower group after the strip; upstream reworded the line. Update drop_empower_grant." >&2
+        return 1
+    fi
+    if [ -d "$rules" ] && grep -rlqwi empower "$rules"; then
+        echo "ERROR: a polkit rule under ${rules} still names the empower group: $(grep -rlwi empower "$rules" | tr '\n' ' '). Update drop_empower_grant." >&2
+        return 1
+    fi
 }
 
 # Post-install: runs on the live system AFTER deploy
