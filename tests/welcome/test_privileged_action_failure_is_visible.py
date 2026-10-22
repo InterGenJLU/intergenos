@@ -62,6 +62,12 @@ _spec = importlib.util.spec_from_file_location("intergen_welcome", WELCOME_PY)
 welcome = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(welcome)
 
+_policy_spec = importlib.util.spec_from_file_location(
+    "check_privileged_runner_policy",
+    REPO_ROOT / "scripts" / "lib" / "check-privileged-runner-policy.py")
+policy_reader = importlib.util.module_from_spec(_policy_spec)
+_policy_spec.loader.exec_module(policy_reader)
+
 # Decided 2026-08-25: 126 is 'the authorization could not be obtained' and 127
 # is 'the command could not be executed', per pkexec's documented behaviour. The
 # first naming put an authentication sentence on 127, which is not an
@@ -201,17 +207,18 @@ class PolkitActionIsRegistered(unittest.TestCase):
             "polkit will not match it")
 
     def test_the_action_requires_administrator_authentication(self):
-        root = ET.parse(POLICY).getroot()
-        for action in root.findall("action"):
-            defaults = action.find("defaults")
-            self.assertIsNotNone(defaults, "an action ships with no defaults")
-            for tag in ("allow_any", "allow_inactive", "allow_active"):
-                el = defaults.find(tag)
-                self.assertIsNotNone(el, "%s is unset" % tag)
-                self.assertTrue(
-                    el.text.startswith("auth_admin"),
-                    "%s is %r — this action must not be weaker than the "
-                    "generic exec action it replaces" % (tag, el.text))
+        reading = policy_reader.read_policy(POLICY)
+        self.assertFalse(
+            policy_reader.reading_violations(reading),
+            "the policy must be read as written by PolicyKit")
+        action_id = "org.intergenos.welcome.configure-system"
+        self.assertEqual(set(reading.actions), {action_id})
+        action = reading.actions[action_id]
+        for tag in ("allow_any", "allow_inactive", "allow_active"):
+            self.assertEqual(
+                action.defaults[tag], "auth_admin",
+                "%s %s is %r — require administrator authentication for "
+                "each call" % (action_id, tag, action.defaults[tag]))
 
     def test_the_recipe_installs_the_policy(self):
         text = BUILD_SH.read_text(encoding="utf-8")
