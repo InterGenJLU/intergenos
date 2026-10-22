@@ -6844,6 +6844,14 @@ class ConversationRouter(RouterInterface):
         fallbacks: list[str] = []
         text, refused = self._screen_model_answer(
             response.text, messages, source="llm_freeform", fallbacks=fallbacks)
+        # The model client's own sentence is code-owned too. Once its ladder is
+        # spent the client serves a text it wrote (the server-down text, the
+        # empty-response text) and names it on the reply, here and on any
+        # regeneration a screen accepted above; the name is read from that
+        # field, never by recognising the sentence.
+        code_owned = getattr(response, "code_owned", "")
+        if isinstance(code_owned, str) and code_owned:
+            fallbacks.append(code_owned)
 
         # M7 follow-on: a single-turn "write <artifact> and save it" — the artifact
         # was just generated, so STAGE the save as a gated offer (branch 3 reused with
@@ -6861,10 +6869,12 @@ class ConversationRouter(RouterInterface):
         # AND the answer text actually draws on that passage: a retrieval hit puts
         # the passage in front of the model but does not make the model use it,
         # and a Source line on an answer that ignored the page claims a provenance
-        # the answer does not have. A code-owned fallback a screen served in
-        # place of the model's text drew on no page at all, so it is never cited,
-        # whatever words it shares with the question and the passage (the honest
-        # state line on a disk-usage question was cited to an unrelated page).
+        # the answer does not have. A code-owned text served in place of the
+        # model's — a screen's fallback, or the model client's own sentence —
+        # drew on no page at all, so it is never cited, whatever words it shares
+        # with the question and the passage (the honest state line on a
+        # disk-usage question was cited to an unrelated page, and the server-down
+        # text on a question about the assistant to What Leaves The Machine).
         if fallbacks:
             emitted_citation, wiki_support = None, 0.0
             if wiki_citation:
@@ -6993,8 +7003,22 @@ class ConversationRouter(RouterInterface):
                 text, messages, source=source, fallbacks=fallbacks)
         return text, refused
 
+    @staticmethod
+    def _accepted_regeneration(regen, fallbacks: "list[str] | None") -> str:
+        """The text of a regeneration a screen accepted. A regeneration is a
+        model call like any other, so its reply can be the model client's own
+        sentence (its ladder spent); the name the reply carries then joins the
+        turn's `fallbacks`, so the citation step meets it as the code-owned text
+        it is. The browser path passes no list."""
+        code_owned = getattr(regen, "code_owned", "")
+        if fallbacks is not None and isinstance(code_owned, str) and code_owned:
+            fallbacks.append(code_owned)
+        return regen.text
+
     def _regenerate_without_claim(self, messages: "list[Message]",
-                                  marker: str | None) -> str | None:
+                                  marker: str | None, *,
+                                  fallbacks: "list[str] | None" = None
+                                  ) -> str | None:
         """M3(ii): regenerate a freeform draft ONCE with an explicit corrective
         note, and accept the result only if it no longer claims an unfounded
         action. Returns the honest text, or None if the regen still violates (the
@@ -7028,7 +7052,8 @@ class ConversationRouter(RouterInterface):
         verdict, _ = screen_execution_claim(
             regen.text, dispatched=False,
             executed_outputs=self._conv.executed_outputs)
-        return regen.text if verdict == "clean" else None
+        return (self._accepted_regeneration(regen, fallbacks)
+                if verdict == "clean" else None)
 
     def _screen_and_correct_claim(self, draft: str, messages: "list[Message]", *,
                                   dispatched: bool, source: str,
@@ -7052,7 +7077,8 @@ class ConversationRouter(RouterInterface):
                 "dispatched": dispatched, "source": source})
             text = draft
         else:
-            corrected = self._regenerate_without_claim(messages, marker)
+            corrected = self._regenerate_without_claim(
+                messages, marker, fallbacks=fallbacks)
             if corrected is not None:
                 outcome, text = "violation_regenerated", corrected
             else:
@@ -7093,7 +7119,9 @@ class ConversationRouter(RouterInterface):
                 or self._conv.pending_ipv6_offer is not None)
 
     def _regenerate_without_state_claim(self, messages: "list[Message]",
-                                        marker: str | None) -> str | None:
+                                        marker: str | None, *,
+                                        fallbacks: "list[str] | None" = None
+                                        ) -> str | None:
         """Regenerate a freeform draft ONCE with the state guard stated as a fact
         about this turn, accepting the result only if it no longer asserts a
         reading nothing took. Returns the text, or None (the caller then serves
@@ -7109,7 +7137,7 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("state-claim-screen regeneration failed: %s", e)
             return None
-        return (regen.text
+        return (self._accepted_regeneration(regen, fallbacks)
                 if local_state_regeneration_ok(regen.text, context=context)
                 else None)
 
@@ -7127,7 +7155,8 @@ class ConversationRouter(RouterInterface):
                 "verdict": "clean", "marker": None, "dispatched": dispatched,
                 "source": source})
             return draft
-        corrected = self._regenerate_without_state_claim(messages, marker)
+        corrected = self._regenerate_without_state_claim(
+            messages, marker, fallbacks=fallbacks)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
         else:
@@ -7160,7 +7189,9 @@ class ConversationRouter(RouterInterface):
 
     def _regenerate_without_selfoffer(self, messages: "list[Message]",
                                       marker: str | None = None,
-                                      draft: str | None = None) -> str | None:
+                                      draft: str | None = None, *,
+                                      fallbacks: "list[str] | None" = None
+                                      ) -> str | None:
         """M7 leg 2: regenerate a freeform draft ONCE, re-grounded that nothing can
         be dispatched from it and that it must not pose a bindable self-offer.
         Returns the corrected text, or None if it still offers (the caller then
@@ -7182,7 +7213,8 @@ class ConversationRouter(RouterInterface):
             return None
         verdict, _ = screen_model_text_offer(
             regen.text, dispatched=False, code_offer_staged=False)
-        return regen.text if verdict == "clean" else None
+        return (self._accepted_regeneration(regen, fallbacks)
+                if verdict == "clean" else None)
 
     def _screen_and_correct_model_offer(self, draft: str, messages: "list[Message]",
                                         *, dispatched: bool, source: str,
@@ -7197,7 +7229,8 @@ class ConversationRouter(RouterInterface):
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": "clean", "marker": None, "source": source})
             return draft
-        corrected = self._regenerate_without_selfoffer(messages, marker, draft)
+        corrected = self._regenerate_without_selfoffer(
+            messages, marker, draft, fallbacks=fallbacks)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
         else:
@@ -7209,7 +7242,9 @@ class ConversationRouter(RouterInterface):
         return text
 
     def _regenerate_with_capability_grounding(self, messages: "list[Message]",
-                                              marker: str | None) -> str | None:
+                                              marker: str | None, *,
+                                              fallbacks: "list[str] | None" = None
+                                              ) -> str | None:
         """M4: regenerate a freeform draft ONCE with the real pkm surface grounded
         in, accepting it only if it no longer names a non-existent pkm subcommand.
         Returns the grounded text, or None if it still fabricates (the caller then
@@ -7222,7 +7257,8 @@ class ConversationRouter(RouterInterface):
             logger.error("capability-screen regeneration failed: %s", e)
             return None
         verdict, _ = screen_capability_claim(regen.text)
-        return regen.text if verdict == "clean" else None
+        return (self._accepted_regeneration(regen, fallbacks)
+                if verdict == "clean" else None)
 
     def _screen_and_correct_capability(self, draft: str, messages: "list[Message]",
                                        *, source: str,
@@ -7271,7 +7307,8 @@ class ConversationRouter(RouterInterface):
             if fallbacks is not None:
                 fallbacks.append("capability_screen")
             return capability_unintrospectable_fallback(marker)
-        corrected = self._regenerate_with_capability_grounding(messages, marker)
+        corrected = self._regenerate_with_capability_grounding(
+            messages, marker, fallbacks=fallbacks)
         if corrected is not None:
             outcome, text = "violation_regenerated", corrected
         else:
@@ -7282,7 +7319,9 @@ class ConversationRouter(RouterInterface):
             "verdict": outcome, "marker": marker, "source": source})
         return text
 
-    def _regenerate_without_refusal(self, messages: "list[Message]") -> str | None:
+    def _regenerate_without_refusal(self, messages: "list[Message]", *,
+                                    fallbacks: "list[str] | None" = None
+                                    ) -> str | None:
         """Regenerate a conversational draft ONCE after a refusal was detected, and
         accept the result only if it no longer refuses. Returns the honest text, or
         None if the second draft still declines (the caller then serves the
@@ -7296,7 +7335,8 @@ class ConversationRouter(RouterInterface):
             logger.error("refusal-screen regeneration failed: %s", e)
             return None
         verdict, _ = screen_general_refusal(regen.text)
-        return regen.text if verdict == "clean" else None
+        return (self._accepted_regeneration(regen, fallbacks)
+                if verdict == "clean" else None)
 
     def _screen_and_correct_refusal(self, draft: str, messages: "list[Message]",
                                     *, source: str,
@@ -7314,7 +7354,7 @@ class ConversationRouter(RouterInterface):
             glass.emit("decision", "refusal_screen", detail={
                 "verdict": "clean", "phrase": None, "source": source})
             return (draft, False)
-        corrected = self._regenerate_without_refusal(messages)
+        corrected = self._regenerate_without_refusal(messages, fallbacks=fallbacks)
         if corrected is not None:
             outcome, text, refused = "refusal_regenerated", corrected, False
         else:

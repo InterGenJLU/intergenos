@@ -329,6 +329,12 @@ class LLMResponse:
     # charset_sanity). The engine-side reaction ladder consumes these; the
     # router-side per-flag reaction is a separate consumer.
     semantic_flags: list[str] = field(default_factory=list)
+    # THE CLIENT'S OWN TEXT, NAMED. When the model client serves a sentence it
+    # wrote in place of a model's answer once its ladder is spent, this names
+    # which ("model_server_down", "empty_response"); it is empty for every other
+    # reply. A consumer that attributes a reply's text to a source (the freeform
+    # route's wiki citation) reads this field, never the sentence.
+    code_owned: str = ""
 
 
 @dataclass

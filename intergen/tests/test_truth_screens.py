@@ -34,6 +34,8 @@ import io
 import json
 import os
 import unittest
+import urllib.error
+import urllib.request
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -1279,6 +1281,159 @@ class FreeformCitationTests(unittest.TestCase):
         self.assertEqual([d[1] for d in decisions], ["clean"] * len(decisions))
         self.assertTrue(result.text.startswith(answer))
         self.assertTrue(result.text.endswith(PRINT_PAGE.citation))
+
+
+# The pages this machine's installed wiki returned, with no embedder, for the
+# questions the model client's own texts were cited under (verbatim).
+_WHAT_LEAVES_CITATION = (
+    "Source: [What Leaves The Machine](file:///usr/share/doc/intergenos/wiki/"
+    "assistant/what-leaves-the-machine.html) · [online](https://wiki.intergenos"
+    ".org/assistant/what-leaves-the-machine.html)")
+WHAT_LEAVES_PAGE = WikiHit(
+    rel_html="assistant/what-leaves-the-machine.html",
+    title="What Leaves The Machine", score=1.0,
+    passage=(
+        "and a policy the assistant could rewrite would be a description of its "
+        "current mood, not a control. Because the assistant cannot reach these "
+        "sections, the answer to “could it decide to send more?” is no, at the "
+        "level of what it is able to do rather than what it is inclined to do. "
+        "Local documentation, local citations One more thing does not leave the "
+        "machine, and it surprises people: when InterGen cites documentation, it is"
+        " citing the copy on your disk. The full wiki is installed at "
+        "/usr/share/doc/intergenos/wiki . Citations resolve to a file:// link into "
+        "that local copy first and the online page second, so the primary link "
+        "works with networking down. Looking something up in the manual is not a "
+        "network event. InterGen also refuses to cite a page that fails its "
+        "integrity check. Every page is"),
+    citation=_WHAT_LEAVES_CITATION)
+WHAT_LEAVES_INTRO_PAGE = WikiHit(
+    rel_html="assistant/what-leaves-the-machine.html",
+    title="What Leaves The Machine", score=1.0,
+    passage=(
+        "Keyboard shortcuts Press ← or → to navigate between chapters Press S or / "
+        "to search in the book Press ? to show this help Press Esc to hide this "
+        "help Auto Light Rust Coal Navy Ayu InterGenOS Wiki What Leaves the Machine"
+        " This page answers one question precisely: under what circumstances does "
+        "anything you say to InterGen leave your computer, and what exactly goes? "
+        "The short answer is that by default nothing does, and the only path that "
+        "sends anything is one you configure, arm, and then approve request by "
+        "request while looking at the exact text being sent. The default: nothing "
+        "leaves InterGen runs on your own CPU and GPU. There is no cloud account, "
+        "no API key, no telemetry, and no background upload. After the first-run "
+        "model download, the assistant needs no network connection at all. This"),
+    citation=_WHAT_LEAVES_CITATION)
+TOOLCHAINS_PAGE = WikiHit(
+    rel_html="packages/language-toolchains.html",
+    title="Language Toolchains", score=1.0,
+    passage=(
+        "of packaging; it is the shipping rule the build applies. The image is "
+        "meant to boot, install, and give you a working desktop with a verified "
+        "boot chain — not to carry every language runtime anyone might want. A "
+        "developer who needs Haskell installs Haskell. Someone who never touches "
+        "Erlang never pays for it in image size, attack surface, or update volume. "
+        "That is the same minimization argument made in Attack-Surface "
+        "Minimization, applied to language runtimes. The practical consequence: on "
+        "a freshly installed machine, php , java , erl , julia , zig , ghc and R "
+        "are all absent until you install them, and you need working access to the "
+        "mirror (or a local copy of it) at the time you install. See Using "
+        "InterGenOS Offline for how to install packages on a machine with no "
+        "network. Where the"),
+    citation=(
+        "Source: [Language Toolchains](file:///usr/share/doc/intergenos/wiki/"
+        "packages/language-toolchains.html) · [online](https://wiki.intergenos.org"
+        "/packages/language-toolchains.html)"))
+
+_REFUSED = "refused"
+CLAIM_DRAFT = ("Alright, let's run the command `nmap localhost` for you to "
+               "check your attack surface.")
+OWN_ANSWER = ("The short answer is that nothing you say to InterGen leaves your "
+              "computer unless you set up a cloud provider: the page answers "
+              "under what circumstances anything leaves the machine and what "
+              "exactly goes.")
+
+
+def _route_through_the_client(user, *replies, locked, wiki):
+    """One turn through route() with the REAL model client, the model server
+    answered at the client's one request function: each request gets the next
+    of `replies`, the last repeating — `_REFUSED` for a server nothing listens
+    on, any other text streamed back as the completion ("" for an empty one).
+    Returns (the result, the number of requests the client made)."""
+    tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
+    router = _router(tier=tier, locked=locked)
+    del router._llm.chat, router._llm.stream_with_tools
+    router._wiki_retrieval = _OneHit(wiki)
+    asked = []
+
+    def urlopen(request, *_, **__):
+        asked.append(request)
+        reply = replies[min(len(asked), len(replies)) - 1]
+        if reply == _REFUSED:
+            raise urllib.error.URLError(
+                ConnectionRefusedError(111, "Connection refused"))
+        return _SseResponse(_sse_text(reply))
+
+    with mock.patch.object(urllib.request, "urlopen", side_effect=urlopen), \
+            mock.patch("intergen.router.glass.emit"):
+        result = router.route(user)
+    return result, len(asked)
+
+
+class ClientOwnTextCitationTests(unittest.TestCase):
+    """The model client's own texts cite no page either. Once its ladder is
+    spent, chat() serves a sentence the client wrote — the server-down text when
+    nothing is listening, the empty-response text when the model produced
+    nothing servable twice — and it reached the citation step with no screen's
+    fallback named, so the page the question retrieved was cited under it: the
+    server-down text under What Leaves The Machine and the empty-response text
+    under Language Toolchains on both floors, and the empty-response text again
+    when a screen's regeneration came back as the client's own. The client names
+    its text on the reply (code_owned), and the citation step reads that field."""
+
+    def _assert_served_uncited(self, result, text):
+        self.assertEqual(result.source, "llm_freeform")
+        self.assertEqual(result.text, text)
+        self.assertNotIn("Source:", result.text)
+
+    def test_the_server_down_text_cites_no_page_on_the_locked_floor(self):
+        result, _ = _route_through_the_client(
+            "how do I check assistant on this machine?", _REFUSED,
+            locked=True, wiki=WHAT_LEAVES_PAGE)
+        self._assert_served_uncited(result, LLMRouter._MODEL_SERVER_DOWN_FALLBACK)
+
+    def test_the_server_down_text_cites_no_page_on_the_native_floor(self):
+        result, _ = _route_through_the_client(
+            "how do I check assistant on this machine?", _REFUSED,
+            locked=False, wiki=WHAT_LEAVES_PAGE)
+        self._assert_served_uncited(result, LLMRouter._MODEL_SERVER_DOWN_FALLBACK)
+
+    def test_the_empty_response_text_cites_no_page_on_the_locked_floor(self):
+        result, _ = _route_through_the_client(
+            "what is attack surface?", "", locked=True, wiki=TOOLCHAINS_PAGE)
+        self._assert_served_uncited(result, LLMRouter._EMPTY_RESPONSE_FALLBACK)
+
+    def test_the_empty_response_text_cites_no_page_on_the_native_floor(self):
+        result, _ = _route_through_the_client(
+            "what is attack surface?", "", locked=False, wiki=TOOLCHAINS_PAGE)
+        self._assert_served_uncited(result, LLMRouter._EMPTY_RESPONSE_FALLBACK)
+
+    def test_a_regeneration_into_the_clients_own_text_cites_no_page(self):
+        # The claim screen asks again and both attempts of the regeneration come
+        # back empty, so the regeneration is the client's own text.
+        result, asked = _route_through_the_client(
+            "what is attack surface?", CLAIM_DRAFT, "", locked=True,
+            wiki=TOOLCHAINS_PAGE)
+        self.assertEqual(asked, 3)
+        self._assert_served_uncited(result, LLMRouter._EMPTY_RESPONSE_FALLBACK)
+
+    def test_the_models_own_answer_through_the_client_keeps_its_page(self):
+        # The control: the same client and floor, a completion that draws on the
+        # page it was given.
+        result, _ = _route_through_the_client(
+            "explain assistant on my computer", OWN_ANSWER, locked=True,
+            wiki=WHAT_LEAVES_INTRO_PAGE)
+        self.assertEqual(result.source, "llm_freeform")
+        self.assertTrue(result.text.startswith(OWN_ANSWER))
+        self.assertTrue(result.text.endswith(_WHAT_LEAVES_CITATION))
 
 
 # ── the phone-a-friend offer on the tool route ───────────────────────────────

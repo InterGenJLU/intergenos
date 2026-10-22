@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import unittest
 import unittest.mock as mock
+import urllib.error
+import urllib.request
 
 from intergen.llm import LLMRouter
 from intergen.interfaces.types import EscalationMode, Message, MessageRole
@@ -108,6 +110,33 @@ class LadderExhaustionFallbackTests(unittest.TestCase):
                          "the fallback replaces a rejected reply, never a "
                          "reply the gate passed")
         self.assertTrue(resp.quality_passed)
+
+    # The fallback is the client's own sentence, not a model's answer, and a
+    # consumer that attributes a reply's text to a source (the freeform route's
+    # wiki citation) has to tell the two apart without recognising the
+    # sentence: the reply names it.
+    def test_the_fallback_is_named_as_the_clients_own_text(self):
+        calls, resp = self._serve("", "")
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(resp.text, self.llm._EMPTY_RESPONSE_FALLBACK)
+        self.assertEqual(resp.code_owned, "empty_response")
+
+    def test_the_server_down_text_is_named_as_the_clients_own_text(self):
+        def refused(*_a, **_k):
+            raise urllib.error.URLError(
+                ConnectionRefusedError(111, "Connection refused"))
+        with mock.patch.object(urllib.request, "urlopen", side_effect=refused):
+            resp = self.llm.chat(self.msgs)
+        self.assertEqual(resp.text, self.llm._MODEL_SERVER_DOWN_FALLBACK)
+        self.assertEqual(resp.code_owned, "model_server_down")
+
+    def test_a_models_answer_names_no_text_of_the_clients(self):
+        calls, resp = self._serve(GOOD)
+        self.assertEqual(resp.text, GOOD)
+        self.assertEqual(resp.code_owned, "")
+        calls, resp = self._serve(HTOP_GARBAGE, GOOD)
+        self.assertEqual(resp.text, GOOD)
+        self.assertEqual(resp.code_owned, "")
 
 
 class ServableTextContractTests(unittest.TestCase):

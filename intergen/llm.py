@@ -1276,15 +1276,23 @@ class LLMRouter(LLMInterface):
         The test is the presence of a reason, not its value, so a reason added
         later cannot fall through to "serve it" by omission.
         """
+        return self._servable_reply(response_text, quality_issue)[0]
+
+    def _servable_reply(self, response_text: str,
+                        quality_issue: str) -> tuple[str, str]:
+        """_servable_text's choice, with the name of the client's own text when
+        that is what it chose ("" when it is the model's). The name comes from
+        the branch that picks the sentence, so nothing downstream has to
+        recognise the sentence to know whose it is."""
         text = self._strip_filler(response_text)
         if quality_issue or not text.strip():
             # WHICH failure is this? A server we could not reach at all is a
             # different situation from a model that answered badly, and the
             # person can only act on one of them.
             if self._transport_error:
-                return self._MODEL_SERVER_DOWN_FALLBACK
-            return self._EMPTY_RESPONSE_FALLBACK
-        return text
+                return self._MODEL_SERVER_DOWN_FALLBACK, "model_server_down"
+            return self._EMPTY_RESPONSE_FALLBACK, "empty_response"
+        return text, ""
 
     # ── whether the model endpoint is reachable at all ──────────────────────
     #
@@ -1565,8 +1573,9 @@ class LLMRouter(LLMInterface):
         # and the destination is known; this gate only decides whether there is
         # anything to ask about at all.
         if not self._an_unprompted_send_is_authorised():
+            text, code_owned = self._servable_reply(response_text, quality_issue)
             return LLMResponse(
-                text=self._servable_text(response_text, quality_issue),
+                text=text, code_owned=code_owned,
                 model="local", local=True, quality_passed=False,
                 tokens_prompt=self._last_prompt_tokens,
                 tokens_completion=self._last_completion_tokens,
@@ -1585,8 +1594,9 @@ class LLMRouter(LLMInterface):
         if turn_ended():
             return self._stopped_response()
 
+        text, code_owned = self._servable_reply(response_text, quality_issue)
         return LLMResponse(
-            text=self._servable_text(response_text, quality_issue),
+            text=text, code_owned=code_owned,
             model="local", local=True, quality_passed=False,
             tokens_prompt=self._last_prompt_tokens,
             tokens_completion=self._last_completion_tokens,

@@ -153,7 +153,8 @@ class RouterCapabilityWiring(unittest.TestCase):
 
     def test_violation_regen_fails_serves_honest_fallback(self) -> None:
         # Stub regeneration to fail so the honest fallback path is exercised.
-        self.r._regenerate_with_capability_grounding = lambda messages, marker: None
+        self.r._regenerate_with_capability_grounding = (
+            lambda messages, marker, **_: None)
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(
                 "run `pkm frobnicate x`", [], source="dbus")
@@ -165,7 +166,7 @@ class RouterCapabilityWiring(unittest.TestCase):
 
     def test_violation_regen_succeeds_delivers_correction(self) -> None:
         self.r._regenerate_with_capability_grounding = (
-            lambda messages, marker: "Use `pkm install firefox` instead.")
+            lambda messages, marker, **_: "Use `pkm install firefox` instead.")
         with glass.turn(glass.new_turn_id(), "test"):
             out = self.r._screen_and_correct_capability(
                 "run `pkm frobnicate x`", [], source="dbus")
