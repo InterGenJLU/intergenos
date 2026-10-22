@@ -173,5 +173,4 @@ class ForgeApplication(Adw.Application):
 def run_installer(archive_dir, packages_dir=None, dry_run=False):
     """Entry point invoked by installer/__main__.py dispatch when mode == 'gui'."""
     app = ForgeApplication(archive_dir, packages_dir, dry_run)
-    app.run(None)
-    return 0
+    return app.run(None)

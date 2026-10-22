@@ -135,13 +135,16 @@ def dispatch(mode, archive_dir, packages_dir, dry_run):
         # package's __init__.py stays empty so test rigs can import
         # `installer.frontend.gui.state` without pulling in PyGObject.
         from .frontend.gui.window import run_installer as run_gui
-        run_gui(archive_dir, packages_dir, dry_run=dry_run)
-        return 0
+        # The frontend's status is the process's: a GUI that failed to run
+        # does not exit 0.
+        return run_gui(archive_dir, packages_dir, dry_run=dry_run)
 
     if mode == "tui":
         from .frontend.tui import run_installer as run_tui
-        run_tui(archive_dir, packages_dir, dry_run=dry_run)
-        return 0
+        # 0 after an install or a completed dry run, 1 after a failure, 130
+        # when the person cancels: forge exits with it, and forge-tui.service
+        # records it.
+        return run_tui(archive_dir, packages_dir, dry_run=dry_run)
 
     print(f"forge: unknown mode: {mode}", file=sys.stderr)
     return 2
