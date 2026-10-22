@@ -379,5 +379,96 @@ class ADryRunRunsNothing(_BackendCase):
         self.assertIn("dry run", result.error_message or "")
 
 
+class TheShippedActionAndTheMediumOnlyRule(unittest.TestCase):
+    """The action the backend asks for, the rule that grants the live account
+    and where each one lands: the action in polkit's actions directory, the
+    rule inert in the package and a rule only in the medium's live overlay."""
+
+    FORGE = REPO / "packages" / "desktop" / "forge"
+    POLICY = FORGE / "polkit" / "org.intergenos.forge.policy"
+    RULE = FORGE / "polkit" / "49-intergenos-forge-live-install.rules"
+
+    def test_the_action_asks_an_administrator_at_the_active_session_and_nobody_elsewhere(self):
+        self.assertTrue(self.POLICY.is_file(), f"no action file at {self.POLICY}")
+        import xml.etree.ElementTree as ET
+        actions = ET.parse(self.POLICY).getroot().findall("action")
+        self.assertEqual([a.get("id") for a in actions], [ACTION])
+        defaults = {d.tag: d.text for d in actions[0].find("defaults")}
+        self.assertEqual(defaults, {"allow_any": "no", "allow_inactive": "no",
+                                    "allow_active": "auth_admin"})
+
+    def test_the_rule_grants_only_the_live_account_at_its_local_active_session(self):
+        self.assertTrue(self.RULE.is_file(), f"no rule file at {self.RULE}")
+        text = self.RULE.read_text()
+        code = " ".join(line.split("//")[0] for line in text.splitlines()).split()
+        self.assertEqual(" ".join(code), (
+            'polkit.addRule(function(action, subject) { if (action.id == '
+            '"org.intergenos.forge.install" && subject.user == "intergenos" && '
+            'subject.local && subject.active) { return polkit.Result.YES; } });'))
+
+    def test_the_package_installs_the_action_and_ships_the_rule_inert(self):
+        build = (self.FORGE / "build.sh").read_text()
+        self.assertIn('"${PKG_DIR}/polkit/org.intergenos.forge.policy" \\\n'
+                      '        "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.forge.policy"', build)
+        self.assertIn('"${PKG_DIR}/polkit/49-intergenos-forge-live-install.rules" \\\n'
+                      '        "${DESTDIR}/usr/share/intergenos/forge/49-intergenos-forge-live-install.rules"', build)
+        installed = [line for line in build.splitlines()
+                     if "rules.d" in line and not line.lstrip().startswith("#")]
+        self.assertEqual(installed, [], "the package installs a polkit rule where polkit reads it")
+
+    def test_only_the_medium_boot_makes_it_a_rule(self):
+        init = (REPO / "installer" / "init" / "init.sh").read_text()
+        live = init.index('if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then')
+        copy = init.index('cp "$FORGE_LIVE_RULE" /newroot/etc/polkit-1/rules.d/'
+                          '49-intergenos-forge-live-install.rules')
+        self.assertLess(live, copy)
+        self.assertIn("FORGE_LIVE_RULE=/newroot/usr/share/intergenos/forge/"
+                      "49-intergenos-forge-live-install.rules", init)
+
+
+class TheAuthorityAsksPolkitForTheCaller(unittest.TestCase):
+    """PolkitAuthority's call as polkit receives it, and what each answer
+    becomes: a grant only on is_authorized, a refusal on anything else."""
+
+    def _ask(self, finish):
+        calls, answers = [], []
+
+        class _Bus:
+            def call(self, *args):
+                calls.append(args)
+                args[9](self, "a result", None)
+
+            def call_finish(self, _res):
+                return finish()
+
+        authority = backend_service.PolkitAuthority(_Bus())
+        authority.check(CALLER, ACTION, lambda ok, why: answers.append((ok, why)))
+        return calls, answers
+
+    def test_the_subject_is_the_callers_bus_name_with_interaction_allowed(self):
+        calls, answers = self._ask(lambda: GLib.Variant("((bba{ss}))", ((True, False, {}),)))
+        name, path, iface, method, params, reply_type, _flags, timeout = calls[0][:8]
+        self.assertEqual((name, path, iface, method), (
+            "org.freedesktop.PolicyKit1", "/org/freedesktop/PolicyKit1/Authority",
+            "org.freedesktop.PolicyKit1.Authority", "CheckAuthorization"))
+        self.assertEqual(params.get_type_string(), "((sa{sv})sa{ss}us)")
+        subject, action, details, flags, cancel_id = params.unpack()
+        self.assertEqual(subject, ("system-bus-name", {"name": CALLER}))
+        self.assertEqual((action, details, flags, cancel_id), (ACTION, {}, 1, ""))
+        self.assertEqual(reply_type.dup_string(), "((bba{ss}))")
+        self.assertEqual(timeout, GLib.MAXINT32)
+        self.assertEqual(answers, [(True, None)])
+
+    def test_a_refusal_or_an_error_is_never_a_grant(self):
+        _calls, refused = self._ask(lambda: GLib.Variant("((bba{ss}))", ((False, True, {}),)))
+        self.assertEqual([ok for ok, _ in refused], [False])
+
+        def _error():
+            raise GLib.Error("the authority is not there")
+        _calls, failed = self._ask(_error)
+        self.assertEqual([ok for ok, _ in failed], [False])
+        self.assertIn("polkit could not decide", failed[0][1])
+
+
 if __name__ == "__main__":
     unittest.main()

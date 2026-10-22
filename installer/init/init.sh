@@ -338,6 +338,19 @@ if [ "$MODE" = "live" ] || [ "$MODE" = "install-gui" ]; then
 FORGE_LIVE_POLICY
     chmod 644 /newroot/etc/dbus-1/system.d/org.intergenos.ForgeInstaller1.Live.conf
 
+    # The account's polkit rule belongs here too: the installer backend asks
+    # polkit on every acting call, and this rule (shipped inert by the forge
+    # package) grants the live account at its own session. Absent, the
+    # install asks for an administrator's password instead.
+    FORGE_LIVE_RULE=/newroot/usr/share/intergenos/forge/49-intergenos-forge-live-install.rules
+    if [ -f "$FORGE_LIVE_RULE" ]; then
+        mkdir -p /newroot/etc/polkit-1/rules.d
+        cp "$FORGE_LIVE_RULE" /newroot/etc/polkit-1/rules.d/49-intergenos-forge-live-install.rules
+        chmod 644 /newroot/etc/polkit-1/rules.d/49-intergenos-forge-live-install.rules
+    else
+        info "no Forge live polkit rule at $FORGE_LIVE_RULE; the installer will ask for a password"
+    fi
+
     # Home dir + tmpfiles-driven ownership (busybox-static may lack chown;
     # delegating to systemd-tmpfiles at sysinit.target sidesteps the
     # dependency).
@@ -487,19 +500,12 @@ fi
 # Two overlay writes for install-gui:
 #   1. /home/intergenos/.config/autostart/forge-gui.desktop — XDG autostart
 #      entry that fires `/usr/bin/forge-gui-launch` at session start.
-#      The launcher is the intergenos-side half of a two-stage flow that
-#      captures the calling session's DISPLAY / WAYLAND_DISPLAY /
-#      XAUTHORITY / XDG_RUNTIME_DIR / DBUS_SESSION_BUS_ADDRESS into a
-#      file in /run/user/1000, then pkexecs /usr/bin/forge-gui-runner
-#      which restores those env vars under root and execs forge in GUI
-#      mode. The mode + archive + packages args are hardcoded in
-#      forge-gui-runner so the passwordless polkit grant covers only
-#      this exact root invocation — intergenos can't tamper with the
-#      .desktop file to invoke forge with alternate args.
-#      Squashfs already has /usr/bin/forge + forge-gui-launch +
-#      forge-gui-runner + the polkit policy + rule installed by the
-#      forge package; the rule grants passwordless YES to
-#      subject.user=="intergenos" for the run-installer action.
+#      The launcher starts the GUI as intergenos; the GUI sends the
+#      install to the root backend over the system bus, which acts only
+#      on this medium and asks polkit on every acting call. The live
+#      scaffold above copies the forge package's inert rule into this
+#      overlay's /etc/polkit-1/rules.d/, so polkit grants intergenos at
+#      its own local, active session without a password.
 #   2. /home/intergenos/.config/autostart/intergen-welcome.desktop with
 #      `Hidden=true` — per the XDG Autostart spec, a user-level autostart
 #      entry shadows the system-wide one at /etc/xdg/autostart/. Setting

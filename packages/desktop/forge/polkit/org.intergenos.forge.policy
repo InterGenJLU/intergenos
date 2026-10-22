@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1.0/policyconfig.dtd">
+<!--
+  The Forge installer's acting methods, authorized under one action.
+
+  The installer backend (installer/backend_service.py) runs as root on the
+  system bus. Its bus policy admits a message and nothing more: each method
+  that acts asks polkit for this action, per call, with the caller's bus name
+  as the subject. StartInstall partitions, formats and installs onto the disk
+  the request names; CancelInstall stops the install in progress;
+  AckIntegrityOverride accepts an archive whose hash does not match the
+  signed manifest.
+
+  The default is an administrator's password at the active local session,
+  and nothing at all elsewhere. The install medium's own rule (made a rule
+  only there, at boot) grants the live account at its local, active session.
+  An installed system never runs the backend: its unit and the backend both
+  refuse off the medium.
+-->
+<policyconfig>
+  <vendor>InterGenOS</vendor>
+  <vendor_url>https://github.com/InterGenJLU/intergenos</vendor_url>
+  <icon_name>drive-harddisk</icon_name>
+
+  <action id="org.intergenos.forge.install">
+    <description>Install InterGenOS onto a disk</description>
+    <description xml:lang="en_US">Install InterGenOS onto a disk</description>
+    <message>Authentication is required to install InterGenOS onto the disk you chose, or to change the install in progress</message>
+    <message xml:lang="en_US">Authentication is required to install InterGenOS onto the disk you chose, or to change the install in progress</message>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

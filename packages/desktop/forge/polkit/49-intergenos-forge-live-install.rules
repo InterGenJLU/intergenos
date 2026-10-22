@@ -1,0 +1,17 @@
+// 49-intergenos-forge-live-install.rules: a rule on the install medium only.
+//
+// On the medium, the live account may perform the Forge installer's acting
+// methods (org.intergenos.forge.install) at its own local, active session
+// without a password: that account exists only in the medium's live overlay,
+// and installing is what the medium is for. The forge package ships this file
+// inert under /usr/share/intergenos/forge/, a directory polkit reads no rules
+// from; the medium's boot (installer/init/init.sh) copies it into the live
+// overlay's /etc/polkit-1/rules.d/, beside the live account and its bus
+// policy. An installed system has neither the account nor this rule, and
+// does not run the installer backend.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.intergenos.forge.install" &&
+            subject.user == "intergenos" && subject.local && subject.active) {
+        return polkit.Result.YES;
+    }
+});
