@@ -17,6 +17,7 @@ StandardOutput=journal
 StandardError=journal
 
 StateDirectory=chronicle
+StateDirectoryMode=0700
 RuntimeDirectory=chronicle
 # The engine (chronicled.service) creates /run/chronicle as root:chronicle 0750
 # and its socket inside as root:chronicle 0660 — the group is what lets a

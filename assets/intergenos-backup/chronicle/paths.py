@@ -83,6 +83,14 @@ def blob_path(root, sha256):
     return cas_dir(root) / sha256[:2] / sha256[2:]
 
 
+#: The mode of every directory the engine makes in a store. Nothing that reads
+#: a store runs as another account: the engine and every task run as root, and
+#: the window and the command line reach the engine through its socket, so no
+#: other account needs to list a store's names (a blob's name is its content's
+#: sha256, which answers whether a guessed file is in the store).
+STORE_DIR_MODE = 0o700
+
+
 def store_owners():
     """The uids a store's directories may belong to: root, and the uid the
     engine runs as (root in every shipped unit)."""
@@ -110,13 +118,18 @@ def ensure_store_skeleton(root):
     a store another account could change (require_trusted_root), the root and
     each skeleton directory alike. Returns the resolved root Path."""
     root = Path(root)
-    root.mkdir(parents=True, exist_ok=True)
+    root.mkdir(mode=STORE_DIR_MODE, parents=True, exist_ok=True)
     require_trusted_root(root)
     skeleton = [root / "cas", root / "versions"]
     skeleton += [root / "versions" / layer for layer in LAYERS]
     for directory in skeleton:
-        directory.mkdir(exist_ok=True)
+        directory.mkdir(mode=STORE_DIR_MODE, exist_ok=True)
         require_trusted_root(directory)
+    # A store made before this mode was set keeps its older directories; a
+    # root and skeleton at STORE_DIR_MODE close every name beneath them.
+    for directory in [root] + skeleton:
+        if os.stat(directory).st_mode & 0o7777 != STORE_DIR_MODE:
+            os.chmod(directory, STORE_DIR_MODE)
     return root
 
 

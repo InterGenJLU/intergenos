@@ -72,6 +72,7 @@ StandardOutput=journal
 StandardError=journal
 
 StateDirectory=chronicle
+StateDirectoryMode=0700
 RuntimeDirectory=chronicle
 # systemd creates the directory before ExecStart, and its default 0755 would
 # be world-traversable for the interval before the engine narrows it. The

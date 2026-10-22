@@ -112,7 +112,7 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
     prev_tree = userdata_tree(target_root, prev_id) if prev_id else None
 
     userdata_root = target_root / "userdata"
-    userdata_root.mkdir(parents=True, exist_ok=True)
+    userdata_root.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
     staging = Path(tempfile.mkdtemp(
         prefix=f".staging-{int(sequence)}-", dir=str(userdata_root)
     ))

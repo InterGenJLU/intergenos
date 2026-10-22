@@ -229,7 +229,7 @@ def commit_manifest(store_root, manifest):
     """
     layer = manifest["layer"]
     vdir = _paths.versions_dir(store_root, layer)
-    vdir.mkdir(parents=True, exist_ok=True)
+    vdir.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
     final = vdir / f"{manifest['version_id']}.json"
     fd, tmp = tempfile.mkstemp(prefix=".tmp-", dir=str(vdir))
     try:

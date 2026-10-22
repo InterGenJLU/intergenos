@@ -48,7 +48,7 @@ class Queue:
         """Write a durable intent (idempotent by content). Returns the id."""
         intent = dict(intent)
         intent.setdefault("id", _intent_id(intent))
-        self.dir.mkdir(parents=True, exist_ok=True)
+        self.dir.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
         dest = self._path(intent["id"])
         # Atomic write so a crash mid-enqueue never leaves a half-written intent.
         fd, tmp = _mkstemp_in(self.dir)
@@ -125,7 +125,8 @@ class Queue:
 
 def _mkstemp_in(directory):
     import tempfile
-    Path(directory).mkdir(parents=True, exist_ok=True)
+    Path(directory).mkdir(mode=_paths.STORE_DIR_MODE, parents=True,
+                          exist_ok=True)
     return tempfile.mkstemp(prefix=".tmp-", dir=str(directory))
 
 

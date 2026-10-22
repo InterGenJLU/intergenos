@@ -66,7 +66,8 @@ class ContentStore:
             self.require_valid(sha)
             os.unlink(tmp_path)
             return sha
-        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.parent.mkdir(mode=_paths.STORE_DIR_MODE, parents=True,
+                          exist_ok=True)
         os.replace(tmp_path, dest)
         # Read-back verification (spec §3.1): re-hash what actually landed.
         actual = sha256_file(dest)
@@ -82,9 +83,9 @@ class ContentStore:
     def put_bytes(self, data):
         """Store bytes; return the sha256. Idempotent (dedup)."""
         sha = sha256_bytes(data)
-        self.cas.mkdir(parents=True, exist_ok=True)
+        self.cas.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
         shard = _paths.blob_path(self.root, sha).parent
-        shard.mkdir(parents=True, exist_ok=True)
+        shard.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
         fd, tmp = _mkstemp_in(shard)
         try:
             with os.fdopen(fd, "wb") as f:
@@ -117,7 +118,7 @@ class ContentStore:
         if self.exists(sha):
             return self.require_valid(sha)
         shard = _paths.blob_path(self.root, sha).parent
-        shard.mkdir(parents=True, exist_ok=True)
+        shard.mkdir(mode=_paths.STORE_DIR_MODE, parents=True, exist_ok=True)
         fd, tmp = _mkstemp_in(shard)
         try:
             copied = hashlib.sha256()
