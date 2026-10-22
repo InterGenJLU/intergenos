@@ -212,11 +212,15 @@ def test_remove_the_x_package_names_x(router):
 
 
 def test_the_teacher_honours_negation_and_strips_punctuation():
+    # The teacher asks the package index whether the name resolves; this
+    # index holds the one name the case asks for.
+    holds = {"steam"}.__contains__
     assert _package_action_teach(
-        "no, not to install steam- i don't even know how to open the terminal"
-    ) is None
-    assert _package_action_teach("how do i install steam-")[1] == "steam"
-    assert _package_action_teach("how do i install steam")[0] == "pkm install steam"
+        "no, not to install steam- i don't even know how to open the terminal",
+        holds) is None
+    assert _package_action_teach("how do i install steam-", holds)[1] == "steam"
+    assert _package_action_teach("how do i install steam",
+                                 holds)[0] == "pkm install steam"
 
 
 def test_this_system_names_the_machine():

@@ -944,12 +944,16 @@ def _command_as_request(cmd: str) -> str:
     return f"run {cmd}"
 
 
-def _package_action_teach(normalized: str) -> "tuple[str, str, str] | None":
+def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
+                          ) -> "tuple[str, str, str] | None":
     """Map an instructional package-action query to (pkm_command, app, human_verb).
 
     Returns None when the query is not a recognizable '<verb> <app>' package
     action, so the caller falls through unchanged. The target is filtered against
-    a stoplist so non-package phrasings ("update my system") yield no false hit.
+    a stoplist so non-package phrasings ("update my system") yield no false hit,
+    and is taken only when `resolves` finds it in the package index: the word
+    after the verb is not always a name ("how do I check install on this
+    machine?" read "on" as the package and offered to run `pkm install on`).
     """
     m = _PKG_ACTION_TEACH_RE.search(normalized)
     if m is None:
@@ -966,6 +970,8 @@ def _package_action_teach(normalized: str) -> "tuple[str, str, str] | None":
         return None
     mapped = _PKG_VERB_TO_PKM.get(m.group(1).lower())
     if mapped is None:
+        return None
+    if not resolves(app):
         return None
     pkm_verb, human_verb = mapped
     return (f"pkm {pkm_verb} {app}", app, human_verb)
@@ -6895,7 +6901,7 @@ class ConversationRouter(RouterInterface):
             # pkm command + offered, rather than falling through to the action
             # path where the 2B dispatches an empty manage_packages(install).
             if prior and not orientation:
-                teach = _package_action_teach(normalized)
+                teach = _package_action_teach(normalized, self._package_in_index)
                 if teach is not None:
                     command, app, human_verb = teach
                     # the honest-handoff work: arm the offer, OR — if this action was already
@@ -6941,6 +6947,21 @@ class ConversationRouter(RouterInterface):
                            # is STAGED as an offer, never run here).
                            answer_linkage=AnswerLinkage(
                                kind="code", renderer="howto_corpus")), prior
+
+    def _package_in_index(self, name: str) -> bool:
+        """Whether the package index resolves `name`, asked of pkm's own
+        resolver: the lookup `pkm install` makes itself (the synced index with
+        its signature checked, the repositories in their priority order), so
+        the teach parser offers a command exactly when that command would find
+        its package. An index that cannot be read, or a pkm that cannot be
+        loaded, resolves nothing, and nothing is offered for the name."""
+        try:
+            from pkm.repo import RepoManager
+            return RepoManager().get_package(name) is not None
+        except Exception:  # noqa: BLE001 — an unread index resolves no name
+            logger.warning("package index not read for %r: no install offer "
+                           "is staged for it", name, exc_info=True)
+            return False
 
     def _cite_source(self, doc_source: str) -> "str | None":
         """A verified wiki citation line for a curated answer, or None.

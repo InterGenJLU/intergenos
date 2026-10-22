@@ -16,8 +16,14 @@ def test_compound_teaching_has_no_offer_that_a_later_clause_clears(router):
 
 
 def test_package_instruction_fallback_in_a_compound_does_not_stage_an_offer(router):
+    # pkm's resolver stood in: the fallback teaches only a name the package
+    # index resolves, and this index holds the one name the case asks for.
+    resolver = mock.Mock()
+    resolver.return_value.get_package.side_effect = (
+        lambda name: {"name": name} if name == "widget-editor" else None)
     with mock.patch.object(router, "_stage_action_offer_or_handoff",
-                           wraps=router._stage_action_offer_or_handoff) as offer:
+                           wraps=router._stage_action_offer_or_handoff) as offer, \
+            mock.patch("pkm.repo.RepoManager", resolver):
         answer = router.route(
             "how do I install widget-editor and how do I update my system")
     assert "pkm install widget-editor" in answer.text
