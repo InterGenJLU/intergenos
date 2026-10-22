@@ -13,12 +13,15 @@ and flagged, never allowed to mis-order.
 """
 
 import contextlib
+import errno
 import fcntl
 import functools
+import hashlib
 import json
 import logging
 import os
 import shutil
+import stat
 import threading
 import time
 import uuid
@@ -1222,14 +1225,13 @@ class Engine:
                 os.unlink(dest)
             os.symlink(entry["target"], dest)
             return dest
-        # Regular file: fetch bytes, re-hash before writing (spec §3.2).
+        # Regular file: fetch bytes, re-hash before writing (spec §3.2). The
+        # bytes hashed are the bytes written: a user-data file is read once,
+        # from one descriptor, and never through its path again.
         sha = entry["sha256"]
         if layer == _paths.LAYER_USER_DATA:
-            src = _userdata.read_file(root, version_id, entry)
-            if not src.exists():
-                raise EngineError(f"stored file missing for {entry['path']}")
-            actual = _cas.sha256_file(src)
-            data = src.read_bytes()
+            data = _read_stored_once(_userdata.read_file(root, version_id, entry), entry)
+            actual = _cas.sha256_bytes(data)
         else:
             if not store.exists(sha):
                 raise EngineError(f"stored blob missing for {entry['path']}")
@@ -1240,11 +1242,24 @@ class Engine:
                 f"integrity check failed for {entry['path']}: version "
                 f"{version_id} blob hashes to {actual}, manifest says {sha}"
             )
+        # The copy is hashed in full from its own descriptor before it
+        # replaces anything, so what lands is the verified version or nothing.
         fd, tmp = _mkstemp_in(dest.parent)
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-            f.flush()
-            os.fsync(f.fileno())
+        try:
+            with os.fdopen(fd, "r+b") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+                f.seek(0)
+                landed = _sha256_stream(f)
+            if landed != sha:
+                raise EngineError(
+                    f"the restored copy of {entry['path']} hashes to {landed}, "
+                    f"manifest says {sha}; nothing was replaced"
+                )
+        except BaseException:
+            _silent_unlink(tmp)
+            raise
         os.replace(tmp, dest)
         _apply_meta(dest, entry)
         return dest
@@ -1333,6 +1348,59 @@ def _apply_meta(path, entry):
                  follow_symlinks=False)
     except (OSError, AttributeError, PermissionError):
         pass
+
+
+_READ_CHUNK = 1024 * 1024
+
+
+def _read_stored_once(path, entry):
+    """The bytes of a stored user-data file, read from ONE descriptor.
+
+    The file is opened without following a link at its name and without
+    blocking on a FIFO put there; the open file itself must be a regular file
+    owned by the uid this process runs as (the store's only writer: capture and
+    restore run as the same account) and must have the manifest's size. Every
+    byte returned comes from that descriptor, so a name swapped after the open
+    cannot change what is hashed or what is written.
+    """
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except FileNotFoundError:
+        raise EngineError(f"stored file missing for {entry['path']}") from None
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            raise EngineError(
+                f"stored file for {entry['path']} is a symbolic link; refused"
+            ) from None
+        raise
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode):
+            raise EngineError(f"stored file for {entry['path']} is not a regular file; refused")
+        if info.st_uid != os.geteuid():
+            raise EngineError(
+                f"stored file for {entry['path']} is owned by uid {info.st_uid}, "
+                f"not by the store's writer (uid {os.geteuid()}); refused"
+            )
+        size = entry.get("size")
+        if size is not None and info.st_size != size:
+            raise EngineError(
+                f"stored file for {entry['path']} is {info.st_size} bytes, "
+                f"manifest says {size}; refused"
+            )
+        chunks = []
+        for chunk in iter(lambda: os.read(fd, _READ_CHUNK), b""):
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally:
+        os.close(fd)
+
+
+def _sha256_stream(f):
+    h = hashlib.sha256()
+    for chunk in iter(lambda: f.read(_READ_CHUNK), b""):
+        h.update(chunk)
+    return h.hexdigest()
 
 
 def _mkstemp_in(directory):
