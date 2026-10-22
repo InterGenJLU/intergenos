@@ -7703,6 +7703,34 @@ class ConversationRouter(RouterInterface):
                             kind="code", renderer="safety_block"),
                     )
 
+            # A CALL THE PERSON DENIED AT THE CARD is told in the code's words,
+            # as the keyword path (_dispatch_decline) and the web panel tell it:
+            # gate_refusal_message, the one renderer for every surface (the
+            # honest handoff for a state-changing action). Handed to the
+            # synthesis below, the denial was narrated by the model, worded as
+            # it chose ("the safety layer blocked it"), with no command for the
+            # person to run it themselves.
+            for _tc, _tr in zip(tool_calls, tool_results):
+                if getattr(_tr, "denied_by_user", False):
+                    from intergen.tool_registry import gate_refusal_message
+                    response_text = gate_refusal_message(
+                        _tc, _tr, self._tools.get_tool(_tc.name))
+                    self._append_history(user_input, response_text)
+                    return RouteResult(
+                        text=response_text,
+                        source="llm_tools",
+                        handled=True,
+                        tool_calls=tool_calls,
+                        tool_results=tool_results,
+                        used_llm=True,
+                        # The words are the code's, composed from a template,
+                        # not the tool's: the linkage says so, as the keyword
+                        # path's does.
+                        answer_linkage=AnswerLinkage(
+                            kind="code", tool=_tr.name, call_id=_tr.call_id,
+                            renderer="gate_refusal"),
+                    )
+
             # Feed the model the structured summary when present (G3-22 real
             # fix); the full `content` still reaches the user via tool_results.
             with get_tracer().span("llm.synth", kind="llm") as _synth_span:

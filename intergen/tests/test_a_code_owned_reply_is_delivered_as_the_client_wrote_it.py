@@ -375,6 +375,58 @@ class TheToolRouteDeliversTheClientsTextAsWritten(unittest.TestCase):
         self.assertEqual(_decisions(emit, "code_owned_delivery"), [])
 
 
+class ACallThePersonDeniedIsToldInTheCodesWords(unittest.TestCase):
+    """The native floor's tool route: the model calls a state-changing tool, the
+    call is held for the person's consent, and the person denies it at the card.
+    The denial is told as the keyword path and the web panel tell it, by the one
+    renderer every surface uses (gate_refusal_message): the model is never asked
+    to narrate it (it narrated the denial as it chose to word it)."""
+
+    NARRATION = "I tried to install htop, but the safety layer blocked it."
+
+    def _denied_turn(self):
+        router = _router(tier=HardwareTierLevel.TIER_2, locked=False)
+        del router._llm.chat
+        call = ToolCall(name="manage_packages",
+                        arguments={"action": "install", "package": "htop"},
+                        call_id="c2", source_of_request=Provenance.USER_DIRECT)
+        denied = ToolResult(call_id="c2", name="manage_packages",
+                            content="Tool call denied by user via review modal.",
+                            success=False, executed=False, denied_by_user=True)
+        router._llm.stream_with_tools = mock.Mock(return_value=iter([call]))
+        router._tools.execute = mock.Mock(return_value=denied)
+        router._llm.continue_after_tool_call = mock.Mock(return_value=LLMResponse(
+            text=self.NARRATION, model="local", local=True, quality_passed=True))
+        asked = []
+
+        def urlopen(request, *_, **__):
+            asked.append(request)
+            raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+
+        with mock.patch.object(urllib.request, "urlopen", side_effect=urlopen), \
+                mock.patch("intergen.router.glass.emit"):
+            result = router.route(self.ASK)
+        return result, router, call, denied, len(asked)
+
+    # No keyword or curated route claims it, so the native floor offers the
+    # model its tools; the model's call is the stood-in stream's.
+    ASK = "I keep wishing I had a nicer process viewer than top"
+
+    def test_the_denial_is_rendered_by_the_code_and_never_narrated(self):
+        from intergen.tool_registry import gate_refusal_message
+        result, router, call, denied, asked = self._denied_turn()
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, gate_refusal_message(
+            call, denied, router._tools.get_tool("manage_packages")))
+        self.assertNotIn(self.NARRATION, result.text)
+        router._llm.continue_after_tool_call.assert_not_called()
+        self.assertEqual(asked, 0)
+        self.assertEqual((result.answer_linkage.kind, result.answer_linkage.tool,
+                          result.answer_linkage.call_id, result.answer_linkage.renderer),
+                         ("code", "manage_packages", "c2", "gate_refusal"))
+        self.assertEqual([r.name for r in result.tool_results], ["manage_packages"])
+
+
 # Every function of the router that asks the model client for a reply, with
 # what it does with a reply the client wrote.
 CHAT_CALLERS = {
