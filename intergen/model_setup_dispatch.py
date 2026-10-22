@@ -62,15 +62,14 @@ Exit code: 0 install succeeded / 1 refusal or failure / 2 argv shape wrong.
 from __future__ import annotations
 
 import datetime
-import errno
 import hashlib
 import json
 import os
-import stat
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from intergen.held_open import HeldOpenRefused, open_held
 from intergen.model_manager import (
     MODEL_DIR,
     MANIFEST_PATH,
@@ -141,36 +140,35 @@ class _Verified:
 def _open_artifact(path: Path, owner_uid: int | None) -> tuple[int, str]:
     """Open an artifact root is about to verify, once, as the file itself.
 
-    O_NOFOLLOW refuses a link at its name and O_NONBLOCK keeps a FIFO put there
-    from holding the open; the descriptor's own fstat then requires a regular
-    file and, when `owner_uid` is given, one that uid owns, so a root-only file
-    or another account's is refused before a byte of it is read. Returns
-    (fd, "") or (-1, refusal).
+    The path is held before it is opened (held_open.open_held): its directory
+    is walked without following a link, the name is held with
+    O_PATH|O_NOFOLLOW, which opens nothing, and the held object's fstat must
+    show a regular file and, when `owner_uid` is given, one that uid owns. A
+    link, a FIFO, a device, a root-only file or another account's file is
+    refused before anything opens it, so no FIFO's or device's open runs as
+    root; only then is the same inode opened for reading. Returns (fd, "") or
+    (-1, refusal).
     """
+    def owned(info: os.stat_result) -> str | None:
+        if owner_uid is not None and info.st_uid != owner_uid:
+            return (f"provision: refusing {path}: it is owned by uid "
+                    f"{info.st_uid}, not by the calling user (uid {owner_uid}).")
+        return None
+
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-                     | os.O_CLOEXEC)
+        fd, _held = open_held(str(path), os.O_RDONLY, check=owned)
     except FileNotFoundError:
         return -1, f"provision: model artifact not found: {path}."
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
+    except HeldOpenRefused as exc:
+        if exc.refusal == "check":
+            return -1, str(exc)
+        if exc.refusal == "link":
             return -1, (f"provision: refusing {path}: it is a symbolic link, and "
                         "a staged file is read only as the file itself.")
-        raise
-    try:
-        info = os.fstat(fd)
-        if not stat.S_ISREG(info.st_mode):
-            reason = f"provision: refusing {path}: it is not a regular file."
-        elif owner_uid is not None and info.st_uid != owner_uid:
-            reason = (f"provision: refusing {path}: it is owned by uid "
-                      f"{info.st_uid}, not by the calling user (uid {owner_uid}).")
-        else:
-            return fd, ""
-    except BaseException:
-        os.close(fd)
-        raise
-    os.close(fd)
-    return -1, reason
+        if exc.refusal == "kind":
+            return -1, f"provision: refusing {path}: it is not a regular file."
+        return -1, f"provision: refusing {path}: {exc}"
+    return fd, ""
 
 
 def _safe_filename(filename: str) -> bool:

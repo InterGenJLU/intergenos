@@ -255,5 +255,58 @@ class TheStagedFileIsTheCallersOwnFile(_ScratchStore):
         self.assert_nothing_installed("model.gguf")
 
 
+
+class TheStagedFileIsHeldBeforeItIsOpened(_ScratchStore):
+    """Both staging paths are held before they are opened (held_open): a FIFO
+    or a device named as the model or its projector is refused before root
+    opens it, so its open never runs. Watched with a FIFO writer blocked in
+    its own open and with the audit hook (the instruments of
+    test_a_privileged_open_holds_the_object_before_it_opens_it)."""
+
+    def test_a_fifo_staged_as_the_model_or_its_projector_is_never_opened(self):
+        from intergen.tests.test_a_privileged_open_holds_the_object_before_it_opens_it import (  # noqa: E501
+            _BlockedPeer)
+        self.pin({"model.gguf": PINNED, "proj.gguf": PROJECTOR})
+        for role in ("model", "projector"):
+            with self.subTest(role=role):
+                model, projector = (self.stage / "model.gguf",
+                                    self.stage / "proj.gguf")
+                for path in (model, projector):
+                    if os.path.lexists(path):
+                        path.unlink()
+                fifo = model if role == "model" else projector
+                os.mkfifo(fifo, 0o600)
+                for path, data in ((model, PINNED), (projector, PROJECTOR)):
+                    if path != fifo:
+                        path.write_bytes(data)
+                writer = _BlockedPeer(fifo, os.O_WRONLY)
+                code, said = self.run_main({
+                    "filename": "model.gguf", "staging_path": str(model),
+                    "mmproj_filename": "proj.gguf",
+                    "mmproj_staging_path": str(projector)})
+                self.assertFalse(writer.settle(),
+                                 f"the {role} FIFO was opened as root would")
+                self.assertEqual(code, 1, said)
+                self.assertIn("it is not a regular file", said)
+                self.assert_nothing_installed("model.gguf")
+                self.assert_nothing_installed("proj.gguf")
+
+    def test_a_device_named_as_the_staged_model_is_never_opened(self):
+        from intergen.tests import test_a_privileged_open_holds_the_object_before_it_opens_it as watch  # noqa: E501
+        self.pin({"model.gguf": PINNED})
+        watch._OPENS.clear()
+        watch._RECORDING[0] = True
+        try:
+            code, said = self.run_main({"filename": "model.gguf",
+                                        "staging_path": "/dev/null"})
+        finally:
+            watch._RECORDING[0] = False
+        self.assertEqual(watch.opened_for_io("/dev/null"), [])
+        watch._OPENS.clear()
+        self.assertEqual(code, 1, said)
+        self.assertIn("it is not a regular file", said)
+        self.assert_nothing_installed("model.gguf")
+
+
 if __name__ == "__main__":
     unittest.main()
