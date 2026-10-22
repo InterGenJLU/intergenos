@@ -80,16 +80,31 @@ def test_a_record_written_by_the_audit_writer_lands_in_the_case(tmp_path_factory
     assert written == [root / "state" / "intergen" / "tool-dispatch.jsonl"]
 
 
-@pytest.mark.parametrize("module, name", [
-    ("intergen.config", "_USER_CONFIG"),
-    ("intergen.provider_config", "_USER_CONFIG"),
-    ("intergen.session_manager", "SESSIONS_DIR"),
-    ("intergen.web_server", "TOKEN_PATH"),
-    ("intergen.mcp_client", "_SCHEMA_PIN_DIR"),
-    ("intergen.setup", "TOKEN_PATH"),
-    ("intergen.setup", "SESSIONS_DIR"),
-])
-def test_a_path_fixed_at_import_is_not_the_accounts(module, name):
-    import importlib
-    value = getattr(importlib.import_module(module), name)
-    assert not _inside(value, ACCOUNT_HOME), f"{module}.{name} = {value}"
+# Read when this module is collected, before any case's fixture runs: these
+# are the paths the modules fixed at their import, under whatever the
+# conftest's import-time layer left in the environment. A module imported
+# inside a case would fix its path under the case's own directory and say
+# nothing about that layer, which is how a first version of these cases passed
+# with the layer removed.
+from intergen import config as _config  # noqa: E402
+from intergen import mcp_client as _mcp_client  # noqa: E402
+from intergen import provider_config as _provider_config  # noqa: E402
+from intergen import session_manager as _session_manager  # noqa: E402
+from intergen import setup as _setup  # noqa: E402
+from intergen import web_server as _web_server  # noqa: E402
+
+FIXED_AT_IMPORT = [
+    ("intergen.config._USER_CONFIG", _config._USER_CONFIG),
+    ("intergen.provider_config._USER_CONFIG", _provider_config._USER_CONFIG),
+    ("intergen.session_manager.SESSIONS_DIR", _session_manager.SESSIONS_DIR),
+    ("intergen.web_server.TOKEN_PATH", _web_server.TOKEN_PATH),
+    ("intergen.mcp_client._SCHEMA_PIN_DIR", _mcp_client._SCHEMA_PIN_DIR),
+    ("intergen.setup.TOKEN_PATH", _setup.TOKEN_PATH),
+    ("intergen.setup.SESSIONS_DIR", _setup.SESSIONS_DIR),
+]
+
+
+@pytest.mark.parametrize("name, value", FIXED_AT_IMPORT,
+                         ids=[name for name, _ in FIXED_AT_IMPORT])
+def test_a_path_fixed_at_import_is_not_the_accounts(name, value):
+    assert not _inside(value, ACCOUNT_HOME), f"{name} = {value}"
