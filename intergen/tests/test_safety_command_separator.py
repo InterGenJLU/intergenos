@@ -159,8 +159,11 @@ class ShellCommandStringRecursion(unittest.TestCase):
         )
         for cmd in blocked:
             self.assertEqual(classify_command(cmd), SafetyTier.BLOCKED, cmd)
-        for cmd in ("bash -o vi -c 'ls -la'", "bash --rcfile /tmp/rc -c 'free -h'"):
-            self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
+        self.assertEqual(classify_command("bash -o vi -c 'ls -la'"), SafetyTier.AUTO)
+        # bash runs the --rcfile FILE first when it is interactive and also when its
+        # standard input is a network connection (bash(1), INVOCATION), so a read
+        # payload behind it is CONFIRM: the option sets the floor, not the payload.
+        self.assertEqual(classify_command("bash --rcfile /tmp/rc -c 'free -h'"), SafetyTier.CONFIRM)
 
 
 class ExecPrefixWrapperLongTail(unittest.TestCase):
@@ -193,9 +196,12 @@ class ExecPrefixWrapperLongTail(unittest.TestCase):
             self.assertEqual(classify_command(cmd), SafetyTier.BLOCKED, cmd)
 
     def test_wrapped_read_stays_auto(self):
-        for cmd in ("flock /tmp/lock ls", "taskset 0x1 df -h", "firejail cat f",
+        for cmd in ("taskset 0x1 df -h", "firejail cat f",
                     "strace ls", "busybox ls", "catchsegv df -h"):
             self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
+        # flock creates its lock file when it does not exist (flock(1)): a path the
+        # caller names is written, so it is CONFIRM like sort -o.
+        self.assertEqual(classify_command("flock /tmp/lock ls"), SafetyTier.CONFIRM)
 
 
 class CommandSubstitutionStaysBlocked(unittest.TestCase):

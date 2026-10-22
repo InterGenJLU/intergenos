@@ -96,10 +96,13 @@ class FindMutateExecGuard(unittest.TestCase):
 
 class EnvWrappedClassifier(unittest.TestCase):
     def test_env_wrapping_read_stays_auto(self):
-        for cmd in ("env", "env FOO=bar", "env ls", "env HOME=/tmp ls",
+        for cmd in ("env", "env FOO=bar", "env ls",
                     "env -i ls -la", "env -u PATH cat /etc/hostname",
                     "env env ls"):   # nested env
             self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
+        # HOME is outside the names kept AUTO: it points git and other programs at
+        # another configuration, which can name a program to run.
+        self.assertEqual(classify_command("env HOME=/tmp ls"), SafetyTier.CONFIRM)
 
     def test_env_wrapping_write_is_confirm(self):
         for cmd in ("env touch /tmp/x", "env FOO=bar cp a b",
