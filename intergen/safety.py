@@ -384,21 +384,30 @@ _CMDSTRING_WRAPPERS = frozenset({
 
 
 def _sort_writes(parts: list[str]) -> bool:
-    """True if a `sort` invocation writes a file via -o / --output.
+    """True if a `sort` invocation writes a file via -o / --output, or runs a
+    program or writes its temporaries where the caller says.
 
     sort/uniq/cut are AUTO read-only stream filters, but `sort -o FILE` (and
     `--output`) WRITES a file — AUTO must mean cannot-mutate-regardless-of-args, so
-    the write form is CONFIRM. The read-only pipeline form (`sort -rh`, no -o) stays
-    AUTO, so the du|sort -rh|head disk-usage pipeline is unaffected.
+    the write form is CONFIRM. So are --compress-program, which pipes the
+    temporaries through a program it starts, and -T/--temporary-directory, which
+    writes them into a directory the caller names. The read-only pipeline form
+    (`sort -rh`, no -o) stays AUTO, so the du|sort -rh|head disk-usage pipeline is
+    unaffected. Read from the argv the executor starts, so a quoted or abbreviated
+    option (`'-o'`, `--out=`, `--compress-prog=`) is still that option.
     """
-    for tok in parts[1:]:
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    for tok in argv[1:]:
         if tok in ("-o", "--output") or tok.startswith("--output="):
             return True
         # Short-flag cluster carrying the output flag (`-o`, `-ro`, `-ofile`): in a
         # sort short cluster 'o' can only be the output flag, which writes.
         if tok.startswith("-") and not tok.startswith("--") and "o" in tok[1:]:
             return True
-    return False
+    return (_long_given(argv[1:], ("output", "compress-program", "temporary-directory"))
+            or _short_given(argv[1:], "T", "kSt"))
 
 
 def _uniq_writes(parts: list[str]) -> bool:
@@ -409,9 +418,12 @@ def _uniq_writes(parts: list[str]) -> bool:
     flags -f/-s/-w consume a numeric next token when written separately; that value
     is skipped so it is not miscounted as an operand.
     """
+    argv = _argv(parts)
+    if argv is None:
+        return True
     operands = 0
     skip_next = False
-    for tok in parts[1:]:
+    for tok in argv[1:]:
         if skip_next:
             skip_next = False
             continue
@@ -430,13 +442,16 @@ def _uniq_writes(parts: list[str]) -> bool:
 # BLOCKED pattern.)
 _FIND_WRITE_FORMS = frozenset({
     "-delete", "-exec", "-execdir", "-ok", "-okdir",
-    "-fprint", "-fprintf", "-fls",
+    "-fprint", "-fprint0", "-fprintf", "-fls",
 })
 
 
 def _find_mutates(parts: list[str]) -> bool:
-    """True if a `find` invocation can mutate or exec (see _FIND_WRITE_FORMS)."""
-    return any(tok in _FIND_WRITE_FORMS for tok in parts[1:])
+    """True if a `find` invocation can mutate or exec (see _FIND_WRITE_FORMS),
+    read from the argv the executor starts, so a quoted primary is still that
+    primary."""
+    argv = _argv(parts)
+    return argv is None or any(tok in _FIND_WRITE_FORMS for tok in argv[1:])
 
 
 # State changes classed read-only (2026-10-22). timedatectl, hostnamectl,
@@ -697,6 +712,343 @@ def _shell_c_argument(parts: list[str]) -> str | None:
     return None
 
 
+# ── Options that run a program, write a path or set a state (2026-10-22) ──
+#
+# A program classed AUTO by its first word can still be told by an option to
+# start another program, to write a file the caller names, or to change another
+# process or the machine: ripgrep's --pre runs a command on every file it
+# searches, sort's --compress-program pipes its temporaries through one, GNU time
+# and strace write their report to a file, an env assignment sets the
+# environment the command starts with (PATH, LD_PRELOAD, BASH_ENV), xargs -a
+# takes the wrapped command's arguments from a file, and git's paginating
+# commands write with --output or create and delete branches and tags. Like
+# sort -o and find -delete, those forms are CONFIRM, each read from the
+# program's own --help and manual. Every check reads the argv the shell-free
+# executor would start (shlex, as run_command splits it), so a quoted option is
+# still that option, and a long option at any abbreviation getopt_long accepts
+# (`--compress-prog`) is still that option; input that does not split is CONFIRM.
+
+
+def _long_given(args: list[str], names, exact_reads=()) -> bool:
+    """True when args carry one of the long options `names` (without dashes), in
+    either spelling (--name=value or --name value) or at any abbreviation of one.
+    An abbreviation shared with another option is read as this one (the program
+    refuses an ambiguous one); a name in `exact_reads` is that read option."""
+    for a in args:
+        if a == "--":
+            break
+        if a.startswith("--") and len(a) > 2:
+            given = a[2:].split("=", 1)[0]
+            if given not in exact_reads and any(n.startswith(given) for n in names):
+                return True
+    return False
+
+
+def _short_given(args: list[str], letters: str, value_letters: str = "") -> bool:
+    """True when a short-option cluster in args (-o, -ao, -oFILE) carries one of
+    `letters` before a letter that takes the rest of the cluster as its value."""
+    for a in args:
+        if a == "--":
+            break
+        if a.startswith("-") and not a.startswith("--") and len(a) > 1:
+            for c in a[1:]:
+                if c in letters:
+                    return True
+                if c in value_letters:
+                    break
+    return False
+
+
+def _at_least_confirm(tier: SafetyTier) -> SafetyTier:
+    """CONFIRM, unless the wrapped command is refused outright."""
+    return SafetyTier.BLOCKED if tier is SafetyTier.BLOCKED else SafetyTier.CONFIRM
+
+
+#: env's assignments that stay AUTO: formatting and locale, and CUPS_SERVER, which
+#: command_leaves_the_machine reads as a destination. Any other name can change
+#: which program runs or what it loads (PATH, LD_PRELOAD, BASH_ENV, GIT_CONFIG_*,
+#: RIPGREP_CONFIG_PATH, a docker host), so it confirms.
+_ENV_NAMES_KEPT_AUTO = frozenset({"LANG", "LANGUAGE", "TZ", "COLUMNS", "LINES", "NO_COLOR",
+                                  "CUPS_SERVER"})
+
+
+def _env_acts(parts: list[str]) -> bool:
+    """True when env sets a name outside _ENV_NAMES_KEPT_AUTO, or starts the
+    command in another directory (-C/--chdir), where a repository's own
+    configuration names programs git runs."""
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    i, n = 1, len(argv)
+    while i < n:                                          # env's own words, as _env_wrapped_command
+        tok = argv[i]
+        if tok == "--":
+            break
+        if tok in _ENV_VALUE_FLAGS:
+            i += 2
+            continue
+        if tok.startswith("-") and tok != "-" or "=" in tok:
+            i += 1
+            continue
+        break
+    own = argv[1:i]
+    if _long_given(own, ("chdir",)) or _short_given(own, "C", "auS"):
+        return True
+    return any("=" in t and not t.startswith("-")
+               and not (t.split("=", 1)[0] in _ENV_NAMES_KEPT_AUTO or t.startswith("LC_"))
+               for t in own)
+
+
+def _watch_acts(parts: list[str]) -> bool:
+    """True when watch is given a directory to store screenshots (-s/--shotsdir)."""
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    own = []
+    for tok in argv[1:]:
+        if not tok.startswith("-") or tok == "-":
+            break
+        own.append(tok)
+    return _long_given(own, ("shotsdir",)) or _short_given(own, "s", "nq")
+
+
+def _shell_runs_startup(parts: list[str]) -> bool:
+    """True when a shell given a -c string first runs a start-up file: --rcfile or
+    --init-file FILE, --login, --debugger, or -i or -l in a short cluster."""
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    before = []
+    for tok in argv[1:]:
+        before.append(tok)
+        if tok == "-c" or (tok.startswith("-") and not tok.startswith("--")
+                           and "c" in tok[1:] and "=" not in tok):
+            break
+    return (_long_given(before, ("rcfile", "init-file", "login", "debugger"))
+            or _short_given(before, "il", "oO"))
+
+
+#: Exec wrappers this machine does not carry: no manual here says which of their
+#: options write a file or run a program (ltrace -o, valgrind --log-file, fakeroot
+#: -s, busybox --install), so any option of theirs confirms; `WRAPPER cmd` stays
+#: classified by the command.
+_UNREAD_WRAPPERS = frozenset({"busybox", "catchsegv", "fakeroot", "firejail", "ltrace",
+                              "proot", "tsp", "valgrind"})
+
+
+def _wrapper_acts(wrapper: str, parts: list[str]) -> bool:
+    """True when an exec wrapper's OWN options write a file, run a program or act
+    on running processes: time -o/-a, strace -o/-A/-E/-p/-u and its fault
+    injection, xargs -a, ionice setting a class on running processes, flock's
+    lock file (created when missing), and any option of an unread wrapper."""
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    value_flags, positionals = _PREFIX_SPECS[wrapper]
+    i, n = 1, len(argv)
+    while i < n:                                          # the wrapper's own words, as _prefix_wrapped_command
+        tok = argv[i]
+        if tok == "--":
+            break
+        if tok.startswith("--") and "=" in tok:
+            i += 1
+            continue
+        if tok in value_flags:
+            i += 1 if i + 1 < n and os.path.basename(argv[i + 1]) in _POSITIONAL_STOP else 2
+            continue
+        if tok.startswith("-") and tok != "-":
+            i += 1
+            continue
+        break
+    own = argv[1:i]
+    operands = argv[i:i + positionals]
+    if wrapper in _UNREAD_WRAPPERS:
+        return any(t.startswith("-") for t in own)
+    if wrapper == "time":
+        return _long_given(own, ("output", "append")) or _short_given(own, "oa", "f")
+    if wrapper == "strace":
+        return (_long_given(own, ("output", "output-append-mode", "output-separately", "env",
+                                  "attach", "user", "inject", "fault"))
+                or _short_given(own, "oAEpu", "abeEIoOpPsSuUX")
+                or any((t[2:] if t.startswith("-e") else t).startswith(("inject", "fault"))
+                       for t in own))
+    if wrapper == "xargs":
+        return _long_given(own, ("arg-file",)) or _short_given(own, "a", "dEeIiLlnPs")
+    if wrapper == "ionice":
+        return ((_long_given(own, ("class", "classdata")) or _short_given(own, "cn", "pPu"))
+                and (_long_given(own, ("pid", "pgid", "uid")) or _short_given(own, "pPu", "cn")))
+    if wrapper == "flock":
+        return any(not p.isdigit() for p in operands)
+    return False
+
+
+_JOURNALCTL_ACTS = ("cursor-file", "vacuum-size", "vacuum-files", "vacuum-time", "rotate",
+                    "flush", "sync", "relinquish-var", "smart-relinquish-var", "update-catalog",
+                    "setup-keys")
+_IFCONFIG_SETS = ("address", "broadcast", "brdaddr", "down", "dstaddr", "peer", "flags",
+                  "metric", "mtu", "netmask", "txqlen", "up")
+_IFCONFIG_VALUE_LONG = frozenset({"--address", "--broadcast", "--brdaddr", "--dstaddr", "--peer",
+                                  "--flags", "--interface", "--metric", "--mtu", "--netmask",
+                                  "--txqlen", "--format"})
+#: git's paginating commands are AUTO only as git [--no-pager|-P|--no-paginate] <sub>;
+#: any other option before the subcommand points git at another repository,
+#: configuration or program directory (-C, -c, --git-dir, --work-tree,
+#: --config-env, --exec-path).
+_GIT_GLOBALS_KEPT_AUTO = frozenset({"--no-pager", "-P", "--no-paginate"})
+_GIT_LOG_ACTS = ("output", "ext-diff", "textconv", "show-signature")
+_GIT_BRANCH_ACTS = ("delete", "move", "copy", "force", "track", "no-track", "set-upstream-to",
+                    "set-upstream", "unset-upstream", "edit-description", "create-reflog",
+                    "recurse-submodules")
+_GIT_TAG_ACTS = ("annotate", "sign", "local-user", "force", "message", "file", "edit", "delete",
+                 "verify", "create-reflog", "trailer", "cleanup")
+#: The listing filters of git branch and git tag: each takes a value, and each
+#: puts the command in its listing mode, where an operand is a pattern.
+_GIT_LIST_FILTERS = frozenset({"--contains", "--no-contains", "--merged", "--no-merged",
+                               "--points-at"})
+_GIT_LIST_VALUES = _GIT_LIST_FILTERS | {"--sort", "--format"}
+#: pip list, show and freeze, and npm list, are AUTO only with the read options
+#: their help lists; any other option (pip's --python, --log, --cache-dir and
+#: index options, any npm configuration key such as --logs-dir) confirms.
+_PIP_COMMON_READS = frozenset({"-v", "--verbose", "-q", "--quiet", "--no-input", "--no-color",
+                               "--disable-pip-version-check", "--isolated", "-h", "--help"})
+_PIP_READS = {
+    "list": frozenset({"-o", "--outdated", "-u", "--uptodate", "-e", "--editable", "-l",
+                       "--local", "--user", "--pre", "--not-required", "--exclude-editable",
+                       "--include-editable"}),
+    "show": frozenset({"-f", "--files"}),
+    "freeze": frozenset({"-l", "--local", "--user", "--all", "--exclude-editable"}),
+}
+_PIP_READ_VALUES = {"list": frozenset({"--path", "--format", "--exclude"}),
+                    "show": frozenset(),
+                    "freeze": frozenset({"--path", "--exclude", "-r", "--requirement"})}
+_NPM_LIST_READS = frozenset({"-a", "--all", "--json", "-l", "--long", "-p", "--parseable", "-g",
+                             "--global", "--link", "--package-lock-only", "--no-unicode", "-ws",
+                             "--workspaces", "--include-workspace-root", "--install-links"})
+_NPM_LIST_READ_VALUES = frozenset({"--depth", "--omit", "--include", "-w", "--workspace"})
+
+
+def _outside_reads(args: list[str], reads, read_values, short_reads: str = "") -> bool:
+    """True when args carry an option outside `reads`, the value-taking
+    `read_values` (--name=value or --name value) and short clusters of
+    `short_reads`. An operand is a name and reads."""
+    skip = False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if not a.startswith("-") or a == "-":
+            continue
+        name = a.split("=", 1)[0]
+        if name in read_values:
+            skip = "=" not in a
+            continue
+        if a in reads or (short_reads and not a.startswith("--")
+                          and all(c in short_reads for c in a[1:])):
+            continue
+        return True
+    return False
+
+
+def _git_names_a_ref(args: list[str], listing: bool) -> bool:
+    """True when git branch or git tag is given a name to create: an operand that
+    is not the value of a listing option, outside the listing mode."""
+    skip = False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a in _GIT_LIST_VALUES:
+            skip = True
+            continue
+        if a.startswith("-") and a != "-":
+            continue
+        if not listing:
+            return True
+    return False
+
+
+def _git_acts(argv: list[str]) -> bool:
+    """True when a paginating git command (log, show, diff, branch, tag) writes,
+    runs a program or points git elsewhere: see _GIT_GLOBALS_KEPT_AUTO and the
+    _GIT_*_ACTS lists; branch and tag are AUTO only in their listing forms."""
+    i = 1
+    while i < len(argv) and argv[i].startswith("-"):
+        if argv[i] not in _GIT_GLOBALS_KEPT_AUTO:
+            return True
+        i += 1
+    if i >= len(argv):
+        return False
+    sub, args = argv[i], argv[i + 1:]
+    if sub in ("log", "show", "diff"):
+        return _long_given(args, _GIT_LOG_ACTS, exact_reads=("text",))
+    if sub not in ("branch", "tag"):
+        return False
+    listing = (any(a in ("-l", "--list") or a.split("=", 1)[0] in _GIT_LIST_FILTERS for a in args)
+               or _short_given(args, "l", "n")
+               or (sub == "tag" and any(a.startswith("-n") and not a.startswith("--") for a in args)))
+    if sub == "branch":
+        acts = _long_given(args, _GIT_BRANCH_ACTS) or _short_given(args, "dDmMcCftu")
+    else:
+        acts = _long_given(args, _GIT_TAG_ACTS) or _short_given(args, "asufmFedv", "n")
+    return acts or _git_names_a_ref(args, listing)
+
+
+def _ifconfig_sets(argv: list[str]) -> bool:
+    """True when ifconfig sets something: a set option, or a word after the
+    interface it names (`ifconfig lo down`, `ifconfig -i lo mtu 1400`)."""
+    args = argv[1:]
+    if _long_given(args, _IFCONFIG_SETS) or _short_given(args, "ABbdpFmMT", "i"):
+        return True
+    words, named, skip = 0, False, False
+    for a in args:
+        if skip:
+            skip = False
+            continue
+        if a.startswith("--"):
+            name = a.split("=", 1)[0]
+            named = named or name == "--interface"
+            skip = "=" not in a and name in _IFCONFIG_VALUE_LONG
+            continue
+        if a.startswith("-") and len(a) > 1:
+            named = named or "i" in a[1:]
+            skip = a[-1] == "i"
+            continue
+        words += 1
+    return words + (1 if named else 0) > 1
+
+
+def _acts_through_options(base_cmd: str, two_word: str, parts: list[str]) -> bool:
+    """True when an AUTO program's own options run a program, write a path or set
+    a state (the table in the comment above _long_given)."""
+    if base_cmd not in ("rg", "file", "tree", "ifconfig", "journalctl", "less", "git") \
+            and two_word not in ("pip list", "pip show", "pip freeze", "npm list"):
+        return False
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    args = argv[1:]
+    if base_cmd == "rg":
+        return _long_given(args, ("pre", "pre-glob", "hostname-bin"))
+    if base_cmd == "file":
+        return _long_given(args, ("compile",)) or _short_given(args, "C", "eFfmP")
+    if base_cmd == "tree":
+        return _long_given(args, ("output",)) or _short_given(args, "o", "LPIHT")
+    if base_cmd == "ifconfig":
+        return _ifconfig_sets(argv)
+    if base_cmd == "journalctl":
+        return _long_given(args, _JOURNALCTL_ACTS, exact_reads=("cursor",))
+    if base_cmd == "less":
+        return (_long_given(args, ("log-file", "LOG-FILE")) or _short_given(args, "oO", "bhjkpPtTxyz#D")
+                or any(a.startswith("+") for a in args))
+    if base_cmd == "git":
+        return _git_acts(argv)
+    if base_cmd == "pip":
+        sub = argv[1] if len(argv) > 1 else ""
+        return _outside_reads(argv[2:], _PIP_READS.get(sub, frozenset()) | _PIP_COMMON_READS,
+                              _PIP_READ_VALUES.get(sub, frozenset()), "vq")
+    return _outside_reads(argv[2:], _NPM_LIST_READS, _NPM_LIST_READ_VALUES)
+
+
 def _split_shell(command: str) -> list[tuple[str, bool]]:
     """Split a command into its shell segments, returning (segment, pipe_adjacent)
     for each non-empty segment. A compound command is classified by its worst
@@ -842,40 +1194,56 @@ def classify_command(command: str, _piped: bool = False,
         return SafetyTier.CONFIRM
     if two_word == "git remote" and _git_remote_changes(parts):
         return SafetyTier.CONFIRM
+    # An AUTO program whose own options run a program, write a path or set a
+    # state (rg --pre, file -C, ifconfig's set forms, journalctl --vacuum-*, git's
+    # paginating commands with --output or creating a branch, pip's and npm's
+    # options outside their reads) is CONFIRM: see _acts_through_options.
+    if _acts_through_options(base_cmd, two_word, parts):
+        return SafetyTier.CONFIRM
     # env is an exec wrapper: classify it by its WRAPPED command (a read stays AUTO,
     # a write confirms, a dangerous one is refused), not as a flat AUTO that would
     # launder `env touch x` / `env <unknown>` past the confirm gate. Bare env (no
-    # wrapped command) just prints/sets the environment -> AUTO.
+    # wrapped command) just prints/sets the environment -> AUTO. An assignment that
+    # can change what runs, or another working directory, is CONFIRM at least.
     if base_cmd == "env":
         wrapped = _env_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(
+        tier = SafetyTier.AUTO if wrapped is None else classify_command(
             wrapped, _piped=_piped, _egress=_egress)
+        return _at_least_confirm(tier) if _env_acts(parts) else tier
 
     # watch is an exec wrapper like env: classify by its WRAPPED command so
     # `watch 'rm -rf x'` is BLOCKED and `watch free` is AUTO, never a flat pass.
     if base_cmd == "watch":
         wrapped = _watch_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(
+        tier = SafetyTier.AUTO if wrapped is None else classify_command(
             wrapped, _piped=_piped, _egress=_egress)
+        return _at_least_confirm(tier) if _watch_acts(parts) else tier
 
     # Shell (or `script`) with a `-c` command-string: classify the command-string
     # itself (worst tier) so the shell token cannot hide a recognition-tier inner
     # and the separator model applies INSIDE the quoted argument. A bare shell /
-    # `bash file.sh` returns None and falls through to the CONFIRM default.
+    # `bash file.sh` returns None and falls through to the CONFIRM default. script
+    # writes its typescript, and a shell's start-up options run a file first, so
+    # those are CONFIRM at least.
     if base_cmd in _CMDSTRING_WRAPPERS:
         cmd_str = _shell_c_argument(parts)
         if cmd_str:
-            return classify_command(cmd_str, _piped=_piped, _egress=_egress)
+            tier = classify_command(cmd_str, _piped=_piped, _egress=_egress)
+            if base_cmd == "script" or _shell_runs_startup(parts):
+                return _at_least_confirm(tier)
+            return tier
 
     # Transparent exec-prefix wrappers (nohup/nice/timeout/xargs/flock/strace/...):
     # classify by the WRAPPED command so a base-command-keyed block (`nohup sudo …`,
     # `timeout 5 mount /x`, `nice ip addr`, `flock /l pkexec …`) reaches its true
     # tier instead of softening to the unknown-command CONFIRM. Bare wrapper -> AUTO
-    # (nothing runs). Like env/watch above.
+    # (nothing runs). Like env/watch above. A wrapper's own option that writes a
+    # file, runs a program or acts on running processes is CONFIRM at least.
     if base_cmd in _PREFIX_SPECS:
         wrapped = _prefix_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(
+        tier = SafetyTier.AUTO if wrapped is None else classify_command(
             wrapped, _piped=_piped, _egress=_egress)
+        return _at_least_confirm(tier) if _wrapper_acts(base_cmd, parts) else tier
 
     # Interactive-pager guard: a bare pager is a shell-escapable interactive
     # program -> CONFIRM; a piped pager is a data-sink -> AUTO.
