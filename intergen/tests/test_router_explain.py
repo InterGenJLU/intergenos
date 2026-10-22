@@ -10,12 +10,14 @@ plus the lexical-prior regex directly. The corpus uses the keyword fallback
 
 from __future__ import annotations
 
+import shlex
 import unittest
 from pathlib import Path
 
 from intergen.router import ConversationRouter, _EXPLAIN_PRIOR_RE
 from intergen.howto import HowtoCorpus
 from intergen.semantic import SemanticMatcher
+from intergen.tools.manage_packages import ManagePackagesTool
 
 # The in-repo ship-source corpus (intergen/data/howto). Pinned EXPLICITLY rather
 # than via the default resolver so these tests read the SOURCE OF TRUTH on every
@@ -91,6 +93,11 @@ class TryExplainTests(unittest.TestCase):
         self.assertIn("pkm", command)
         self.assertEqual(tool, "manage_packages")
         self.assertEqual(arguments, {"action": "update"})
+        # The command the person sees is the one the package tool's builder
+        # returns for that call: the refresh, then the upgrade.
+        self.assertEqual(command, " && ".join(
+            shlex.join(argv)
+            for argv in ManagePackagesTool().build_commands(arguments)))
         self.assertIn("Want me to run", result.text)
 
     def test_uninstall_howto_is_explained_not_executed(self):

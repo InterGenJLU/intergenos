@@ -904,31 +904,9 @@ def _last_named(history: "list", pattern: "re.Pattern[str]") -> str:
     return ""
 
 
-_PKM_WHOLE_SYSTEM_RE = re.compile(r"\bpkm\s+(?:upgrade|sync|update)\b", re.IGNORECASE)
 _PKM_ACTION_OF_VERB = {"install": "install", "remove": "remove",
                        "uninstall": "remove", "upgrade": "update",
                        "update": "update"}
-
-
-def _package_action_arguments(command: str) -> "dict[str, str] | None":
-    """The manage_packages arguments a pkm command line MEANS — "sudo pkm
-    install steam" → install steam; "sudo pkm sync && sudo pkm upgrade --all"
-    → the whole-system update — or None when the line is not a pkm action.
-    The staged offer then runs through the package manager's own tool, which
-    asks for the authorization itself, instead of as a shell line the safety
-    tier blocks for its sudo."""
-    text = (command or "").strip().lower()
-    m = _PKM_PACKAGE_RE.match(text)
-    if m:
-        verb = re.match(r"(?:sudo\s+)?pkm\s+(\w+)", text).group(1)
-        action = _PKM_ACTION_OF_VERB[verb]
-        target = m.group(1).rstrip("-")
-        if target.startswith("-") or not target:
-            return {"action": "update"} if action == "update" else None
-        return {"action": action, "package": target}
-    if _PKM_WHOLE_SYSTEM_RE.search(text):
-        return {"action": "update"}
-    return None
 
 
 def _names_the_staged_action(text: str, command: str, tool: str,
@@ -1007,6 +985,54 @@ def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
         return None
     pkm_verb, human_verb = mapped
     return (f"pkm {pkm_verb} {app}", app, human_verb)
+
+
+_PKM_REFRESH_WORDS = (["sync"], ["update"], ["refresh"])
+
+
+def _package_action_arguments(line: str) -> "dict | None":
+    """The package tool's arguments for an offered pkm command line, or None
+    when the line is not exactly an act that tool builds.
+
+    An offer of a pkm line is dispatched through manage_packages, whose builder
+    runs it with the flags a run with no terminal needs, and the offer shows
+    that builder's command line (_offer_act) — never a line that the shell-free
+    run_command would refuse ("sudo …", "&&") or run without the --yes pkm asks
+    for. A refresh followed by an upgrade, or an upgrade alone, is the update
+    act (its builder runs the refresh first); install, add, remove and
+    uninstall take exactly one package. Anything else — a refresh alone, a
+    verify of every package, a flag the tool does not pass — is None."""
+    segments = []
+    for part in line.split("&&"):
+        try:
+            words = shlex.split(part)
+        except ValueError:
+            return None
+        if words[:1] == ["sudo"]:
+            words = words[1:]
+        if not words or os.path.basename(words[0]) != "pkm":
+            return None
+        segments.append(words[1:])
+    if len(segments) == 2 and segments[0] in _PKM_REFRESH_WORDS \
+            and segments[1][:1] == ["upgrade"]:
+        segments = segments[1:]
+    if len(segments) != 1 or not segments[0]:
+        return None
+    verb, rest = segments[0][0], segments[0][1:]
+    names = [w for w in rest if not w.startswith("-")]
+    flags = {w for w in rest if w.startswith("-")}
+    if verb in ("install", "add", "remove", "uninstall"):
+        if len(names) != 1 or not flags <= {"--yes", "-y"}:
+            return None
+        action = "install" if verb in ("install", "add") else "remove"
+        return {"action": action, "package": names[0]}
+    if verb == "upgrade":
+        if not flags <= {"--yes", "-y", "--all"} or len(names) > 1 \
+                or (names and "--all" in flags):
+            return None
+        return ({"action": "update", "package": names[0]} if names
+                else {"action": "update"})
+    return None
 
 
 # ── Deterministic identity guard ──────────────────────────────────────────
@@ -6074,22 +6100,64 @@ class ConversationRouter(RouterInterface):
         the re-offer and return an honest acknowledgement + handoff instead
         (loop-killer). The SINGLE seam the explain/teach offer sites use
         so a declined action is never re-armed as if brand new."""
-        if self._command_handed_off(command):
-            glass.emit("decision", "offer_suppressed_handoff", detail={
+        act = self._offer_act(command, tool, arguments)
+        if act is None:
+            # The act would be refused before any card: no offer is armed for
+            # it, and the answer stays the teaching it already is.
+            glass.emit("decision", "offer_withheld_refused", detail={
                 "command": command})
+            self._stage_single_offer()
+            return ""
+        staged_tool, args, shown = act
+        if self._command_handed_off(shown) or self._command_handed_off(command):
+            glass.emit("decision", "offer_suppressed_handoff", detail={
+                "command": shown})
             # No live offer is armed — the action already ran its course.
             self._stage_single_offer()
-            return self._handoff_line(command)
-        # A pkm line is staged for the package manager's OWN tool with the
-        # arguments it means, whichever tool the caller named: the person sees
-        # the command, the gate sees manage_packages install steam.
-        if not arguments and tool in ("run_command", "manage_packages"):
-            derived = _package_action_arguments(command)
-            if derived:
-                tool, arguments = "manage_packages", derived
-        self._stage_single_offer(action=(command, tool, original,
-                                         arguments or None))
-        return self._offer_line(command)
+            if args is not None:
+                from intergen.tool_registry import (describe_call,
+                                                    handoff_command,
+                                                    honest_handoff_message)
+                call = ToolCall(name=staged_tool, arguments=args,
+                                source_of_request=Provenance.USER_DIRECT)
+                return honest_handoff_message("", handoff_command(call),
+                                              describe_call(call).root)
+            return self._handoff_line(shown)
+        self._stage_single_offer(action=(shown, staged_tool, original, args))
+        return self._offer_line(shown)
+
+    def _offer_act(self, command: str, tool: str,
+                   arguments: "dict | None" = None
+                   ) -> "tuple[str, dict | None, str] | None":
+        """(tool, arguments, the command line the offer shows) for an offered
+        command, or None when the call it would dispatch is refused before any
+        card. A pkm line, or a package action the caller staged with its
+        arguments, is dispatched through the package tool and shows that
+        tool's builder's command line (_package_action_arguments); another
+        tool's structured action is staged with the arguments it came with;
+        any other line is run_command's, verbatim, as before. The shown line is
+        the registry's description of the very call accepting the offer
+        dispatches, so the offer cannot promise one act and stage another."""
+        from intergen.tool_registry import describe_call
+        if arguments and tool not in ("run_command", "manage_packages"):
+            return tool, dict(arguments), command
+        args = (dict(arguments) if arguments and tool == "manage_packages"
+                else _package_action_arguments(command))
+        if args is not None:
+            call = ToolCall(name="manage_packages", arguments=args,
+                            source_of_request=Provenance.USER_DIRECT)
+            act = describe_call(call)
+            if act.refusal or not act.command_line:
+                return None
+            return "manage_packages", args, act.command_line
+        if tool == "write_file":
+            return tool, None, command
+        call = ToolCall(name="run_command", arguments={"command": command},
+                        source_of_request=Provenance.USER_DIRECT)
+        if classify_command(command) == SafetyTier.BLOCKED \
+                or describe_call(call).refusal:
+            return None
+        return "run_command", None, command
 
     def _stage_single_offer(self, *, action=None, ipv6=None, memory=None) -> None:
         """F5 single-live-offer discipline (offer/accept fix, 2026-07-01): at most
@@ -6652,7 +6720,8 @@ class ConversationRouter(RouterInterface):
         elif tool in ("manage_packages", "manage_services") and args:
             # The structured action the offer staged, through the tool's own
             # path: the package manager's privileged dispatcher asks for the
-            # authorization; a shell line with sudo never reaches it.
+            # authorization; a shell line with sudo never reaches it. A pkm
+            # offer showed this call's builder's command line (_offer_act).
             call = ToolCall(name=tool, arguments=dict(args),
                             source_of_request=Provenance.USER_DIRECT)
             display = command
@@ -6722,6 +6791,12 @@ class ConversationRouter(RouterInterface):
             self._note_handed_off(command if tool == "run_command" else display)
             if tool == "run_command":
                 handoff = self._handoff_line(command)
+            elif tool == "manage_packages":
+                # The registry's own handoff for the call the offer staged: the
+                # builder's command line as a person types it (sudo on every
+                # command, pkm's --yes dropped), or the reason it was refused.
+                from intergen.tool_registry import gate_refusal_message
+                handoff = gate_refusal_message(call, tool_result)
             elif tool == "web_search":
                 handoff = ("I couldn't run that search just now — the search "
                            "didn't go through, so I have nothing to tell you "
@@ -6941,8 +7016,10 @@ class ConversationRouter(RouterInterface):
                     # instead of re-arming it (loop-killer).
                     answer = f"To {human_verb} {app}, run `{command}`."
                     if offer_action:
-                        answer += "\n\n" + self._stage_action_offer_or_handoff(
+                        offer = self._stage_action_offer_or_handoff(
                             command, "run_command", user_input)
+                        if offer:
+                            answer += "\n\n" + offer
                     else:
                         self._stage_single_offer()
                     self._append_history(user_input, answer)
@@ -6958,9 +7035,11 @@ class ConversationRouter(RouterInterface):
             # explain-FIRST, then OFFER the gated action (decision #4). the honest-handoff work:
             # a previously-declined action is not re-offered — the honest handoff
             # is substituted (loop-killer).
-            answer = f"{answer}\n\n" + self._stage_action_offer_or_handoff(
+            offer = self._stage_action_offer_or_handoff(
                 entry.action.command, entry.action.tool, user_input,
                 dict(entry.action.arguments) or None)
+            if offer:
+                answer = f"{answer}\n\n{offer}"
         else:
             self._stage_single_offer()
         # Cite the source page — a link to the LOCAL installed wiki page (+ the

@@ -297,17 +297,21 @@ class LoopKillerTests(unittest.TestCase):
 
     def test_fresh_action_still_arms_an_offer(self):
         r = self._router()
-        # A NOT-declined action arms normally (filler=None → template offer line).
+        # A NOT-declined action arms normally (filler=None → template offer
+        # line). A pkm line is staged as the package tool's call, and the offer
+        # shows that tool's builder's command line, --yes included.
         line = r._stage_action_offer_or_handoff(
             "pkm install vim", "run_command", "install vim")
         # A pkm command line staged under run_command is re-tooled to the
         # package tool it MEANS, with its structured arguments as the fourth
         # element, so the review gate sees "manage_packages install vim" and
-        # never a shell line; the person still sees the command.
+        # never a shell line; the person sees the command its builder returns.
+        built = shlex.join(ManagePackagesTool().build_commands(
+            {"action": "install", "package": "vim"})[0])
         self.assertEqual(r._pending_action_offer,
-                         ("pkm install vim", "manage_packages", "install vim",
+                         (built, "manage_packages", "install vim",
                           {"action": "install", "package": "vim"}))
-        self.assertIn("pkm install vim", line)
+        self.assertIn(f"`{built}`", line)
 
 
 # ── The one interface-aware capability registry (the capability single-source) ───────────────────────

@@ -19,12 +19,14 @@ function, with the index stood in.
 """
 from __future__ import annotations
 
+import shlex
 import unittest
 from unittest import mock
 
 from intergen import router as router_module
 from intergen.router import ConversationRouter
 from intergen.tests.test_a_code_owned_reply_is_delivered_as_the_client_wrote_it import _turn
+from intergen.tools.manage_packages import ManagePackagesTool
 
 CHECK_INSTALL = "how do I check install on this machine?"
 EXPLANATION = "To see what is installed, run pkm list."
@@ -90,11 +92,19 @@ class OnlyANameTheIndexResolvesIsOffered(unittest.TestCase):
                     "To install htop, run `pkm install htop`."))
                 # A pkm line is staged for the package manager's own tool.
                 self.assertEqual(tuple(router._conv.pending_action_offer[:2]),
-                                 ("pkm install htop", "manage_packages"))
+                                 (_shown("pkm install htop"), "manage_packages"))
                 self.assertEqual((result.answer_linkage.kind,
                                   result.answer_linkage.renderer),
                                  ("code", "package_action_teach"))
                 self.assertEqual(asked, 0)
+
+
+def _shown(command):
+    """The command line an offer of the taught pkm `command` shows and stages:
+    the package tool's builder's line for the call the offer dispatches."""
+    arguments = router_module._package_action_arguments(command)
+    return " && ".join(shlex.join(argv) for argv in
+                       ManagePackagesTool().build_commands(arguments))
 
 
 # Sentences whose word after the verb is a real package that is not the thing
@@ -137,7 +147,7 @@ class TheNameMustCloseTheVerbsObject(unittest.TestCase):
                     # The teach parser offers nothing; a how-to answer the
                     # corpus holds for the sentence may offer its own command.
                     offer = router._conv.pending_action_offer
-                    self.assertTrue(offer is None or offer[0] != command, offer)
+                    self.assertTrue(offer is None or offer[0] != _shown(command), offer)
                     self.assertNotIn(command, result.text)
                     self.assertNotEqual((result.answer_linkage.kind,
                                          result.answer_linkage.renderer),
@@ -154,7 +164,7 @@ class TheNameMustCloseTheVerbsObject(unittest.TestCase):
                     offer = router._conv.pending_action_offer
                     # A pkm line is staged for the package manager's own tool.
                     self.assertEqual(tuple(offer[:2]),
-                                     (command, "manage_packages"))
+                                     (_shown(command), "manage_packages"))
                     self.assertIn(f"run `{command}`.", result.text)
 
 
