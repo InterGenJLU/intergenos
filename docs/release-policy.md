@@ -42,15 +42,24 @@ A full from-source rebuild is triggered by any of the following:
    build.
 
 
-## The one exception: a security-only point release past the drift limit
+## The one exception: a fix-only point release past the drift limit
 
-When the rules above already make the next release a major release, and a
-published advisory rated Critical or High (the severities in `SECURITY.md`)
-affects a package reachable on a default install, and the fix cannot wait for
-the major release in progress, a point release limited to that fix may be
-published. It carries the security fix and nothing else: no other package
-change, no feature, no addition. It is built, installed and evaluated like
-every point release, its Updates entry names this exception, and it does not
+When the rules above already make the next release a major release and fixes
+cannot wait for it, a point release limited to the following fixes may be
+published:
+
+- Security fixes in components present on a default install, including the
+  assistant and its test harness, for a published advisory rated Critical or
+  High or a defect the project rates Critical or High under `SECURITY.md`.
+- Transparency fixes in the assistant's consent and disclosure surfaces.
+- Fixes to defects in the update path itself.
+- Hardware-enablement patches that change no foundation component's version.
+
+The release carries those fixes and the changes they require in the components
+that carry them, and nothing else: no feature, no addition, no unrelated package
+change, and no foundation or build-policy change. It is built, installed and
+evaluated like every point release. Its Updates entry names this exception and
+lists every change and every package changed, each with its reason. It does not
 reset the drift count: the release after it remains the major release.
 
 ## Support model: one supported line
