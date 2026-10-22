@@ -111,7 +111,8 @@ class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
         "A network check such as ping or dig reaches the host it names",
         "runs without asking only on your direct request in a conversation "
         "where nothing from outside has been read; otherwise I ask you first",
-        "Your IP address is looked up at a public DNS resolver only when asked",
+        "Your IP address is looked up at a public DNS resolver when you ask "
+        "for it",
         "a question goes to a cloud provider only if you set one up and "
         "approve each send",
     )
@@ -159,6 +160,9 @@ class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
                 self.assertIn("web search", ans)
                 self.assertNotIn("unless you explicitly configure", ans.lower())
                 self.assertNotIn("only when you ask", ans)
+                # The same meaning in the passive: the IP lookup runs when the
+                # person asks for it, and the sentence says no more than that.
+                self.assertNotIn("only when asked", ans)
                 self.assertNotIn("on its own", ans)
 
 

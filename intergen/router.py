@@ -4804,9 +4804,9 @@ class ConversationRouter(RouterInterface):
                 "such as ping or dig reaches the host it names, and runs without "
                 "asking only on your direct request in a conversation where "
                 "nothing from outside has been read; otherwise I ask you first. "
-                "Your IP address is looked up at a public DNS resolver only when "
-                "asked, and a question goes to a cloud provider only if you set "
-                "one up and approve each send."
+                "Your IP address is looked up at a public DNS resolver when you "
+                "ask for it, and a question goes to a cloud provider only if you "
+                "set one up and approve each send."
             ),
             "what about privacy": (
                 "The model that answers you runs locally, on this machine, and "
@@ -4820,8 +4820,9 @@ class ConversationRouter(RouterInterface):
                 "host it names, and runs without asking only on your direct "
                 "request in a conversation where nothing from outside has been "
                 "read; otherwise I ask you first. Your IP address is looked up at "
-                "a public DNS resolver only when asked, and a question goes to a "
-                "cloud provider only if you set one up and approve each send."
+                "a public DNS resolver when you ask for it, and a question goes "
+                "to a cloud provider only if you set one up and approve each "
+                "send."
             ),
             "how do you work": (
                 "I route your queries through a priority chain: cached system "
