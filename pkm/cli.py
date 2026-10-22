@@ -6177,7 +6177,7 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         )
 
     _, refusal = archive_preflight(
-        name, path, expected_sha256=archive_sha, root=install_root(),
+        name, held.path, expected_sha256=archive_sha, root=install_root(),
         check_payload=True)
     if refusal:
         emit_error(f"{refusal}\nNothing was removed — {name} "

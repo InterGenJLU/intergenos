@@ -152,6 +152,33 @@ def test_a_swap_after_every_check_does_not_change_what_lands(local, verb, swap):
 
 
 @pytest.mark.parametrize("verb", ["install", "upgrade"])
+@pytest.mark.parametrize("swap", list(SWAPS))
+def test_a_swap_right_after_the_first_read_does_not_change_what_lands(local, verb, swap):
+    """The same four swaps, made as soon as the file has been read once: at the
+    index lookup, the first step after it on both commands. Every later check
+    (the trust gate's hash, the payload preflight) reads what was held."""
+    if verb == "upgrade":
+        _install_old(local)
+    lookup = local.repo.get_package
+    swapped = []
+
+    def get_package_then_swap(name):
+        if not swapped:
+            SWAPS[swap](local)
+            swapped.append(swap)
+        return lookup(name)
+
+    local.repo.get_package = get_package_then_swap
+    rc, said = invoke(local, verb)
+    assert swapped == [swap], said
+    assert not rc, said  # cmd_install returns None, cmd_upgrade 0
+    assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED, (
+        f"after {swap} at the index lookup the install did not land the verified bytes")
+    row = local.db.get_installed("widget")
+    assert (row["version"], row["release"]) == ("1.0", 4)
+
+
+@pytest.mark.parametrize("verb", ["install", "upgrade"])
 def test_a_link_named_as_the_archive_is_refused(local, verb):
     if verb == "upgrade":
         _install_old(local)
