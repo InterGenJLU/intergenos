@@ -3,8 +3,9 @@
 """InterGen conversation router — routes user input to handlers.
 
 Ported from a prior internal AI assistant project (3,782 lines simplified to ~250).
-Simplified from 18 priorities to 8. No voice, no conversation windows,
-no multi-user, no task planner. Text-only, system-focused.
+Simplified from 18 priorities to the five below (P0-P4). No voice, no
+conversation windows, no multi-user, no task planner. Text-only,
+system-focused.
 
 Priority chain:
   P0: Compound query detection → tier-aware decomposition
