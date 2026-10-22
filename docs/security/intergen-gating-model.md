@@ -252,11 +252,12 @@ tools.
   hash is refused, and nothing is installed. The other root readers of a path
   an account controls follow the same rule: the greeter's monitor-layout sync
   (`igos-greeter-monitors-sync`) and the backup engine's restore of user data
-  (`chronicle.engine._restore_one`) each open the source once, take its type,
-  owner and size from that descriptor, and check and copy the bytes they read
-  through a temporary file hashed in full before the rename. The greeter's copy
-  lands at 0600, and the seat config directory keeps the mode the display
-  manager gives it.
+  (`chronicle.engine._restore_one`) each hold the source before they open it
+  (below), take its type, owner and size from that hold, and check and copy
+  the bytes they read through a temporary file hashed in full before the
+  rename. The greeter's copy, and the first-boot seed's, land at 0600; the
+  seat config directory is made 0700 only when it is absent and otherwise
+  keeps the mode the display manager gives it.
 - **The root side holds a named object before it opens it.** Opening a FIFO
   or a device runs what it does when it is opened, so a privileged helper
   handed a path does not open it to learn what it is: `intergen.held_open`
@@ -269,7 +270,14 @@ tools.
   (the write, and the read of the old content for the diff) and the
   privileged runner's request file open this way; a link, a FIFO or a device
   there is refused before anything opens it, and the refusal says nothing was
-  opened.
+  opened. The backup engine carries the same contract as `chronicle.held_open`
+  (the two packages share no library): its user-data capture, its config-state
+  and restore-point captures of a caller's scope, its diff and its restore
+  walk to each path by descriptor and act at that descriptor, a scope entry is
+  captured only as a regular file, a directory or a link, and a restore writes
+  a new name at the walked directory and renames it there. A store is adopted,
+  and then used, only when no other account can change it or a directory
+  above it. The greeter's monitor-layout sync holds the layout the same way.
 - **One authentication is one call.** Each privileged tool has its own
   PolicyKit action, selected by pkexec from the runner's first argument (the
   tool's name, matched against the action's `exec.argv1`), so the prompt names
@@ -321,3 +329,4 @@ tools.
 | 2026-10-22 | §8: AUTH-PROMPT is one administrator authentication per call. One PolicyKit action per privileged tool, `auth_admin` with no keep, chosen by pkexec from the tool's name so the prompt names the kind of action; the dispatch token and the request file are defense in depth, never the gate. |
 | 2026-10-22 | §8: a command `run_command` starts runs with an environment written for it (glibc's unsafe loader variables unset, `env -i` with a fixed allowlist, the program resolved on a fixed PATH); a drop-in that would apply to its service where the account can write refuses the start; every `git` form asks first. |
 | 2026-10-22 | §8: the drop-in gate reads every directory systemd applies to a tool's service and to the privileged dispatch's unit, dependency directories included, and takes one as the administrator's only when root owns it along its whole path. |
+| 2026-10-22 | §8 "The root side holds a named object before it opens it": the backup engine's own `chronicle.held_open` carries the contract to its user-data capture, scoped captures, diff and restore; a store is adopted and used only when no other account can change it; the greeter's layout sync holds the layout before it opens it, and the first-boot seed lands at the sync's modes. |
