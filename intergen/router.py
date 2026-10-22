@@ -4784,15 +4784,15 @@ class ConversationRouter(RouterInterface):
                 "For complex reasoning, I can escalate to a cloud provider if "
                 "you've configured one."
             ),
-            # A web search the person asks for sends its search words out, so
-            # neither answer may say that nothing is ever sent. Nor may either
-            # say that something goes out only on a request: these texts are
-            # fixed and cannot read the lane, and where the model is given its
-            # tools it may start a read-only one, a web search among them, by
-            # itself. What holds on every lane is said instead, and both still
-            # say "local", the word the person asked about. The direct-answer
-            # route answers the same questions first, from this machine's own
-            # facts (_privacy_answer).
+            # Neither answer may say that nothing is ever sent: a web search the
+            # person asks for sends its search words out and fetches a page.
+            # Nor may either say that something goes out only on a request:
+            # these texts are fixed and cannot read the lane. Each says what
+            # holds on every lane, then names each path that leaves the machine
+            # with the condition it runs under, as the setup surfaces do. Both
+            # still say "local", the word the person asked about. The
+            # direct-answer route answers the same questions first, from this
+            # machine's own facts (_privacy_answer).
             "do you run locally": (
                 "Yes — I run locally, on this machine, and so does the model that "
                 "answers you. Nothing is sent in the background — no telemetry; "

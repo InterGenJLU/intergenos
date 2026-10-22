@@ -363,7 +363,7 @@
           },
           {
             "type": "contains_any",
-            "value": "nothing in the background",
+            "value": "nothing is sent in the background",
             "description": "answers truthfully about what leaves the machine"
           },
           {

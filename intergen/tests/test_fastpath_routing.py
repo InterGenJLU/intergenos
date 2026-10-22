@@ -92,8 +92,10 @@ class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
     data are sent anywhere" and "No data leaves this system unless you
     explicitly configure cloud escalation", while a web search sends its words
     to the search service, a network check reaches the host it names, and the
-    IP answer asks a public resolver. Each answer now names those paths and the
-    conditions they run under, as the setup surfaces do."""
+    IP answer asks a public resolver. Each answer now says what holds on every
+    lane (nothing in the background; something goes out only while it works on
+    something the person asked), then names those paths and the conditions they
+    run under, as the setup surfaces do."""
 
     _QUESTIONS = ("what about privacy?", "Is my data sent anywhere?",
                   "is my data private?", "where does my data go",
@@ -101,22 +103,37 @@ class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
                   "are you private?", "do you run locally?", "are you local?",
                   "where do you run?")
     _NAMED = (
-        "send nothing in the background",
+        "is sent in the background — no telemetry",
+        "only while I work on something you asked",
         "A web search you ask for, or accept when I offer it",
         "sends its search words to the search service",
         "fetches the first result's page",
         "A network check such as ping or dig reaches the host it names",
-        "runs without asking only when you ask for it directly and nothing "
-        "from outside has been read in the conversation; otherwise I ask you "
-        "first",
-        "Your IP address is looked up at a public DNS resolver only when you "
-        "ask for it",
+        "runs without asking only on your direct request in a conversation "
+        "where nothing from outside has been read; otherwise I ask you first",
+        "Your IP address is looked up at a public DNS resolver only when asked",
         "a question goes to a cloud provider only if you set one up and "
         "approve each send",
     )
     _DENIALS = ("stays local", "never leaves", "no data leaves",
                 "sent anywhere", "entirely on", "everything runs locally",
                 "no queries")
+    # The texts each answer opens with, whole: the run-locally and privacy
+    # answers as they were before the paths were named.
+    _OPENINGS = {
+        "do you run locally": (
+            "Yes — I run locally, on this machine, and so does the model that "
+            "answers you. Nothing is sent in the background — no telemetry; "
+            "something goes out only while I work on something you asked: a "
+            "web search, a network lookup such as your public IP, or a "
+            "Phone-A-Friend question you approve."),
+        "what about privacy": (
+            "The model that answers you runs locally, on this machine, and "
+            "nothing is sent in the background — no telemetry. Something "
+            "leaves only while I work on something you asked: a web search, a "
+            "network lookup such as your public IP, a software download from "
+            "the package mirror, or a Phone-A-Friend question you approve."),
+    }
 
     def test_each_answer_names_every_path_and_its_condition(self):
         for q in self._QUESTIONS:
@@ -130,6 +147,19 @@ class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
             ans = _identity(q).lower()
             for denial in self._DENIALS:
                 self.assertNotIn(denial, ans, (q, denial))
+
+    def test_each_answer_opens_with_what_holds_on_every_lane(self):
+        # These texts are fixed and cannot read the lane, so neither says that
+        # something goes out only on a request or that nothing goes out on its
+        # own; each says what goes out while it works on something asked.
+        for key, opening in self._OPENINGS.items():
+            with self.subTest(key=key):
+                ans = _identity(key)
+                self.assertTrue(ans.startswith(opening + " "), ans)
+                self.assertIn("web search", ans)
+                self.assertNotIn("unless you explicitly configure", ans.lower())
+                self.assertNotIn("only when you ask", ans)
+                self.assertNotIn("on its own", ans)
 
 
 class CompoundDecomposition(unittest.TestCase):
