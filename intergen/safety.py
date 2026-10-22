@@ -2409,10 +2409,14 @@ _BARE_COMMAND_FRAME_RE = re.compile(
 # Honest correction / negation guard: the model naming an invalid command while
 # DENYING it ("there is no `pkm add`", "not `pkm add` — use `pkm install`") is
 # correct behavior and must never trip the gate (anti-lobotomy).
+# A contraction is read with a straight apostrophe, a curly one or none
+# ("don't", "don’t", "dont"): with an apostrophe required, "You dont need
+# to run `pkm add htop`." read as an invented command on a turn that ran
+# nothing (2026-10-21).
 _CAP_NEGATORS = re.compile(
-    r"\b(no|not|never|isn['’]t|aren['’]t|instead\s+of|rather\s+than|unlike|"
-    r"avoid|there\s+is\s+no|there['’]s\s+no|no\s+such|don['’]t|doesn['’]t|"
-    r"wouldn['’]t|can['’]t|cannot)\b", re.IGNORECASE)
+    r"\b(no|not|never|isn['’]?t|aren['’]?t|instead\s+of|rather\s+than|unlike|"
+    r"avoid|there\s+is\s+no|there['’]?s\s+no|no\s+such|don['’]?t|doesn['’]?t|"
+    r"wouldn['’]?t|can['’]?t|cannot)\b", re.IGNORECASE)
 # Every window that reads them reads through the claim screen's phrase
 # blanking (_negated_before): "If not, run `pkm add htop` to get it." and "No
 # problem, run `pkm add htop` to get it." passed on their "not" and "no", an

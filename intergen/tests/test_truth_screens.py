@@ -3589,5 +3589,58 @@ class ContractionNegatorTests(unittest.TestCase):
         self.assertEqual(floors[True], floors[False])
 
 
+# ── the capability screen reads a contraction without its apostrophe ─────────
+# "You dont need to run `pkm add htop`." read as an invented command: the
+# capability screen's negators took a contraction only with its apostrophe, so
+# an honest correction written without one was regenerated on a turn that ran
+# nothing.
+CAPABILITY_CORRECTIONS = (
+    "You dont need to run `pkm add htop`.",
+    "You cant use `pkm add htop` here.",
+    "There isnt a `pkm add` command; use `pkm install htop`.",
+    "These arent real commands: `pkm add htop`.",
+    "The tool doesnt take `pkm add htop`.",
+    "I wouldnt run `pkm add htop`; it does not exist.",
+    "Dont type `pkm add htop`.",
+    "You cant use pkm to list disk usage.")
+NO_SUCH_SUBCOMMAND = ("You dont need to run `pkm add htop`; there is no such "
+                      "subcommand, and `pkm install htop` installs it.")
+
+
+class CapabilityNegatorSpellingTests(unittest.TestCase):
+    """The capability screen reads a contraction with a straight apostrophe, a
+    curly one or none; a command no negator stands before is still read."""
+
+    def test_a_correction_without_its_apostrophe_is_not_an_invented_command(self):
+        for text in CAPABILITY_CORRECTIONS:
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("clean", None))
+
+    def test_a_command_no_negator_stands_before_is_still_read(self):
+        for text, marker in (
+                ("Run `pkm add htop` to install it.", "pkm add"),
+                ("Use `pkm add htop`.", "pkm add"),
+                ("The command is:\n\npkm add htop", "pkm add"),
+                ("You can use pkm to list disk usage.",
+                 "pkm (to list disk usage)")):
+            with self.subTest(text=text):
+                self.assertEqual(safety.screen_capability_claim(text),
+                                 ("violation", marker))
+
+    def test_the_correction_is_served_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, _ = _route_recorded(
+                NO_SUCH_SUBCOMMAND, NOTHING_INSTALLED,
+                "do I need pkm add to get htop?", locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertIn(("capability_screen", "clean", None), decisions)
+                self.assertEqual(result.text, NO_SUCH_SUBCOMMAND)
+                self.assertEqual(regenerations, [])
+        self.assertEqual(floors[True], floors[False])
+
+
 if __name__ == "__main__":
     unittest.main()
