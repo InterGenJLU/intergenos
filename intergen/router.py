@@ -7797,6 +7797,11 @@ class ConversationRouter(RouterInterface):
                 )
                 self._conv.record_execution(result, chunk)
                 tool_results.append(result)
+                # A call that ran nothing ends the dispatch, as it ends the web
+                # panel's: the reply below is that call's refusal, so a later
+                # call would run with nothing in the reply to say it had.
+                if not result.executed and not result.success:
+                    break
             else:
                 collected_text.append(chunk)
 

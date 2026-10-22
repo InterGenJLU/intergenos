@@ -654,6 +654,15 @@ class EveryRouteReadsTheSameRule(_Checks):
                 self.assertToldWhyAndNothingMore(result.text, outcome)
                 self.assertEqual(_commands(result.text), [])
 
+    def test_tool_route_stops_at_the_first_call_that_ran_nothing(self):
+        first = ToolCall(name="run_command", arguments=dict(RESTART),
+                         source_of_request=D, call_id="first")
+        later = ToolCall(name="run_command", arguments={"command": "uptime"},
+                         source_of_request=D, call_id="later")
+        result, dispatched = _route([first, later], "deny")
+        self.assertEqual(dispatched, ["first"])
+        self.assertIn("You declined it at the review card", result.text)
+
     def test_tool_route_blocked_redirect_names_packages_only_for_the_own_ask(self):
         own = ToolCall(name="run_command",
                        arguments={"command": "apt install htop"},
