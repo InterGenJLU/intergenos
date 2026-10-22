@@ -150,6 +150,7 @@ A tool call without a `source_of_request` field is rejected at the dispatcher. N
 Orthogonal to provenance, every tool is one of:
 
 - **read-only** — returns information; does not modify system state. Examples: `read_file`, `list_directory`, `web_search`, `manage_services(action=status)`.
+- **network egress** — modifies nothing here, but sends a request off the machine to a host or server its arguments name. Examples: `run_command` with `ping`, `dig`, `nslookup`, `host`, `traceroute`, `lpstat -h`, `git remote update` or `git remote set-url` (`safety.command_leaves_the_machine`), and every external (MCP) tool's call.
 - **state-changing — user-scope** — modifies state in the user's own namespace; no privilege escalation. Examples: `write_file` to `$HOME`, `manage_services` with `user_mode=True`.
 - **state-changing — privileged** — requires escalation. Examples: `manage_services(stop, <system-service>)`, `write_file` to `/etc/`, `run_command` with sudo.
 
@@ -158,8 +159,11 @@ The gate behavior:
 | Tool tier | `user_direct` | `user_implied` | `ingress_derived` |
 |---|---|---|---|
 | read-only | execute | execute | execute (logged) |
+| network egress | execute | HOLD + review | HOLD + review |
 | user-scope state-changing | execute | execute | HOLD + review |
 | privileged state-changing | execute + pkexec | HOLD + review + pkexec on allow | HOLD + review + pkexec on allow |
+
+A network-egress call executes on `user_direct` only, and the watermark (§5.1) leaves a call `user_direct` only when nothing from outside has been read in the conversation: a check the person asked for directly runs, and every other one, a check the person asked for after a page was read included, is held for the person's review, with its command line shown, before anything is sent.
 
 `pkexec` per D-007 Option A — every privileged action prompts for the user's password via PolicyKit, regardless of provenance. The provenance gate adds **intent verification** before authentication; the two don't replace each other.
 
