@@ -82,9 +82,74 @@ surfaces is tests/installed.
 
 from __future__ import annotations
 
+import atexit
 import os
+import pwd
+import shutil
 import sys
+import tempfile
 import urllib.request
+
+import pytest
+
+# NO CASE IN THIS DIRECTORY WRITES TO THE ACCOUNT'S OWN PER-USER STATE.
+#
+# The project-root conftest points every XDG base and HOME at a throwaway
+# directory for the whole run, before anything is imported. A run that does not
+# load it -- this directory run from a copy, or with a rootdir or a confcutdir
+# below the project root -- kept the account's real bases, and the product's
+# writers resolve their files from them: measured 2026-10-21, one module of this
+# directory run that way wrote twenty audit rows into the account's live
+# tool-dispatch.jsonl through audit_log.py's writer, and a probe of the real
+# router run outside pytest wrote 224 rows into the live glass log the same way.
+# So this directory holds the floor itself, in two layers:
+#
+# AT IMPORT, before any module of the product is imported, when the bases are
+# not already elsewhere: several modules fix a per-user path when they are
+# imported (session_manager.SESSIONS_DIR, web_server.TOKEN_PATH, config's user
+# config file), which no per-case fixture can move afterwards. A base counts as
+# elsewhere only when it is set and outside the account's home as the password
+# database names it, because that is where Path.home() falls back to when HOME
+# is unset. With the root conftest loaded every base is already elsewhere and
+# nothing here changes for the rest of the run.
+#
+# FOR EACH CASE, every base and HOME point at a fresh directory of that case's
+# own (_per_user_bases_of_the_case below), so a writer that resolves its path
+# when it writes lands in the case's directory, and no case reads another's.
+PER_USER_BASES = (("XDG_STATE_HOME", "state"), ("XDG_DATA_HOME", "data"),
+                  ("XDG_CACHE_HOME", "cache"), ("XDG_CONFIG_HOME", "config"),
+                  ("HOME", "home"))
+ACCOUNT_HOME = os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir)
+
+
+def base_is_elsewhere(value: str | None) -> bool:
+    """True when ``value`` is set and lies outside the account's home."""
+    if not value:
+        return False
+    path = os.path.realpath(value)
+    return path != ACCOUNT_HOME and not path.startswith(ACCOUNT_HOME + os.sep)
+
+
+if not all(base_is_elsewhere(os.environ.get(variable))
+           for variable, _ in PER_USER_BASES):
+    _FLOOR = tempfile.mkdtemp(prefix="intergen-tests-per-user-")
+    atexit.register(lambda: shutil.rmtree(_FLOOR, ignore_errors=True))
+    for _variable, _name in PER_USER_BASES:
+        os.makedirs(os.path.join(_FLOOR, _name), exist_ok=True)
+        os.environ[_variable] = os.path.join(_FLOOR, _name)
+
+
+@pytest.fixture(autouse=True)
+def _per_user_bases_of_the_case(tmp_path_factory, monkeypatch):
+    """Every XDG base and HOME at a fresh directory of this case's own.
+
+    A directory beside the case's tmp_path rather than inside it, so a case
+    that lists its own tmp_path finds only what it put there."""
+    root = tmp_path_factory.mktemp("per-user")
+    for variable, name in PER_USER_BASES:
+        (root / name).mkdir()
+        monkeypatch.setenv(variable, str(root / name))
+
 
 OPT_OUT_MARKER = "reaches_a_server_it_starts_itself"
 EMBEDDING_GATE_MARKER = "reaches_the_machines_embedding_server"
