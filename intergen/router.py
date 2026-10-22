@@ -7993,28 +7993,38 @@ class ConversationRouter(RouterInterface):
 
         response = self._llm.chat(messages)
 
+        # `fallbacks` names whoever wrote the text this turn delivers when it is
+        # not the model: the model client, or a delivery screen that served its
+        # own text in place of the model's. The model client's own sentence comes
+        # first. Once its ladder is spent the client serves a text it wrote (the
+        # server-down text, the empty-response text) and names it on the reply;
+        # that name is set here, before anything below could read the text, and
+        # read from the field, never by recognising the sentence. Such a reply is
+        # delivered as the client wrote it: the server-down text read as a
+        # refusal by the refusal screen was replaced by the scope steer, and the
+        # person was never told the model server is down.
+        fallbacks: list[str] = []
+        code_owned = self._code_owned_name(response)
+        if code_owned:
+            fallbacks.append(code_owned)
+
         # D6 — SEMANTIC-FLAG CONSUMPTION: if the completion-boundary detector flagged
         # this completion as semantically unsound, discard the text and serve the
         # near-empty-incoherence fallback (same nudge, same history handling) before
         # any further processing. Field-consume only — the detector owns the verdict.
-        flagged = self._semantic_flag_fallback(response, user_input)
+        # A client's own text carries the flags of the completion it replaced, and
+        # that completion was discarded already: its text is not discarded again.
+        flagged = (None if code_owned
+                   else self._semantic_flag_fallback(response, user_input))
         if flagged is not None:
             return flagged
 
         # The delivery screens of an answer nothing was dispatched for, the one
-        # sequence the tool route's text answer meets too. `fallbacks` collects
-        # each screen that served a code-owned text in place of the model's.
-        fallbacks: list[str] = []
+        # sequence the tool route's text answer meets too. A screen that serves a
+        # code-owned text in place of the model's adds its name to `fallbacks`;
+        # no screen reads the client's own text.
         text, refused = self._screen_model_answer(
             response.text, messages, source="llm_freeform", fallbacks=fallbacks)
-        # The model client's own sentence is code-owned too. Once its ladder is
-        # spent the client serves a text it wrote (the server-down text, the
-        # empty-response text) and names it on the reply, here and on any
-        # regeneration a screen accepted above; the name is read from that
-        # field, never by recognising the sentence.
-        code_owned = getattr(response, "code_owned", "")
-        if isinstance(code_owned, str) and code_owned:
-            fallbacks.append(code_owned)
 
         # M7 follow-on: a single-turn "write <artifact> and save it" — the artifact
         # was just generated, so STAGE the save as a gated offer (branch 3 reused with
@@ -8145,15 +8155,21 @@ class ConversationRouter(RouterInterface):
         Returns (text, refused), as _screen_and_correct_refusal does; `refused`
         is False when the refusal screen did not run. When `fallbacks` is a
         list, each screen that served a code-owned text instead of the model's
-        appends its name to it, so the caller knows whose text it delivers."""
+        appends its name to it, so the caller knows whose text it delivers.
+        A text the model client wrote is delivered as it wrote it: no screen
+        reads a draft whose name the caller set in `fallbacks` before this
+        call, nor a regeneration a screen accepted as the client's text (one
+        glass row, code_owned_delivery, records it)."""
         # M3(ii) honesty invariant: when no tool ran, any first-person execution
         # claim in the draft is unfounded. Screen it; on a violation regenerate
         # ONCE with a corrective note, else a deterministic honest fallback —
         # never ship a fabricated action claim. Glass-log the verdict every turn
         # (both paths), per the total-observability rider.
-        text = self._screen_and_correct_claim(
-            draft, messages, dispatched=dispatched, source=source,
-            fallbacks=fallbacks)
+        text = draft
+        if not self._client_text_in_hand(fallbacks):
+            text = self._screen_and_correct_claim(
+                draft, messages, dispatched=dispatched, source=source,
+                fallbacks=fallbacks)
 
         # The conversational path never refuses a benign ask. persona.SCOPE says so
         # in the prompt and the model disregards it (measured 2026-08-26, battery
@@ -8161,20 +8177,46 @@ class ConversationRouter(RouterInterface):
         # code as well as asked for in the prompt. GATED TO THE GENERAL PATH: a
         # safety-classified turn SHOULD refuse, and its refusal is left alone.
         refused = False
-        if getattr(self, "_current_query_type", "") == "general":
+        if (getattr(self, "_current_query_type", "") == "general"
+                and not self._client_text_in_hand(fallbacks)):
             text, refused = self._screen_and_correct_refusal(
                 text, messages, source=source, fallbacks=fallbacks)
+        if self._client_text_in_hand(fallbacks):
+            glass.emit("decision", "code_owned_delivery", detail={
+                "name": fallbacks[-1], "source": source,
+                "action": "delivered as the model client wrote it, not screened"})
         return text, refused
 
+    # The names the delivery screens give their own code-owned texts. Any other
+    # name on a turn's `fallbacks` is the model client's, read from the
+    # code_owned field of a reply it served.
+    _SCREEN_FALLBACK_NAMES = frozenset({
+        "claim_screen", "state_claim_screen", "model_offer_screen",
+        "capability_screen", "refusal_screen"})
+
     @staticmethod
-    def _accepted_regeneration(regen, fallbacks: "list[str] | None") -> str:
+    def _code_owned_name(reply) -> str:
+        """The name the model client gave its own text on `reply` ("" for the
+        model's text). Read from the field, never from the sentence."""
+        code_owned = getattr(reply, "code_owned", "")
+        return code_owned if isinstance(code_owned, str) else ""
+
+    @classmethod
+    def _client_text_in_hand(cls, fallbacks: "list[str] | None") -> bool:
+        """Whether the text the screens hold now is the model client's own: the
+        last name the turn recorded is one the client gave a reply. Nothing
+        changes the text after that name is recorded, so no screen reads it."""
+        return bool(fallbacks) and fallbacks[-1] not in cls._SCREEN_FALLBACK_NAMES
+
+    @classmethod
+    def _accepted_regeneration(cls, regen, fallbacks: "list[str] | None") -> str:
         """The text of a regeneration a screen accepted. A regeneration is a
         model call like any other, so its reply can be the model client's own
         sentence (its ladder spent); the name the reply carries then joins the
         turn's `fallbacks`, so the citation step meets it as the code-owned text
         it is. The browser path passes no list."""
-        code_owned = getattr(regen, "code_owned", "")
-        if fallbacks is not None and isinstance(code_owned, str) and code_owned:
+        code_owned = cls._code_owned_name(regen)
+        if fallbacks is not None and code_owned:
             fallbacks.append(code_owned)
         return regen.text
 
@@ -8212,6 +8254,10 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("claim-screen regeneration failed: %s", e)
             return None
+        # The model client's own text is accepted as the client wrote it; no
+        # screen reads it.
+        if self._code_owned_name(regen):
+            return self._accepted_regeneration(regen, fallbacks)
         verdict, _ = screen_execution_claim(
             regen.text, dispatched=False,
             executed_outputs=self._conv.executed_outputs)
@@ -8255,6 +8301,10 @@ class ConversationRouter(RouterInterface):
         # (1a) a reading of THIS machine that nothing took — an invented size,
         # package list, unit list or path (safety.screen_local_state_claim). Runs
         # on the execution-corrected text, against everything the model was given.
+        # Each step below stops at a regeneration accepted as the model client's
+        # own text: that text is delivered as the client wrote it.
+        if self._client_text_in_hand(fallbacks):
+            return text
         text = self._screen_and_correct_local_state(
             text, messages, dispatched=dispatched, source=source,
             fallbacks=fallbacks)
@@ -8263,6 +8313,8 @@ class ConversationRouter(RouterInterface):
         # turn that no code-owned offer backs (the leg-1 root enabler). Runs on the
         # execution-corrected text; the code-owned offer line stays the only offer
         # surface.
+        if self._client_text_in_hand(fallbacks):
+            return text
         text = self._screen_and_correct_model_offer(
             text, messages, dispatched=dispatched, source=source,
             fallbacks=fallbacks)
@@ -8270,6 +8322,8 @@ class ConversationRouter(RouterInterface):
         # (2) capability claim (M4 grounded claims) — a fabricated pkm subcommand is
         # wrong regardless of dispatch. Runs on the (possibly execution-corrected)
         # text so ONE delivered answer clears both gates.
+        if self._client_text_in_hand(fallbacks):
+            return text
         return self._screen_and_correct_capability(text, messages, source=source,
                                                    fallbacks=fallbacks)
 
@@ -8300,6 +8354,10 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("state-claim-screen regeneration failed: %s", e)
             return None
+        # The model client's own text is accepted as the client wrote it; no
+        # screen reads it.
+        if self._code_owned_name(regen):
+            return self._accepted_regeneration(regen, fallbacks)
         return (self._accepted_regeneration(regen, fallbacks)
                 if local_state_regeneration_ok(regen.text, context=context)
                 else None)
@@ -8374,6 +8432,10 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("model-offer-screen regeneration failed: %s", e)
             return None
+        # The model client's own text is accepted as the client wrote it; no
+        # screen reads it.
+        if self._code_owned_name(regen):
+            return self._accepted_regeneration(regen, fallbacks)
         verdict, _ = screen_model_text_offer(
             regen.text, dispatched=False, code_offer_staged=False)
         return (self._accepted_regeneration(regen, fallbacks)
@@ -8419,6 +8481,10 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("capability-screen regeneration failed: %s", e)
             return None
+        # The model client's own text is accepted as the client wrote it; no
+        # screen reads it.
+        if self._code_owned_name(regen):
+            return self._accepted_regeneration(regen, fallbacks)
         verdict, _ = screen_capability_claim(regen.text)
         return (self._accepted_regeneration(regen, fallbacks)
                 if verdict == "clean" else None)
@@ -8497,6 +8563,10 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a regen failure must not crash the turn
             logger.error("refusal-screen regeneration failed: %s", e)
             return None
+        # The model client's own text is accepted as the client wrote it; no
+        # screen reads it.
+        if self._code_owned_name(regen):
+            return self._accepted_regeneration(regen, fallbacks)
         verdict, _ = screen_general_refusal(regen.text)
         return (self._accepted_regeneration(regen, fallbacks)
                 if verdict == "clean" else None)
