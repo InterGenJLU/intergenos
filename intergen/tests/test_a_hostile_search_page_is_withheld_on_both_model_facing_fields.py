@@ -17,7 +17,10 @@ hand it to the registry through a web search tool whose execute() returns it;
 everything after that is the real chokepoint: the production ScannerPolicy (the
 deterministic floor at baseline depth, as the daemon constructs it), the
 withheld notice, the spotlight, and the audit record read back from the file it
-is written to. A real fetch of a hostile page is not exercised: the fetch
+is written to. Each dispatch is a search the person asked for: where the
+registry holds a search the model builds until the person's word for the turn
+is handed over beside the call, the cases hand it over, as the router does for
+an explicit ask. A real fetch of a hostile page is not exercised: the fetch
 refuses non-public addresses, so no planted server reaches it.
 
 The page text carries the two shapes the floor names: an instruction addressed
@@ -38,6 +41,7 @@ from dataclasses import replace
 from unittest import mock
 
 from intergen import spotlighting
+from intergen import tool_registry as registry_module
 from intergen.audit_log import read_records
 from intergen.interfaces.provenance import Provenance
 from intergen.interfaces.types import ToolCall, ToolResult
@@ -141,6 +145,20 @@ def _search(provenance: Provenance = Provenance.USER_DIRECT) -> ToolCall:
                     source_of_request=provenance)
 
 
+# Where the registry runs a web search the model builds only on the person's
+# word for the turn, that word is the router's SearchAsk, handed over beside the
+# call. A page arrives only on such a search, so there each dispatch carries one,
+# an explicit ask for the query; where the registry has no such gate the same
+# dispatch runs without it.
+_SEARCH_ASK = getattr(registry_module, "SearchAsk", None)
+
+
+def _persons_word() -> dict:
+    if _SEARCH_ASK is None:
+        return {}
+    return {"search_ask": _SEARCH_ASK(how="explicit_ask", target=_QUERY)}
+
+
 class _AuditedCase(unittest.TestCase):
     """Each case writes its audit records into its own state directory and
     reads them back from that file."""
@@ -155,7 +173,7 @@ class _AuditedCase(unittest.TestCase):
     def dispatch(self, registry: ToolRegistry, call: ToolCall, **kwargs):
         """One dispatch, and the one audit row it wrote."""
         before = len(list(read_records()))
-        result = registry.execute(call, **kwargs)
+        result = registry.execute(call, **_persons_word(), **kwargs)
         rows = list(read_records())[before:]
         self.assertEqual(len(rows), 1, f"expected one audit record, got {rows}")
         return result, rows[0]
