@@ -41,7 +41,7 @@ At the core of the assistant is a priority-ordered routing chain. Rather than se
 
 Every action the router proposes passes through the classifier in `intergen/safety.py`, which sorts the operation into one of three tiers:
 
-1.  **`AUTO`**: Read-only or harmless operations (for example `ls`, `grep`, `systemctl status`). Executed immediately, without a prompt.
+1.  **`AUTO`**: Read-only or harmless operations (for example `ls`, `grep`, `systemctl status --no-pager`). Executed immediately, without a prompt.
 2.  **`CONFIRM`**: State-changing operations (for example `systemctl restart`, `pkm install`, or editing a config file). The assistant pauses and asks you to approve the action before it runs.
 3.  **`BLOCKED`**: Destructive or security-bypassing operations (for example `rm -rf /` or reformatting the root partition). The assistant refuses outright and explains why the command was rejected.
 
@@ -79,5 +79,5 @@ The model and every routing stage run locally, and nothing is sent in the backgr
 
 *   **Model setup** (`intergen/setup.py`, `intergen/model_manager.py`): the tier's model, its vision projector and the embedding model, from the InterGenOS mirror with Hugging Face as the fallback source, each verified against its pin in the signed manifest before use.
 *   **Web search** (`intergen/tools/web_search.py`): the search words to DuckDuckGo, or to Serper first when `SERPER_API_KEY` is set in the service's environment (DuckDuckGo only if Serper fails or returns nothing); then the first result's page, fetched from its own site — public addresses only, at most 128 KiB, 8 seconds and three redirects. The tool registry runs a search only on the person's word: an explicit ask, or an accepted offer.
-*   **Network commands** (`intergen/safety.py`): `ping`, `dig`, `nslookup`, `host` and `traceroute` are AUTO-tier and reach the host they name; `curl` and `wget` are CONFIRM-tier.
+*   **Network commands** (`intergen/safety.py`): `ping`, `dig`, `nslookup`, `host` and `traceroute` are AUTO-tier and reach the host they name; `curl` and `wget` are CONFIRM-tier. The IP-address answer (`intergen/router.py`, the code-owned handler) reads the internal address with `ifconfig` and sends one DNS query to Cloudflare's public resolver for the public IPv4 address; the IPv6 lookup runs only after the person accepts the offer.
 *   **Phone-A-Friend** (`intergen/escalation.py`, `intergen/cloud/`): only with a configured provider, only on the person's request, and only after the show-before-send approval described above.
