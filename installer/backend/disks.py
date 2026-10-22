@@ -874,9 +874,9 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
             mapper = luks_open(p2, luks_passphrase, name=LUKS_MAPPER_NAME)
             act(f"mkfs.ext4 -L intergenos {mapper}", "formatting the root filesystem")
             # EXPERIMENTAL TPM2/FIDO2 require EFI (pre-flight rejected
-            # this combination above). Plain LUKS on BIOS continues to
-            # work, just passphrase-only.
-            return {
+            # this combination above). LUKS on BIOS unlocks with the
+            # passphrase, and with the recovery key when one was chosen.
+            layout = {
                 "bios_grub": p1,
                 "root": p2,
                 "root_mapper": mapper,
@@ -884,6 +884,16 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
                 "crypt_opts": ["luks"],
                 "efi": False,
             }
+            if recovery_key_enabled:
+                # A key slot on the volume does not depend on the firmware:
+                # added and proven as on the EFI branch. A dry run adds no
+                # slot, so it makes no key and carries none.
+                recovery_key = None if _DRY_RUN else generate_recovery_key()
+                confirm("adding the recovery key slot")
+                add_recovery_key_slot(p2, luks_passphrase, recovery_key)
+                if recovery_key is not None:
+                    layout["recovery_key"] = recovery_key
+            return layout
         else:
             act(f"mkfs.ext4 -L intergenos {p2}", "formatting the root filesystem")
             return {"bios_grub": p1, "root": p2, "efi": False}
