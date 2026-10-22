@@ -268,7 +268,10 @@ class WebGateRiskTierTruthTests(_GateHarness):
     action's card claimed a milder class than the one being enforced. These
     pin emitted == computed through the REAL gate path, using a pair that
     diverges under the classifier: manage_packages (privileged) vs
-    take_screenshot (user-scope), both with tool_obj=None as in this harness.
+    take_screenshot, both with tool_obj=None as in this harness. With no tool
+    object, take_screenshot is classified by the unknown-tool fallback, which is
+    an external handler's tier: network_egress since 2026-10-22 (user-scope
+    before), while the card still states the tier the gate computed.
     """
 
     def _emitted_tier(self, tool_name: str, tool_args: dict) -> tuple[str, str]:
@@ -290,7 +293,7 @@ class WebGateRiskTierTruthTests(_GateHarness):
     def test_gate_prompt_risk_tier_matches_computed_user_scope(self):
         emitted, computed = self._emitted_tier(
             "take_screenshot", {"source": "screenshot"})
-        self.assertEqual(computed, "user_scope_state_changing")
+        self.assertEqual(computed, "network_egress")
         self.assertEqual(emitted, computed,
                          "gate card misstates the computed risk tier")
 
