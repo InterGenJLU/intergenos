@@ -36,6 +36,12 @@ command piped into a shell. At the production depth a floor ALLOW is final, so
 those are FLAGs at the floor too, withheld on both fields under every
 provenance when no review surface can ask the person, with the reason the audit
 row names.
+
+A FLAG the person approves admits the page, and its audit row records the
+approval as its own outcome: the outcome word carries "+ingress_flag_approved"
+and the summary names the answer and the verdict's reason, never the page text.
+Before, an approved FLAG left the row reading "executed" with the raw page as
+its summary, the same as a page nothing flagged.
 """
 
 from __future__ import annotations
@@ -382,6 +388,60 @@ class APlainLanguageInstructionIsWithheldOnBothFields(_AuditedCase):
                 self.assertTrue(row["result_summary"].startswith(
                     "Sentinel ingress-scan BLOCK: Instruction-override directive"),
                     row["result_summary"])
+
+
+class AnApprovedFlagIsRecordedAsItsOwnOutcome(_AuditedCase):
+    """The person's approval admits a flagged page; the audit row says so."""
+
+    def assert_approved(self, sentence: str, answer: str, reason: str) -> None:
+        """Under every provenance: both fields admitted and spotlighted, the row
+        naming the approval, the answer and the verdict's reason, never the
+        page text."""
+        fixture = _page_result(_PAGE_HEAD + sentence + _PAGE_TAIL)
+        self.assert_carries(fixture, sentence)
+        for provenance in Provenance:
+            with self.subTest(provenance=provenance.value):
+                result, row = self.dispatch(
+                    _scanned_registry(fixture), _search(provenance),
+                    review_callback=lambda call, decision: answer)
+                self.assertTrue(result.success)
+                for field in (result.content, result.model_summary):
+                    self.assertTrue(spotlighting.is_wrapped(field), field[:200])
+                    self.assertIn(sentence, field)
+                self.assertTrue(
+                    row["user_decision"].endswith("+ingress_flag_approved"),
+                    row["user_decision"])
+                self.assertTrue(row["result_summary"].startswith(
+                    f"Sentinel ingress-scan FLAG approved ({answer}): {reason}"),
+                    row["result_summary"])
+                self.assertIn("content admitted to context", row["result_summary"])
+                self.assertNotIn(sentence, json.dumps(row))
+
+    def test_an_approved_command_to_run_is_recorded_as_approved(self):
+        self.assert_approved(_COMMAND_TO_RUN, "allow_once",
+                             "Embedded tool/command lure")
+
+    def test_an_approval_for_the_conversation_is_recorded_as_approved(self):
+        self.assert_approved(_COMMAND_TO_RUN, "allow_conversation",
+                             "Embedded tool/command lure")
+
+    def test_an_approved_plain_language_instruction_is_recorded_as_approved(self):
+        self.assert_approved(_FOR_LANGUAGE_MODELS, "allow_once",
+                             "Instruction addressed to an AI model")
+
+    def test_a_denied_flag_is_withheld_under_every_provenance(self):
+        # Control: the person's Deny still withholds the page and is recorded
+        # as theirs.
+        fixture = _page_result(_PAGE_HEAD + _COMMAND_TO_RUN + _PAGE_TAIL)
+        for provenance in Provenance:
+            with self.subTest(provenance=provenance.value):
+                result, row = self.dispatch(
+                    _scanned_registry(fixture), _search(provenance),
+                    review_callback=lambda call, decision: "deny")
+                self.assert_withheld(result, _COMMAND_TO_RUN)
+                self.assertTrue(row["user_decision"].endswith("+ingress_flag_denied"),
+                                row["user_decision"])
+                self.assertNotIn(_COMMAND_TO_RUN, json.dumps(row))
 
 
 class WithoutTheScanThePageReachesTheModel(_AuditedCase):

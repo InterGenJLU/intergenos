@@ -1399,7 +1399,8 @@ class ToolRegistry:
         #   BLOCK -> withhold: the model gets a "result withheld" notice, never
         #            the poison (decision #2, high-confidence drop).
         #   FLAG  -> the human modal (decision #2, medium-confidence); a deny or
-        #            a no-UI context fails closed to withhold (HG #10).
+        #            a no-UI context fails closed to withhold (HG #10); an
+        #            approval admits the content and is recorded as one.
         # Runs BEFORE the audit write so the audit reflects the withhold outcome;
         # the verdict reason (not the raw poison) is what lands in the log.
         # External/MCP content is scanned whenever it will re-enter context —
@@ -1504,6 +1505,15 @@ class ToolRegistry:
                         )
                     result.content = _withheld_notice(tool_name, ingress_verdict.reason)
                     result.model_summary = None
+                else:
+                    # The person approved it: the content is admitted, and the
+                    # record names that approval and the verdict's reason, never
+                    # the flagged text as its summary.
+                    user_outcome = f"{user_outcome}+ingress_flag_approved"
+                    result_summary = (
+                        f"Sentinel ingress-scan FLAG approved ({choice}): "
+                        f"{ingress_verdict.reason}; content admitted to context"
+                    )
 
         # Audit-log the dispatch decision + execution outcome (+ scan verdict).
         self._audit_log_decision(

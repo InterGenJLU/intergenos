@@ -329,7 +329,11 @@ def build_audit_record(
                                "no_review_ui" (no review surface was
                                available) or one of the five review words
                                above
-    Flagged content the person approved adds no suffix.
+      "+ingress_flag_approved" — the content was flagged and the person
+                               approved it (Allow once, or Allow for the
+                               conversation); it was admitted, and
+                               result_summary names the answer and the
+                               scan's reason, never the content
     """
     return _audit_record(
         call, decision.effective_provenance, ingress_tracker, user_outcome,

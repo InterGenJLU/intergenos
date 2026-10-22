@@ -221,7 +221,7 @@ Every tool call records:
   - the call was dispatched (the exit code says how it ended): `executed` (no review was required), `allowed_once`, `allowed_conversation`
   - the call did not run: `denied` (the gate refused it, the person pressed Deny, or the registry refused it before the gate (an unknown tool, invalid arguments, the BLOCKED tier); the result summary says which), `deny_conversation`, `egress_blocked`, `no_review_ui` (the call needed review and no review surface was available), `dispatch_token_failed` (the person approved a privileged call and its single-use dispatch token could not be minted)
   - the call did not run because nobody decided its review: `review_timed_out`, `review_refused`, `review_failed`, `refused_without_review`, `review_ended`
-  - a dispatched call's returned content, scanned on the way in, can add one suffix: `+ingress_blocked`, `+ingress_flag_denied`, or `+ingress_flag_<word>`, where `<word>` is `no_review_ui` or one of the five review words; each withholds the content
+  - a dispatched call's returned content, scanned on the way in, can add one suffix: `+ingress_blocked`, `+ingress_flag_denied`, or `+ingress_flag_<word>`, where `<word>` is `no_review_ui` or one of the five review words, each of which withholds the content; or `+ingress_flag_approved`, when the person approved flagged content, which is admitted, the result summary naming the answer and the scan's reason, never the content
 - exit code + result summary (truncated)
 
 Log path: `$XDG_STATE_HOME/intergen/tool-dispatch.jsonl` (per-user). Append-only; rotated by `logrotate`. User can review their own history via `intergen tool-log`.
