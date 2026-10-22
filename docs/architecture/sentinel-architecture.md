@@ -121,15 +121,19 @@ same chokepoint — three layered defenses on the one path everything must trave
 
 `EscalationManager` (`intergen/escalation.py`) implements the Phone-A-Friend
 (Frontier/Cloud Escalation) feature. It is distinct from the quality FALLBACK in `llm.py`
-(which auto-escalates after the local model fails twice): Phone-A-Friend is **consent-first
+(which auto-escalates after the local model fails twice, a step that cannot run in the
+daemon, which registers no cloud provider on the model client): Phone-A-Friend is **consent-first
 assistance** — the assistant recognises a task is multi-step / sensitive / "slightly
 outside my scope" and **offers** to reach the user's configured frontier model; on
 consent it routes via the vendor-neutral cloud substrate.
 
-- **Modes** (`EscalationMode`, config `escalation.mode`, default **ASK**): `NEVER`
-  (offline; never offer or send) · `FALLBACK` (auto-escalate only on local quality-gate
-  failure) · `ASK` (offer on recognition; user consents before anything is sent) ·
-  `AUTO` (decide by confidence, no prompt).
+- **Modes** (`EscalationMode`, config `escalation.mode`, default **ASK**): the mode
+  decides when InterGen offers a send, and every send is one the person asks for and
+  approves in the show-before-send dialog: `NEVER` (no offer, and a send the person asks
+  for is refused) · `FALLBACK` (an offer only when the local answer failed its quality
+  gate and a provider is set up) · `ASK` (an offer on recognition: an explicit ask, a
+  failed or unsure answer, a multi-step or too-large request) · `AUTO` (the same offer
+  as `ASK`, when a provider is set up).
 - **Hybrid recognition:** `should_escalate()` is the heuristic half (local
   confidence + multi-step signal + query type + an explicit "ask <FRONTIER AI>"); a
   user-invoked affordance — the GUI "Ask my frontier model" button with CLI parity —
