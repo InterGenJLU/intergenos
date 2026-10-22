@@ -73,6 +73,12 @@ if [ ! -d "$INTERGEN_PYROOT" ]; then
     exit 0
 fi
 
+# The reader of the deployed policy and registry that Gates A, C and F share
+# with the source gate: the policy as PolicyKit reads it, the registry's values
+# as the dispatcher holds them. The runtime gate runs from the build tree, so the
+# checker sits beside it in scripts/lib/.
+POLICY_CHECK="$(cd "$(dirname "$0")" && pwd)/lib/check-privileged-runner-policy.py"
+
 # Gate A — PolicyKit policy file deployed + structurally valid.
 header "Gate A — PolicyKit policy at /usr/share/polkit-1/actions/org.intergenos.intergen.policy"
 POLICY_PATH="$CHROOT_ROOT/usr/share/polkit-1/actions/org.intergenos.intergen.policy"
@@ -82,9 +88,18 @@ if [ ! -f "$POLICY_PATH" ]; then
               "Expected $POLICY_PATH (build.sh:187-188 install line)."
     GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
 else
-    if ! grep -q "org.intergenos.intergen.privileged-tool" "$POLICY_PATH"; then
+    # The action ids as PolicyKit reads the deployed file (the checker's
+    # --action-ids), never a grep, which a comment or a skipped element satisfies.
+    if [ -f "$POLICY_CHECK" ] && ! GATE_A_IDS=$(python3 -I "$POLICY_CHECK" --action-ids \
+            --policy "$POLICY_PATH" 2>&1); then
+        printf '%s\n' "$GATE_A_IDS" | sed 's/^/  /'
+        violation "PolicyKit would not read the deployed policy file as written" \
+                  "The lines above name where; its action ids are read as PolicyKit reads the file."
+        GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
+    elif [ -f "$POLICY_CHECK" ] \
+            && ! printf '%s\n' "$GATE_A_IDS" | grep -qE '^org\.intergenos\.intergen\.privileged-tool(\.|$)'; then
         violation "PolicyKit action id missing in deployed policy file" \
-                  "Expected action id 'org.intergenos.intergen.privileged-tool'."
+                  "Expected action id 'org.intergenos.intergen.privileged-tool' (or its per-tool ids) among the actions PolicyKit reads."
         GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
     fi
     # One administrator authentication per privileged call, read from the
@@ -94,7 +109,6 @@ else
     # with its own exec.argv1, and the argv1 set equals _PRIVILEGED_TOOLS. Until
     # 2026-10-22 this check required auth_admin_keep, which keeps one
     # authentication for five minutes for the parent every runner shares.
-    POLICY_CHECK="$(cd "$(dirname "$0")" && pwd)/lib/check-privileged-runner-policy.py"
     if [ ! -f "$POLICY_CHECK" ]; then
         violation "cannot check the deployed policy: $POLICY_CHECK missing" \
                   "The runtime gate runs from the build tree; the checker sits beside it in scripts/lib/."
@@ -159,9 +173,18 @@ if [ -f "$INTERGEN_PYROOT/provenance.py" ]; then
     fi
 fi
 if [ -f "$INTERGEN_PYROOT/tool_registry.py" ]; then
-    if ! grep -q '_PKEXEC_RUNNER_PATH[[:space:]]*=[[:space:]]*"/usr/bin/intergen-privileged-runner"' "$INTERGEN_PYROOT/tool_registry.py"; then
-        violation "deployed tool_registry.py does not reference _PKEXEC_RUNNER_PATH at canonical install path" \
-                  "Privileged-tool routing path must match runtime install location."
+    # The runner path the deployed dispatcher hands pkexec, read by the checker
+    # as the dispatcher holds it (one module-level definition), never a grep,
+    # which a comment, a dead branch or a rebound name would satisfy.
+    if ! GATE_C_RUNNER=$(python3 -I "$POLICY_CHECK" --runner-path \
+            --registry "$INTERGEN_PYROOT/tool_registry.py" 2>&1); then
+        printf '%s\n' "$GATE_C_RUNNER" | sed 's/^/  /'
+        violation "cannot read _PKEXEC_RUNNER_PATH from the deployed tool_registry.py as the dispatcher holds it" \
+                  "Privileged-tool routing path must match runtime install location; the lines above name why its value cannot be read from one module-level definition."
+        GATE_C_VIOLATIONS=$((GATE_C_VIOLATIONS + 1))
+    elif [ "$GATE_C_RUNNER" != "/usr/bin/intergen-privileged-runner" ]; then
+        violation "deployed tool_registry.py does not bind _PKEXEC_RUNNER_PATH to the canonical install path" \
+                  "Privileged-tool routing path must match runtime install location; it binds $GATE_C_RUNNER."
         GATE_C_VIOLATIONS=$((GATE_C_VIOLATIONS + 1))
     fi
 fi
@@ -228,7 +251,6 @@ if [ -f "$POLICY_PATH" ] && [ -f "$RUNNER_PATH" ]; then
     # Every action's exec.path as PolicyKit reads the file (the checker's reading,
     # --exec-paths), never the first match of a grep, which a comment or a
     # repeated annotation would decide.
-    POLICY_CHECK="$(cd "$(dirname "$0")" && pwd)/lib/check-privileged-runner-policy.py"
     if ! POLICY_EXECS=$(python3 -I "$POLICY_CHECK" --exec-paths --policy "$POLICY_PATH" 2>&1); then
         printf '%s\n' "$POLICY_EXECS" | sed 's/^/  /'
         violation "could not read exec.path from deployed PolicyKit policy as PolicyKit reads it" \
@@ -249,7 +271,7 @@ fi
 # Summary.
 header "D-008 runtime compliance summary"
 if [ "$VIOLATIONS" -eq 0 ]; then
-    green "ALL GATES PASS — D-008 runtime verified against $CHROOT_ROOT. Squashfs assembly may proceed."
+    green "CHECKS PASS — files at $CHROOT_ROOT: runner/CLI present and executable, review/audit/log-rotation present; runner-bound policy defaults are auth_admin (no keep), and the exec.argv1 set matches _PRIVILEGED_TOOLS. Full D-008 runtime behavior is unverified. Squashfs assembly may proceed."
     exit 0
 else
     red "FAILED — $VIOLATIONS violation(s) found in built chroot at $CHROOT_ROOT."

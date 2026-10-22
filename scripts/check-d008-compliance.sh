@@ -189,14 +189,30 @@ if [ ! -f "intergen/data/org.intergenos.intergen.policy" ]; then
     violation "intergen/data/org.intergenos.intergen.policy missing" \
               "D-008 v1.0 minimum requires the PolicyKit policy file for the pkexec gate."
     GATE_E_VIOLATIONS=$((GATE_E_VIOLATIONS + 1))
-elif ! grep -q "org.intergenos.intergen.privileged-tool" intergen/data/org.intergenos.intergen.policy; then
+# The action ids and the runner path are read as PolicyKit reads the policy and
+# as the dispatcher holds the registry's value (scripts/lib/check-privileged-
+# runner-policy.py), never by a grep, which a comment, a skipped element, a
+# dead branch or a rebound name would satisfy.
+elif ! GATE_E_IDS=$(python3 -I "$REPO_ROOT/scripts/lib/check-privileged-runner-policy.py" \
+        --action-ids --policy intergen/data/org.intergenos.intergen.policy 2>&1); then
+    printf '%s\n' "$GATE_E_IDS" | sed 's/^/  /'
+    violation "PolicyKit would not read the policy file as written" \
+              "The lines above name where; its action ids are read as PolicyKit reads the file."
+    GATE_E_VIOLATIONS=$((GATE_E_VIOLATIONS + 1))
+elif ! printf '%s\n' "$GATE_E_IDS" | grep -qE '^org\.intergenos\.intergen\.privileged-tool(\.|$)'; then
     violation "PolicyKit action id missing in policy file" \
-              "D-008 v1.0 minimum requires action id 'org.intergenos.intergen.privileged-tool'."
+              "D-008 v1.0 minimum requires action id 'org.intergenos.intergen.privileged-tool' (or its per-tool ids) among the actions PolicyKit reads."
     GATE_E_VIOLATIONS=$((GATE_E_VIOLATIONS + 1))
 fi
-if ! grep -qE '_PKEXEC_RUNNER_PATH[[:space:]]*=[[:space:]]*"/usr/bin/intergen-privileged-runner"' intergen/tool_registry.py; then
-    violation "tool_registry.py does not reference _PKEXEC_RUNNER_PATH at canonical install path" \
-              "D-008 v1.0 minimum requires tool_registry.py to route privileged tools through /usr/bin/intergen-privileged-runner."
+if ! GATE_E_RUNNER=$(python3 -I "$REPO_ROOT/scripts/lib/check-privileged-runner-policy.py" \
+        --runner-path --registry intergen/tool_registry.py 2>&1); then
+    printf '%s\n' "$GATE_E_RUNNER" | sed 's/^/  /'
+    violation "cannot read _PKEXEC_RUNNER_PATH from tool_registry.py as the dispatcher holds it" \
+              "D-008 v1.0 minimum requires tool_registry.py to route privileged tools through /usr/bin/intergen-privileged-runner; the lines above name why its value cannot be read from one module-level definition."
+    GATE_E_VIOLATIONS=$((GATE_E_VIOLATIONS + 1))
+elif [ "$GATE_E_RUNNER" != "/usr/bin/intergen-privileged-runner" ]; then
+    violation "tool_registry.py does not bind _PKEXEC_RUNNER_PATH to the canonical install path" \
+              "D-008 v1.0 minimum requires tool_registry.py to route privileged tools through /usr/bin/intergen-privileged-runner; it binds $GATE_E_RUNNER."
     GATE_E_VIOLATIONS=$((GATE_E_VIOLATIONS + 1))
 fi
 if [ "$GATE_E_VIOLATIONS" -eq 0 ]; then
@@ -306,7 +322,7 @@ fi
 # Summary
 header "D-008 compliance summary"
 if [ "$VIOLATIONS" -eq 0 ]; then
-    green "ALL GATES PASS — D-008 compliance verified. Build may proceed."
+    green "CHECKS PASS — source runner/policy files present; runner-bound policy defaults are auth_admin (no keep), and the exec.argv1 set matches _PRIVILEGED_TOOLS. Full D-008 behavior is unverified. Build may proceed."
     exit 0
 else
     red "FAILED — $VIOLATIONS violation(s) found."

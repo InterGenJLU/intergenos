@@ -436,6 +436,85 @@ def test_both_gates_refuse_a_reassigned_registry_at_a_real_firing(tmp_path):
             "authentication per privileged call") in runtime.stdout
 
 
+RUNNER_LINE = '_PKEXEC_RUNNER_PATH = "/usr/bin/intergen-privileged-runner"'
+
+#: Registries in which a grep for the runner path's assignment line still
+#: matches while the dispatcher holds no such path, or another one.
+RUNNER_FORMS = {
+    "the path only in a comment": lambda text: text.replace(RUNNER_LINE, "# " + RUNNER_LINE, 1),
+    "the path in a dead branch": lambda text: text.replace(
+        RUNNER_LINE, f'if False:\n    {RUNNER_LINE}\nelse:\n    _PKEXEC_RUNNER_PATH = "/usr/bin/true"', 1),
+    "the name rebound later": lambda text: text + '\n_PKEXEC_RUNNER_PATH = "/usr/bin/true"\n',
+}
+
+
+def _registry_with(form):
+    text = REGISTRY.read_text()
+    assert text.count(RUNNER_LINE) == 1, "the registry no longer carries the runner path's definition"
+    return RUNNER_FORMS[form](text)
+
+
+def test_the_runner_path_is_read_as_the_dispatcher_holds_it():
+    completed = subprocess.run(["python3", "-I", str(CHECKER), "--runner-path", "--registry", str(REGISTRY)],
+                               capture_output=True, text=True, check=False, timeout=60)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert completed.stdout == "/usr/bin/intergen-privileged-runner\n"
+
+
+@pytest.mark.parametrize("form", sorted(RUNNER_FORMS))
+def test_both_gates_refuse_a_runner_path_the_dispatcher_does_not_hold(tmp_path, form):
+    """Gate E and Gate C matched the assignment line by grep."""
+    registry = _registry_with(form)
+    source = _compliance_tree(tmp_path / "source", POLICY.read_text())
+    (source / "intergen" / "tool_registry.py").write_text(registry)
+    compliance = _run_compliance(source)
+    assert compliance.returncode == 1, f"{form}: {compliance.stdout}{compliance.stderr}"
+    assert "_PKEXEC_RUNNER_PATH" in compliance.stdout and "VIOLATION:" in compliance.stdout
+
+    chroot = _runtime_root(tmp_path / "chroot", POLICY.read_text())
+    (chroot / PYROOT / "tool_registry.py").write_text(registry)
+    runtime = _run_runtime(chroot)
+    assert runtime.returncode == 1, f"{form}: {runtime.stdout}{runtime.stderr}"
+    assert "_PKEXEC_RUNNER_PATH" in runtime.stdout and "VIOLATION:" in runtime.stdout
+
+
+def _with_renamed_ids():
+    """The shipped policy with every privileged-tool action renamed and the old
+    id left only in a comment."""
+    text = POLICY.read_text()
+    old = '<action id="org.intergenos.intergen.privileged-tool.'
+    assert text.count(old) == 4, "the policy no longer carries four per-tool actions"
+    text = text.replace(old, '<action id="org.example.renamed.')
+    return text.replace("<policyconfig>", "<!-- org.intergenos.intergen.privileged-tool -->\n<policyconfig>", 1)
+
+
+def test_the_action_ids_are_listed_as_polkit_reads_them(tmp_path):
+    shipped = subprocess.run(["python3", "-I", str(CHECKER), "--action-ids", "--policy", str(POLICY)],
+                             capture_output=True, text=True, check=False, timeout=60)
+    assert shipped.returncode == 0, shipped.stdout + shipped.stderr
+    assert sorted(shipped.stdout.split()) == sorted(
+        [f"org.intergenos.intergen.privileged-tool.{tool}"
+         for tool in ("manage-services", "manage-packages", "run-command", "write-file")]
+        + ["org.intergenos.intergen.provision-model-storage"])
+    renamed = subprocess.run(["python3", "-I", str(CHECKER), "--action-ids", "--policy",
+                              str(_planted(tmp_path, "renamed", _with_renamed_ids()))],
+                             capture_output=True, text=True, check=False, timeout=60)
+    assert renamed.returncode == 0, renamed.stdout
+    assert "privileged-tool" not in renamed.stdout
+
+
+def test_both_gates_refuse_a_privileged_tool_id_only_in_a_comment(tmp_path):
+    """Gate E and Gate A grepped for the id, a comment's included; the checker
+    reads no ids, so the renamed actions passed every other check."""
+    compliance = _run_compliance(_compliance_tree(tmp_path / "source", _with_renamed_ids()))
+    assert compliance.returncode == 1, compliance.stdout + compliance.stderr
+    assert "VIOLATION: PolicyKit action id missing in policy file" in compliance.stdout
+
+    runtime = _run_runtime(_runtime_root(tmp_path / "chroot", _with_renamed_ids()))
+    assert runtime.returncode == 1, runtime.stdout + runtime.stderr
+    assert "VIOLATION: PolicyKit action id missing in deployed policy file" in runtime.stdout
+
+
 @pytest.mark.parametrize("gate", ["check-d008-compliance.sh", "check-d008-runtime.sh"])
 def test_no_gate_requires_or_names_the_keep_as_per_action_authentication(gate):
     """The words that certified the keep are gone from both gates' checks."""

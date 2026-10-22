@@ -60,6 +60,16 @@ Exit 0 = every action bound to the runner passes; 1 = violations, each named;
 prints each action's id and exec.path, tab-separated, as PolicyKit reads them
 (Gate F's reading); exit 1 with the violations instead when PolicyKit would
 stop reading the file or an element it reads once appears twice.
+
+       check-privileged-runner-policy.py --action-ids --policy FILE
+prints the id of each action PolicyKit reads, one per line, with the same
+refusals (the action-id reading of Gate E and Gate A).
+
+       check-privileged-runner-policy.py --runner-path --registry FILE
+prints the _PKEXEC_RUNNER_PATH the dispatcher hands pkexec, read by the same
+rule as the allowlist (Gate E's and Gate C's reading); exit 1 naming each
+binding when the registry does not define it once at module level, 2 when it
+is not a string literal.
 """
 
 import argparse
@@ -385,6 +395,18 @@ def privileged_tools(registry_path):
     raise ValueError(f"{registry_path}: _PRIVILEGED_TOOLS is not a frozenset of string literals")
 
 
+def runner_path(registry_path):
+    """The _PKEXEC_RUNNER_PATH the dispatcher hands pkexec, read from the
+    registry's syntax tree by the same rule: (the path or None, refusals)."""
+    tree, parents = read_registry(registry_path)
+    value, refusals = registry_definition(registry_path, tree, parents, "_PKEXEC_RUNNER_PATH")
+    if value is None:
+        return None, refusals
+    if isinstance(value, ast.Constant) and isinstance(value.value, str):
+        return value.value, refusals
+    raise ValueError(f"{registry_path}: _PKEXEC_RUNNER_PATH is not a string literal")
+
+
 def reading_violations(reading):
     """Where `reading` departs from the file as written: PolicyKit stops reading
     it, or keeps the last of an element that appears more than once."""
@@ -435,31 +457,62 @@ def check(policy_path, registry_path, runner=RUNNER):
     return bound, violations, tools
 
 
+def _list_policy(path, line_of):
+    """Print line_of(action) for each action PolicyKit reads from `path`, or the
+    violations when it would not read the file as written; the exit status."""
+    try:
+        reading = read_policy(path)
+    except (OSError, expat.ExpatError) as exc:
+        print(f"CANNOT CHECK: {exc}")
+        return 2
+    violations = reading_violations(reading)
+    for violation in violations:
+        print(f"VIOLATION: {violation}")
+    if violations:
+        return 1
+    for action in reading.actions.values():
+        line = line_of(action)
+        if line is not None:
+            print(line)
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--policy", required=True)
+    parser.add_argument("--policy")
     parser.add_argument("--registry")
     parser.add_argument("--runner", default=RUNNER)
-    parser.add_argument("--exec-paths", action="store_true",
-                        help="print each action's id and exec.path as PolicyKit reads them")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--exec-paths", action="store_true",
+                      help="print each action's id and exec.path as PolicyKit reads them")
+    mode.add_argument("--action-ids", action="store_true",
+                      help="print the id of each action PolicyKit reads")
+    mode.add_argument("--runner-path", action="store_true",
+                      help="print the registry's _PKEXEC_RUNNER_PATH as the dispatcher holds it")
     args = parser.parse_args(argv)
-    if args.exec_paths:
+    if args.runner_path:
+        if not args.registry:
+            parser.error("--runner-path reads --registry")
         try:
-            reading = read_policy(args.policy)
-        except (OSError, expat.ExpatError) as exc:
+            path, refusals = runner_path(args.registry)
+        except (OSError, SyntaxError, ValueError) as exc:
             print(f"CANNOT CHECK: {exc}")
             return 2
-        violations = reading_violations(reading)
-        for violation in violations:
-            print(f"VIOLATION: {violation}")
-        if violations:
+        for refusal in refusals:
+            print(f"VIOLATION: {refusal}")
+        if refusals:
             return 1
-        for action in reading.actions.values():
-            if EXEC_PATH in action.annotations:
-                print(f"{action.id}\t{action.annotations[EXEC_PATH]}")
+        print(path)
         return 0
+    if not args.policy:
+        parser.error("--policy is required unless --runner-path is given")
+    if args.exec_paths:
+        return _list_policy(args.policy, lambda action: f"{action.id}\t{action.annotations[EXEC_PATH]}"
+                            if EXEC_PATH in action.annotations else None)
+    if args.action_ids:
+        return _list_policy(args.policy, lambda action: action.id)
     if not args.registry:
-        parser.error("--registry is required unless --exec-paths is given")
+        parser.error("--registry is required unless --exec-paths or --action-ids is given")
     try:
         bound, violations, tools = check(args.policy, args.registry, args.runner)
     except (OSError, SyntaxError, ValueError, expat.ExpatError) as exc:
