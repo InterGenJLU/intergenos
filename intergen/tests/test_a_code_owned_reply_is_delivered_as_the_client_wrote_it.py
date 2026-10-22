@@ -21,15 +21,23 @@ already run on the text:
   answer as the client's text.
 
 The name is now set before anything reads the text, and no screen reads it.
-Every case drives the real model client through its one request function.
+A regeneration a screen asks for that comes back as the client's text is
+delivered the same way, and the router's callers of chat() are enumerated,
+so a new one is classified before it can serve the client's text unnamed.
+Every route() case drives the real model client through its one request
+function.
 """
 from __future__ import annotations
 
+import ast
+import textwrap
 import unittest
 import urllib.error
 import urllib.request
+from pathlib import Path
 from unittest import mock
 
+from intergen import router as router_module
 from intergen.interfaces.types import HardwareTierLevel
 from intergen.llm import LLMRouter
 from intergen.tests.test_truth_screens import (
@@ -231,6 +239,151 @@ class TheLinkageNamesWhoWroteTheText(unittest.TestCase):
         self.assertTrue(result.text.endswith(_WHAT_LEAVES_CITATION))
         self.assertEqual((result.answer_linkage.kind, result.answer_linkage.renderer),
                          ("model", "llm_freeform"))
+
+
+class ARegenerationIntoTheClientsTextIsDeliveredAsWritten(unittest.TestCase):
+    """The second door: a draft one screen flags is asked for again, and the
+    regeneration comes back as the client's own text because the model server
+    went down between the two requests. Each screen accepts it as the client
+    wrote it, and no later screen reads it (the refusal screen read the
+    server-down text as a refusal and served the scope steer)."""
+
+    DRAFTS = {
+        "state_claim_screen": "No problem, your disk is 80% full.",
+        "model_offer_screen": "I can install htop for you if you'd like — just say yes.",
+        "capability_screen": "Run `pkm frobnicate htop` to get it.",
+        "refusal_screen": MODEL_REFUSAL,
+    }
+    REGENERATED = {"state_claim_screen": "violation_regenerated",
+                   "model_offer_screen": "violation_regenerated",
+                   "capability_screen": "violation_regenerated",
+                   "refusal_screen": "refusal_regenerated"}
+
+    def test_each_screen_delivers_the_server_down_text_as_written(self):
+        for screen, draft in self.DRAFTS.items():
+            with self.subTest(screen=screen):
+                result, router, asked, emit = _turn(
+                    GENERAL_ASK, draft, _REFUSED, locked=True, wiki=TOOLCHAINS_PAGE)
+                self.assertEqual(asked, 2)
+                self.assertEqual(result.text, SERVER_DOWN)
+                self.assertEqual([d["verdict"] for d in _decisions(emit, screen)],
+                                 [self.REGENERATED[screen]])
+                self.assertEqual((result.answer_linkage.kind,
+                                  result.answer_linkage.renderer),
+                                 ("code", "model_server_down"))
+                self.assertIsNone(router._conv.pending_action_offer)
+
+
+# Every function of the router that asks the model client for a reply, with
+# what it does with a reply the client wrote.
+CHAT_CALLERS = {
+    "_try_llm_freeform": "the first reply: its name is set before anything "
+                         "reads it, and it is delivered as the client wrote it",
+    "_regenerate_without_claim": "a screen's regeneration: returned only "
+                                 "through _accepted_regeneration",
+    "_regenerate_without_state_claim": "a screen's regeneration: returned only "
+                                       "through _accepted_regeneration",
+    "_regenerate_without_selfoffer": "a screen's regeneration: returned only "
+                                     "through _accepted_regeneration",
+    "_regenerate_with_capability_grounding": "a screen's regeneration: "
+                                             "returned only through "
+                                             "_accepted_regeneration",
+    "_regenerate_without_refusal": "a screen's regeneration: returned only "
+                                   "through _accepted_regeneration",
+    "_try_system_map": "the system map: its synthesis gate refuses a reply "
+                       "whose ladder was spent, and the live data is served",
+    "_synthesize_tool_result": "the tool route's synthesis: the same gate, and "
+                               "the tool's own output is served",
+}
+
+
+def _is_chat_call(node):
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "chat"
+            and isinstance(node.func.value, ast.Attribute)
+            and node.func.value.attr == "_llm")
+
+
+def _chat_callers(source):
+    """The functions that call the model client's chat(), by name."""
+    found = set()
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            if any(_is_chat_call(sub) for sub in ast.walk(node)):
+                found.add(node.name)
+    return found
+
+
+def _returned(expr):
+    """The expressions a return can hand back: both branches of a conditional
+    expression, never its condition (which only reads the reply)."""
+    if isinstance(expr, ast.IfExp):
+        return _returned(expr.body) + _returned(expr.orelse)
+    return [expr]
+
+
+def _regeneration_returns(source):
+    """Each return of a _regenerate_* function that can hand back a chat()
+    reply (or anything read from it) other than as an argument of
+    self._accepted_regeneration: [(function, line)]."""
+    problems = []
+    for node in ast.walk(ast.parse(source)):
+        if not (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                and node.name.startswith("_regenerate_")):
+            continue
+        replies = {target.id for sub in ast.walk(node) if isinstance(sub, ast.Assign)
+                   and _is_chat_call(sub.value)
+                   for target in sub.targets if isinstance(target, ast.Name)}
+        for ret in (sub for sub in ast.walk(node) if isinstance(sub, ast.Return)):
+            if ret.value is None:
+                continue
+            for value in _returned(ret.value):
+                allowed = {id(arg) for call in ast.walk(value)
+                           if isinstance(call, ast.Call)
+                           and isinstance(call.func, ast.Attribute)
+                           and call.func.attr == "_accepted_regeneration"
+                           for arg in call.args if isinstance(arg, ast.Name)}
+                if any(isinstance(sub, ast.Name) and sub.id in replies
+                       and id(sub) not in allowed for sub in ast.walk(value)):
+                    problems.append((node.name, ret.lineno))
+    return problems
+
+
+class EveryReplyOfTheClientIsAccountedFor(unittest.TestCase):
+    """The router's chat() callers are the classified eight, and a screen's
+    regeneration reaches the turn only through _accepted_regeneration, the one
+    place a regeneration's code-owned name is read."""
+
+    SOURCE = Path(router_module.__file__).read_text(encoding="utf-8")
+
+    def test_the_callers_of_chat_are_the_classified_eight(self):
+        self.assertEqual(_chat_callers(self.SOURCE), set(CHAT_CALLERS))
+
+    def test_no_regeneration_returns_a_replys_text_but_through_the_one_reader(self):
+        self.assertEqual(_regeneration_returns(self.SOURCE), [])
+
+    def test_the_reading_finds_a_regeneration_that_returns_the_text_itself(self):
+        # The control: a helper that returns the reply's text directly is found.
+        source = textwrap.dedent("""
+            class Router:
+                def _regenerate_direct(self, messages, *, fallbacks=None):
+                    regen = self._llm.chat(messages)
+                    return regen.text if regen.text else None
+
+                def _regenerate_checked(self, messages, *, fallbacks=None):
+                    regen = self._llm.chat(messages)
+                    return (self._accepted_regeneration(regen, fallbacks)
+                            if regen.text else None)
+
+                def _regenerate_accepted(self, messages, *, fallbacks=None):
+                    regen = self._llm.chat(messages)
+                    return self._accepted_regeneration(regen, fallbacks)
+            """)
+        self.assertEqual([name for name, _ in _regeneration_returns(source)],
+                         ["_regenerate_direct"])
+        self.assertEqual(_chat_callers(source),
+                         {"_regenerate_direct", "_regenerate_checked",
+                          "_regenerate_accepted"})
 
 
 if __name__ == "__main__":
