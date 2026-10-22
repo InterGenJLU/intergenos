@@ -84,6 +84,54 @@ class IdentityAliasResolution(unittest.TestCase):
         self.assertIsNone(_identity("what year was Linux created"))
 
 
+class ThePrivacyAnswersNameWhatLeavesTheMachine(unittest.TestCase):
+    """The answers served to a privacy or a run-locally question say what
+    leaves the machine instead of denying it.
+
+    They said "Everything stays local ... no queries, responses, or system
+    data are sent anywhere" and "No data leaves this system unless you
+    explicitly configure cloud escalation", while a web search sends its words
+    to the search service, a network check reaches the host it names, and the
+    IP answer asks a public resolver. Each answer now names those paths and the
+    conditions they run under, as the setup surfaces do."""
+
+    _QUESTIONS = ("what about privacy?", "Is my data sent anywhere?",
+                  "is my data private?", "where does my data go",
+                  "do you send my data", "is my data sent", "data stays local",
+                  "are you private?", "do you run locally?", "are you local?",
+                  "where do you run?")
+    _NAMED = (
+        "send nothing in the background",
+        "A web search you ask for, or accept when I offer it",
+        "sends its search words to the search service",
+        "fetches the first result's page",
+        "A network check such as ping or dig reaches the host it names",
+        "runs without asking only when you ask for it directly and nothing "
+        "from outside has been read in the conversation; otherwise I ask you "
+        "first",
+        "Your IP address is looked up at a public DNS resolver only when you "
+        "ask for it",
+        "a question goes to a cloud provider only if you set one up and "
+        "approve each send",
+    )
+    _DENIALS = ("stays local", "never leaves", "no data leaves",
+                "sent anywhere", "entirely on", "everything runs locally",
+                "no queries")
+
+    def test_each_answer_names_every_path_and_its_condition(self):
+        for q in self._QUESTIONS:
+            ans = _identity(q)
+            self.assertIsNotNone(ans, q)
+            for words in self._NAMED:
+                self.assertIn(words, ans, (q, words))
+
+    def test_no_answer_denies_an_egress(self):
+        for q in self._QUESTIONS:
+            ans = _identity(q).lower()
+            for denial in self._DENIALS:
+                self.assertNotIn(denial, ans, (q, denial))
+
+
 class CompoundDecomposition(unittest.TestCase):
     """A genuine multi-part request decomposes at every tier so no clause drops."""
 

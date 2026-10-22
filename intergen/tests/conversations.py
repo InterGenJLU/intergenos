@@ -1668,7 +1668,7 @@ SELF_AWARENESS = [
     Conversation(id="self_privacy", name="Data privacy", category="self_awareness",
         turns=[Turn(user="Is my data sent anywhere?",
             assertions=[
-                Assertion("contains", "local", "Should confirm data stays local"),
+                Assertion("contains", "local", "Should say it runs locally and name what leaves the machine"),
                 Assertion("not_contains", "manage your system", "Must answer privacy, not fall back to the generic identity blurb (regression: alias fall-through)"),
             ])]),
     Conversation(id="self_how_work", name="How do you work", category="self_awareness",

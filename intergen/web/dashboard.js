@@ -502,7 +502,7 @@
     if (listEl) {
       const providers = data.providers || [];
       if (!providers.length) {
-        listEl.innerHTML = '<p style="color:var(--text-ghost);font-style:italic;font-size:13px;margin:0">No frontier provider configured. InterGen runs fully local until you add one below.</p>';
+        listEl.innerHTML = '<p style="color:var(--text-ghost);font-style:italic;font-size:13px;margin:0">No frontier provider configured. A question goes to a frontier model only once you add one below, and each send waits for your approval.</p>';
       } else {
         listEl.innerHTML = providers.map(p => {
           const isPrimary = p.name === data.primary;

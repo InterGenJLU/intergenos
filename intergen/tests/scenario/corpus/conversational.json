@@ -354,7 +354,7 @@
     "turns": [
       {
         "user": "is my data private?",
-        "description": "Privacy question (alias of 'what about privacy') \u2014 must route via identity and answer truthfully that data stays local unless the user explicitly configures cloud escalation.",
+        "description": "Privacy question (alias of 'what about privacy') \u2014 must route via identity and answer truthfully: the assistant runs on the machine and sends nothing in the background, and the answer names what does leave it (a web search the person asks for or accepts, a network check, the IP address lookup, a cloud provider only if one is set up).",
         "assertions": [
           {
             "type": "routes_via",
@@ -363,8 +363,13 @@
           },
           {
             "type": "contains_any",
-            "value": "stays local,never leaves,no data leaves",
-            "description": "answers truthfully about data locality"
+            "value": "nothing in the background",
+            "description": "answers truthfully about what leaves the machine"
+          },
+          {
+            "type": "not_contains",
+            "value": "never leaves",
+            "description": "must not deny the egress a web search, a network check or the IP lookup performs"
           },
           {
             "type": "not_contains",
