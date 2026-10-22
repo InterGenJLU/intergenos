@@ -22,8 +22,9 @@ things like:
 
 - **"How much free space is on my root partition?"** — it runs the
   right `df` invocation and reads back the answer.
-- **"What's my current IP address?"** — direct `ip` command plus a
-  plain-English summary.
+- **"What's my current IP address?"** — reads your internal address with
+  `ifconfig`, asks Cloudflare's public DNS resolver for your public one,
+  and says both in plain English.
 - **"Write me a systemd timer that runs `backup.sh` every Sunday at
   03:00."** — drafts the unit and timer files, then asks before
   installing.
@@ -86,8 +87,11 @@ Something leaves the machine only in these cases:
   decides on by itself is held and offered to you instead of being run.
 - **A network check.** Read-only network commands such as `ping`, `dig`
   and `traceroute` run without a confirmation when a question calls for
-  them, and reach the host they name. A command that downloads, such as
-  `curl` or `wget`, asks you first.
+  them, and reach the host they name. Asking for your IP address sends one
+  DNS query to Cloudflare's public resolver to read your public IPv4
+  address; the IPv6 one is looked up only if you accept the offer that
+  follows. A command that downloads, such as `curl` or `wget`, asks you
+  first.
 - **Phone-A-Friend, only if you set up a provider.** A question goes to
   the provider only when you ask: the "Ask my frontier model" button that
   comes with an offer in the panel, or `intergen ask-frontier`. InterGen
@@ -104,7 +108,8 @@ tier from **two things only: whether the machine has a discrete GPU,
 and how much video memory that GPU has.** System RAM is not an input.
 A large model held in system memory is slow enough to be the wrong
 answer no matter how much of it there is, so there is no decision RAM
-could usefully inform. Detection re-runs if your hardware changes.
+could usefully inform. Detection runs at every start of the service, so a
+hardware change is picked up at the next start.
 
 Unknown capability always fails *down*. A discrete card whose video
 memory cannot be read lands on the floor tier rather than on a tier it
