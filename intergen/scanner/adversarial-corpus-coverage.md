@@ -14,7 +14,18 @@ distinctive secret formats. Its shape-limitation is **accepted by design**: the
 policy chain (`policy.py`) escalates any `FLAG`, and any `depth=deep` scan, to
 the deep tier (Local-Qwen / Cloud), which carries the semantics the floor cannot.
 
-So this corpus documents the floor boundary in two honest halves:
+The shipped configuration scans at `sentinel.scan.depth: baseline`
+(`intergen/config.py`). At baseline a floor `ALLOW` is final: the deep tier is
+never asked (`test_scanner.py::TestScannerPolicy::test_clean_baseline_no_deep`,
+`test_deep_scanner_wiring.py::DefaultDepthTests::test_baseline_default_does_not_escalate_on_allow`).
+A floor `FLAG` escalates to the deep tier when one is attached
+(`DefaultDepthTests::test_baseline_escalates_on_floor_flag`) and otherwise
+stands as `FLAG` (`TestScannerPolicy::test_flag_with_no_deep_stays_flag`), which
+the dispatcher hands to the person's review and withholds when no review can
+ask or the person denies it. So what the floor `ALLOW`s reaches the model at the
+shipped depth, spotlighted only, unless `depth: deep` is configured.
+
+So this corpus documents the floor boundary in three honest parts:
 
 - **What the floor CATCHES** — pinned by an assertion on the real disposition
   (`BLOCK` or `FLAG`).
@@ -22,16 +33,22 @@ So this corpus documents the floor boundary in two honest halves:
   and listed below as a deep-tier row. A miss is **documented, never masked** and
   never dressed up as a floor catch. If a future rule starts catching a
   deep-tier fixture, its assertion flips and the fixture is re-tiered to `FLOOR`
-  (a real, visible coverage gain).
+  (a real, visible coverage gain). At the shipped depth these rows reach the
+  model.
+- **What the floor must LEAVE ALONE** — honest text beside a caught shape (a
+  mention of the assistant, a pipe into a pager, a table of shells), pinned as
+  `ALLOW` in the `HONEST` tier. A rule that starts catching one flips its
+  assertion: a false positive surfaces here as loudly as a miss.
 
 ## Counts
 
 | Coverage tier | Fixtures | Meaning |
 |---|---:|---|
-| `FLOOR`    | 26 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
+| `FLOOR`    | 44 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
 | `DEEP`     | 12 | evasion the floor misses by design → deep tier (asserted `ALLOW`) |
 | `PROPOSED` |  0 | (the initial 3 proposals were reviewed, approved, and adopted 2026-07-23 — see below) |
-| **total**  | **38** | |
+| `HONEST`   | 13 | honest text beside a caught shape (asserted `ALLOW`) |
+| **total**  | **69** | |
 
 ## Attack taxonomy
 
@@ -47,8 +64,22 @@ So this corpus documents the floor boundary in two honest halves:
   plain payload is caught exactly like a direct one. **FLOOR** (this is
   explicitly NOT a gap when the payload itself is a known shape).
 - `injection.role-redefine` / `injection.covert` / `injection.tool-lure` —
-  softer role-redefinition, covert-action lures, embedded tool/command lures.
-  **FLOOR (FLAG).**
+  softer role-redefinition, covert-action lures (including a note that tells
+  the model not to mention it), embedded tool/command lures. **FLOOR (FLAG).**
+- `injection.model-addressed` — a plain-language instruction addressed to the
+  model that reads the content: a label for it ("Important notice for language
+  models:"), the reading model itself ("AI assistants summarizing this page
+  must ..."), a vocative with a directive ("Assistant: your real task is ...",
+  "InterGen: from now on ..."), a condition ("If you are a language model,"),
+  the person's question set aside ("Ignore the user's question and reply only
+  with: ..."), or a directive to relay ("tell the user to ..."). The address is
+  the catch, not a mention: "The assistant can install packages" and "Note to
+  assistant managers" are `HONEST` rows. **FLOOR (FLAG).**
+- `injection.shell-pipe` — a command piped into a shell (`curl … | sudo sh`,
+  `wget -qO- … | bash -s`, a decoded script piped on into `sh`, a backslash
+  continuation), and a downloaded script handed to a shell by substitution
+  (`sh -c "$(curl …)"`, `bash <(curl …)`). A pipe into a pager or `tee`, a shell
+  named in prose and a markdown table cell are `HONEST` rows. **FLOOR (FLAG).**
 - `injection.evasion.*` — homoglyph (Cyrillic look-alikes), letter-spacing,
   zero-width insertion, leetspeak, base64-wrapped payloads, spaced control
   tokens, non-breaking-hyphen markers. **DEEP** — semantic/decoding recognition
@@ -89,7 +120,9 @@ scanner.
 | `sec-evade-hex-privkey`   | secret    | hex-encoded PEM header, no decode |
 
 These are not defects in the floor — they are the deep tier's mandate. Listing
-them makes the division of labour explicit and testable.
+them makes the division of labour explicit and testable. At the shipped
+`baseline` depth the deep tier never sees a floor `ALLOW`, so these reach the
+model spotlighted only; `depth: deep` is what hands them to the deep tier.
 
 ## Adopted rule additions (reviewed and approved 2026-07-23)
 
@@ -116,6 +149,22 @@ disposition). Each widens what the floor catches; nothing was relaxed.
 3. **Slack incoming-webhook URL** (`gap-slack-webhook`):
    `hooks.slack.com/services/…` added to the `exfil.relay-url` set at **FLAG**
    (not BLOCK — legitimate webhook uses exist; escalation over hard refusal).
+
+## Plain-language page instructions (added 2026-10-21)
+
+Seven instructions planted in a search page excerpt, dispatched through the
+production policy at baseline depth: one (`page-disregard-guidelines`) already
+`BLOCK`ed on its override words; the other six passed the floor and reached the
+model spotlighted only, because none carried the override or the lure words.
+They are the `page-*` rows, pinned at `FLAG`, with eleven rows of the same two
+classes in other words (`addr-*`, `pipe-*`) and thirteen `HONEST` rows beside
+them. The rules are `FLAG`, not `BLOCK`: a page may quote such an instruction
+honestly, and a `FLAG` goes to the person, who sees the reason before anything
+is admitted. `test_a_hostile_search_page_is_withheld_on_both_model_facing_fields.py`
+drives the six `FLAG` shapes and the `BLOCK` through `ToolRegistry.execute()`
+with the production policy under every provenance: both model-facing fields
+withheld when no review can ask or the person denies it, the audit row naming
+the verdict's reason and never the page text.
 
 ## Residual
 

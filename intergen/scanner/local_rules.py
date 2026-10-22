@@ -16,6 +16,13 @@ Pattern provenance (grounded in the existing code, not invented):
   * The marker-spoof rule mirrors `spotlighting._SPOOF_GUARD_PATTERN`: content
     carrying an `UNTRUSTED-INGRESS` marker literal is an attempt to break out
     of the spotlight wrapper and is treated as high-confidence adversarial.
+  * The plain-language rules (an instruction addressed to an AI model, and a
+    command piped into a shell) come from instructions planted in a search
+    page excerpt that this floor allowed at the production depth, where a
+    floor ALLOW is final. Each was matched against the shipped answer corpora
+    and the wiki, paragraph by paragraph and page by page, before it was
+    adopted, and none of those honest texts moves under it; the adversarial
+    corpus pins the planted shapes and the honest near-misses beside them.
   * EGRESS rules detect real secret material (private keys, cloud keys, JWTs,
     crypt hashes, provider tokens) at BLOCK, and credential-shaped assignments
     / suspicious exfil URLs at FLAG.
@@ -59,6 +66,25 @@ _SCORE = {
 
 def _ci(p: str) -> re.Pattern[str]:
     return re.compile(p, re.IGNORECASE)
+
+
+def _cim(p: str) -> re.Pattern[str]:
+    # ^ and $ at every line: a fetched page is many lines, and an instruction
+    # or a pipeline starts or ends on one of them.
+    return re.compile(p, re.IGNORECASE | re.MULTILINE)
+
+
+# Who a planted instruction speaks to: an AI model by kind or by this
+# assistant's own name.
+_MODEL = (r"(?:ai|a\.i\.|llms?|(?:large\s+)?language\s+models?|chat\s?bots?|intergen"
+          r"|(?:ai|virtual)\s+(?:assistants?|models?|agents?|systems?|bots?|helpers?)"
+          r"|assistants?)")
+# What a model does to the text in front of it.
+_READING = (r"(?:reading|summari[sz]ing|processing|parsing|analy[sz]ing|viewing"
+            r"|crawling|indexing|scraping|browsing|visiting|reviewing|ingesting)")
+# A shell, run directly or under sudo with its options.
+_SHELL = (r"(?:sudo[ \t]+(?:-[A-Za-z]+[ \t]+)*)?(?:(?:/usr)?/bin/)?"
+          r"(?:ba|z|da|k|c|tc|fi|mk|a)?sh\b")
 
 
 # --------------------------------------------------------------------------
@@ -117,6 +143,61 @@ _INGRESS_RULES: list[_Rule] = [
     _Rule(ScanDisposition.FLAG, "injection.tool-lure",
           _ci(r"\b(?:execute|run|invoke|call)\s+(?:the\s+)?(?:following\s+)?(?:command|tool|function|script)\b"),
           "Embedded tool/command lure"),
+
+    # --- FLAG: plain-language instructions addressed to the model ---
+    # A page has no reason to speak to the model that reads it. Each form needs
+    # the address itself (a label, the reading model, a vocative, a condition),
+    # not a mention: "the assistant can install packages" and "Note to
+    # assistant managers" stay ALLOW.
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"\b(?:note|notice|message|memo|instructions?|attention|reminder|warning|directive)"
+               r"\s+(?:to|for)\s+(?:the\s+|any\s+|all\s+|every\s+)?" + _MODEL
+               + r"(?:\s*[:,;.!\u2014-]|\s+(?:" + _READING + r"|that|who)\b)"),
+          "Instruction addressed to an AI model ('note to the assistant')"),
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"\b" + _MODEL + r"\s+(?:(?:that|who)\s+(?:is|are)\s+)?" + _READING + r"\s+(?:this|these)\b"),
+          "Instruction addressed to an AI model reading this content"),
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"(?:^|[.!?;]\s+|[\"'(\[]\s*)(?:(?:hey|hi|dear|attention|note)\s*,?\s+)?(?:the\s+)?"
+               + _MODEL + r"\s*[:,]\s*(?:your\s+(?:real|actual|true|new|only|hidden|secret|primary|main|next)"
+               r"\s+(?:task|job|goal|instructions?|purpose|role|objective|mission|directive|priority)"
+               r"|you\s+(?:must|are\s+now|will\s+now)\b|ignore\b|disregard\b|forget\b|from\s+now\s+on\b"
+               r"|tell\s+the\s+user\b|(?:respond|reply|answer)\s+only\b"
+               r"|do\s+not\s+(?:mention|reveal|tell|disclose|say)\b"
+               r"|instead\s+(?:tell|say|recommend|answer|respond|reply)\b)"),
+          "Instruction addressed to an AI model by name ('Assistant: ...')"),
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"\bif\s+you\s+are\s+(?:an?\s+)?" + _MODEL
+               + r"(?:\s*[,.:;]|\s+(?:" + _READING + r"|that|who)\b)"),
+          "Instruction addressed to an AI model ('if you are an AI')"),
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"\bignore\s+(?:the\s+|this\s+)?user(?:['\u2019]?s)?\s+"
+               r"(?:question|request|query|message|prompt|instructions?|input)\b"
+               r"|\b(?:reply|respond|answer)\s+(?:only\s+with|with\s+only)\b"),
+          "Instruction to set aside the person's question ('reply only with')"),
+    _Rule(ScanDisposition.FLAG, "injection.covert",
+          _cim(r"\b(?:do\s+not|don['\u2019]?t|never)\s+(?:mention|reveal|disclose|acknowledge|refer\s+to"
+               r"|quote|repeat|cite)\s+(?:this|these)\s+(?:note|notice|message|instructions?|comment|text"
+               r"|line|paragraph|section)\b"),
+          "Covert-action lure ('do not mention this note')"),
+    _Rule(ScanDisposition.FLAG, "injection.model-addressed",
+          _cim(r"\btell\s+the\s+user\s+to\b"),
+          "Instruction to relay a directive to the person ('tell the user to')"),
+
+    # --- FLAG: a command piped into a shell ---
+    # A script-producing command piped into a shell on one line (a backslash
+    # continuation counts), or any pipe into a shell that ends the command; a
+    # markdown table cell ("| bash | ...") is neither. The same downloaded
+    # script handed to a shell by substitution is the same act.
+    _Rule(ScanDisposition.FLAG, "injection.shell-pipe",
+          _cim(r"\b(?:curl|wget|fetch|echo|printf|cat|base64|xxd|openssl|zcat|gunzip)\b"
+               r"(?:[^\n|\\]|\\[^\n]|\\\n)*\|[ \t]*" + _SHELL + r"(?![ \t]*\|)"
+               r"|[^|\s][ \t]*(?:\\\n[ \t]*)?\|[ \t]*" + _SHELL + r"(?=[ \t]*(?:$|[;&)\"'`.,]|-))"),
+          "Command piped into a shell"),
+    _Rule(ScanDisposition.FLAG, "injection.shell-pipe",
+          _cim(r"\b(?:ba|z|da|k)?sh\s+(?:-[a-z]+\s+)*[\"']?\$\(\s*(?:curl|wget)\b"
+               r"|\b(?:ba|z|da|k)?sh\s+<\(\s*(?:curl|wget)\b|\b(?:source|\.)\s+<\(\s*(?:curl|wget)\b"),
+          "Downloaded script handed to a shell"),
 ]
 
 
