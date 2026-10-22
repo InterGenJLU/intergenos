@@ -85,13 +85,16 @@ Something leaves the machine only in these cases:
   from that page's own site (public addresses only, at most 128 KiB,
   within 8 seconds and 3 redirects) and reads it. A search the model
   decides on by itself is held and offered to you instead of being run.
-- **A network check.** Read-only network commands such as `ping`, `dig`
-  and `traceroute` run without a confirmation when a question calls for
-  them, and reach the host they name. Asking for your IP address sends one
-  DNS query to Cloudflare's public resolver to read your public IPv4
-  address; the IPv6 one is looked up only if you accept the offer that
-  follows. A command that downloads, such as `curl` or `wget`, asks you
-  first.
+- **A network check.** A network command such as `ping`, `dig` or
+  `traceroute` reaches the host it names. It runs without asking only when
+  you asked for it directly and nothing from outside (a web page, a search
+  result, a file) was read in that conversation; otherwise InterGen shows
+  you the command and asks first. Your IP address is looked up only when
+  you ask for it, by one DNS query to Cloudflare's public resolver for your
+  public IPv4 address, asked first in the same way once something from
+  outside was read; the IPv6 one is looked up only if you accept the offer
+  that follows. A command that downloads, such as `curl` or `wget`, always
+  asks you first.
 - **Phone-A-Friend, only if you set up a provider.** A question goes to
   the provider only when you ask: the "Ask my frontier model" button that
   comes with an offer in the panel, or `intergen ask-frontier`. InterGen
