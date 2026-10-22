@@ -84,6 +84,15 @@ _BEHAVIOR_MATRIX: dict[
     (ToolRiskTier.READ_ONLY, Provenance.USER_DIRECT): "execute",
     (ToolRiskTier.READ_ONLY, Provenance.USER_IMPLIED): "execute",
     (ToolRiskTier.READ_ONLY, Provenance.INGRESS_DERIVED): "execute",
+    # NETWORK_EGRESS: a call that sends a request off the machine to a host
+    # its arguments name (tool_registry._classify_risk_tier). It executes only
+    # on user_direct, which the ingress watermark leaves in place only when
+    # nothing from outside has been read in the conversation; on user_implied
+    # and ingress_derived it is held, and the person sees the call, with its
+    # command line, before anything is sent.
+    (ToolRiskTier.NETWORK_EGRESS, Provenance.USER_DIRECT): "execute",
+    (ToolRiskTier.NETWORK_EGRESS, Provenance.USER_IMPLIED): "hold_for_review",
+    (ToolRiskTier.NETWORK_EGRESS, Provenance.INGRESS_DERIVED): "hold_for_review",
     # USER_SCOPE_STATE_CHANGING: execute for user_direct/implied; hold for
     # review on ingress_derived (the user did not ask for this state-change
     # in their own namespace; surface for explicit consent).

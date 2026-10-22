@@ -119,6 +119,10 @@ class AutonomyTier(IntEnum):
 
 TIER_REQUIRED_FOR_RISK = {
     "read_only": AutonomyTier.OBSERVE,
+    # A request sent off the machine changes nothing here; the provenance
+    # matrix holds it unless the person asked directly with nothing from
+    # outside read, so the autonomy tier it needs is the read tier's.
+    "network_egress": AutonomyTier.OBSERVE,
     "user_scope_state_changing": AutonomyTier.ADJUST,
     "privileged_state_changing": AutonomyTier.ARCHITECT,
 }

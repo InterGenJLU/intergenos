@@ -129,6 +129,9 @@ _REVIEW_RISK = {
 # sentence, the tier supplies the effect sentence.
 _TIER_EFFECT = {
     "read_only": "It only reads information from your system and changes nothing.",
+    "network_egress":
+        "It changes nothing here, but sends a request from this computer to "
+        "another one on the network.",
     "user_scope_state_changing":
         "It changes something in your own account or session.",
     "privileged_state_changing":

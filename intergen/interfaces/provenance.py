@@ -76,12 +76,17 @@ class ToolRiskTier(Enum):
     """Per RFC §6 — orthogonal to provenance.
 
     READ_ONLY: returns information; does not modify system state.
+    NETWORK_EGRESS: modifies nothing here, but sends a request off the
+        machine to a host or server its arguments name (a name lookup, a
+        probe, a remote's fetch, an external tool's call); executes only on
+        the person's direct ask with nothing from outside read (2026-10-22).
     USER_SCOPE_STATE_CHANGING: modifies state in user's own namespace; no
         privilege escalation.
     PRIVILEGED_STATE_CHANGING: requires escalation (downstream pkexec gate
         per D-007 Option A).
     """
     READ_ONLY = "read_only"
+    NETWORK_EGRESS = "network_egress"
     USER_SCOPE_STATE_CHANGING = "user_scope_state_changing"
     PRIVILEGED_STATE_CHANGING = "privileged_state_changing"
 

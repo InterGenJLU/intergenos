@@ -119,6 +119,55 @@ _AUTO_COMMANDS_SINGLE = frozenset({
     "true", "false", "pwd", "groups",
 })
 
+# ── AUTO forms that leave the machine (network egress) ──
+#
+# AUTO says a command changes nothing on this machine, and that is all it says.
+# Some AUTO forms send a request off the machine to a host or server named in
+# their own arguments, so a command composed by the model can carry data to a
+# destination it chose: a name lookup or a probe (ping, dig, nslookup, host,
+# traceroute), a query to a print server named with -h or by CUPS_SERVER
+# (lpstat, lpq), a fetch from a repository's remote or a pointer to a new one
+# (git remote update, show, prune, set-head, add, set-url), and a systemd tool
+# driven over ssh with -H (systemctl, systemd-analyze, timedatectl, hostnamectl).
+# classify_command keeps their tier, since nothing local changes;
+# command_leaves_the_machine reads the same parse and names them, and the
+# dispatcher carries that as its own risk tier (ToolRiskTier.NETWORK_EGRESS,
+# tool_registry._classify_risk_tier): such a call runs when the person asked for
+# it directly and nothing from outside has been read in the conversation, and is
+# held for the person's review otherwise.
+_EGRESS_COMMANDS_SINGLE = frozenset({"ping", "dig", "nslookup", "host", "traceroute"})
+_PRINT_SERVER_COMMANDS = frozenset({"lpstat", "lpq"})
+_SSH_HOST_COMMANDS = frozenset({"systemctl", "systemd-analyze", "timedatectl", "hostnamectl"})
+_GIT_REMOTE_LEAVES = frozenset({"update", "show", "prune", "set-head", "add", "set-url"})
+
+
+def _git_remote_subcommand(parts: list[str]) -> str | None:
+    """The subcommand of `git remote ...`, past its -v/--verbose flag, or None."""
+    rest = [p for p in parts[2:] if p not in ("-v", "--verbose")]
+    return rest[0] if rest else None
+
+
+def _short_option_has(parts: list[str], letter: str) -> bool:
+    """True when a short-option cluster (`-h`, `-ph`, `-hHOST`) carries `letter`."""
+    return any(p.startswith("-") and not p.startswith("--") and letter in p[1:]
+               for p in parts[1:])
+
+
+def _form_leaves(base_cmd: str, parts: list[str]) -> bool:
+    """True when this one command, as written, sends a request off the machine."""
+    if base_cmd in _EGRESS_COMMANDS_SINGLE:
+        return True
+    if base_cmd in _PRINT_SERVER_COMMANDS:
+        return _short_option_has(parts, "h")
+    if base_cmd == "env":
+        return any(p.startswith("CUPS_SERVER=") for p in parts[1:])
+    if base_cmd in _SSH_HOST_COMMANDS:
+        return (_short_option_has(parts, "H")
+                or any(p == "--host" or p.startswith("--host=") for p in parts[1:]))
+    if base_cmd == "git" and len(parts) > 1 and parts[1] == "remote":
+        return _git_remote_subcommand(parts) in _GIT_REMOTE_LEAVES
+    return False
+
 # ── Interactive-pager exec-vector class (guards live in classify_command) ──
 # less/more/most (and top/htop) are interactive programs: on a controlling
 # terminal one can `!cmd` (or less `v`->$EDITOR) to spawn a child shell that
@@ -575,7 +624,26 @@ def _split_shell(command: str) -> list[tuple[str, bool]]:
     return result
 
 
-def classify_command(command: str, _piped: bool = False) -> SafetyTier:
+def command_leaves_the_machine(command: str) -> bool:
+    """True when an AUTO command sends a request off this machine.
+
+    Read from classify_command's own parse, so every wrapper it sees through
+    (env, watch, a shell's -c string, nohup, timeout, xargs and the rest) is
+    seen through here too: `timeout 5 dig x` leaves as `dig x` does. Only a
+    single command can leave: the shell-free executor refuses a compound
+    (run_command.py) before anything starts, so a pipe or a `;` list keeps the
+    tier it has today. CONFIRM and BLOCKED commands are False here because
+    their own tiers already hold or refuse them.
+    """
+    command = command.strip()
+    if len(_split_shell(command)) != 1:
+        return False
+    found: list[str] = []
+    return classify_command(command, _egress=found) is SafetyTier.AUTO and bool(found)
+
+
+def classify_command(command: str, _piped: bool = False,
+                     _egress: list[str] | None = None) -> SafetyTier:
     """Classify a shell command into a safety tier.
 
     This is the single strong classifier for shell commands (AI-4): it is a
@@ -586,6 +654,9 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
 
     Args:
         command: The shell command string to classify.
+        _egress: when a list is passed, every command reached in the parse
+            that leaves the machine is appended to it (command_leaves_the_machine
+            reads it); the tier returned is the same either way.
 
     Returns:
         SafetyTier.AUTO, SafetyTier.CONFIRM, or SafetyTier.BLOCKED
@@ -611,7 +682,7 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     if len(segments) > 1:
         worst = SafetyTier.AUTO
         for segment, seg_piped in segments:
-            tier = classify_command(segment, _piped=_piped or seg_piped)
+            tier = classify_command(segment, _piped=_piped or seg_piped, _egress=_egress)
             if tier == SafetyTier.BLOCKED:
                 return SafetyTier.BLOCKED
             if tier == SafetyTier.CONFIRM:
@@ -625,6 +696,8 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     parts = command.split()
     base_cmd = os.path.basename(parts[0])
     two_word = f"{base_cmd} {parts[1]}" if len(parts) > 1 else ""
+    if _egress is not None and _form_leaves(base_cmd, parts):
+        _egress.append(command)
 
     if base_cmd in _BLOCKED_COMMANDS:
         logger.warning("Command blocked: %s", base_cmd)
@@ -669,13 +742,15 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     # wrapped command) just prints/sets the environment -> AUTO.
     if base_cmd == "env":
         wrapped = _env_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(wrapped, _piped=_piped)
+        return SafetyTier.AUTO if wrapped is None else classify_command(
+            wrapped, _piped=_piped, _egress=_egress)
 
     # watch is an exec wrapper like env: classify by its WRAPPED command so
     # `watch 'rm -rf x'` is BLOCKED and `watch free` is AUTO, never a flat pass.
     if base_cmd == "watch":
         wrapped = _watch_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(wrapped, _piped=_piped)
+        return SafetyTier.AUTO if wrapped is None else classify_command(
+            wrapped, _piped=_piped, _egress=_egress)
 
     # Shell (or `script`) with a `-c` command-string: classify the command-string
     # itself (worst tier) so the shell token cannot hide a recognition-tier inner
@@ -684,7 +759,7 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     if base_cmd in _CMDSTRING_WRAPPERS:
         cmd_str = _shell_c_argument(parts)
         if cmd_str:
-            return classify_command(cmd_str, _piped=_piped)
+            return classify_command(cmd_str, _piped=_piped, _egress=_egress)
 
     # Transparent exec-prefix wrappers (nohup/nice/timeout/xargs/flock/strace/...):
     # classify by the WRAPPED command so a base-command-keyed block (`nohup sudo …`,
@@ -693,7 +768,8 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     # (nothing runs). Like env/watch above.
     if base_cmd in _PREFIX_SPECS:
         wrapped = _prefix_wrapped_command(parts)
-        return SafetyTier.AUTO if wrapped is None else classify_command(wrapped, _piped=_piped)
+        return SafetyTier.AUTO if wrapped is None else classify_command(
+            wrapped, _piped=_piped, _egress=_egress)
 
     # Interactive-pager guard: a bare pager is a shell-escapable interactive
     # program -> CONFIRM; a piped pager is a data-sink -> AUTO.

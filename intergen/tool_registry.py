@@ -159,6 +159,16 @@ def _on_the_users_own_manager(arguments: dict[str, Any]) -> bool:
         arguments if isinstance(arguments, dict) else {})
 
 
+def _declared_command_leaves(tool: BaseTool, arguments: dict[str, Any]) -> bool:
+    """True when a command line the tool declares sends a request off the
+    machine. The same declaration the install-secret screen reads: a tool that
+    hands a parameter to a process names it in command_line_parameters."""
+    from intergen.safety import command_leaves_the_machine
+    args = arguments if isinstance(arguments, dict) else {}
+    return any(isinstance(args.get(name), str) and command_leaves_the_machine(args[name])
+               for name in tool.command_line_parameters)
+
+
 def _classify_risk_tier(
     tool: BaseTool | None,
     arguments: dict[str, Any],
@@ -183,15 +193,27 @@ def _classify_risk_tier(
     manage_packages AUTO_SUBCOMMANDS, run_command's _AUTO_COMMANDS_* with
     unknown→CONFIRM and destructive/shell-spawn→BLOCKED). Only state-changing
     actions (CONFIRM) reach the privileged/escalation path below.
+
+    AN AUTO CALL THAT LEAVES THE MACHINE IS NETWORK_EGRESS (2026-10-22). AUTO
+    means nothing changes here; it does not mean nothing is sent. A command
+    line a tool declares (command_line_parameters) that sends a request to a
+    host its arguments name — ping, dig, a print server's -h, a remote's fetch
+    (safety.command_leaves_the_machine) — is NETWORK_EGRESS, which the matrix
+    executes on the person's direct ask with nothing from outside read and
+    holds otherwise. An external handler is the same tier: whatever its server
+    does with the arguments happens off this machine.
     """
     if tool is None:
         # External handler or unknown — can't introspect the action. A known
-        # privileged name is privileged; otherwise the safe default is user-scope.
+        # privileged name is privileged; otherwise its arguments go to a server
+        # that is not this machine.
         return (ToolRiskTier.PRIVILEGED_STATE_CHANGING
                 if tool_name in _PRIVILEGED_TOOLS
-                else ToolRiskTier.USER_SCOPE_STATE_CHANGING)
+                else ToolRiskTier.NETWORK_EGRESS)
     safety = tool.classify_safety(arguments)
     if safety == SafetyTier.AUTO:
+        if _declared_command_leaves(tool, arguments):
+            return ToolRiskTier.NETWORK_EGRESS
         return ToolRiskTier.READ_ONLY
     if tool_name == "manage_services" and _on_the_users_own_manager(arguments):
         # A change on the person's own service manager (systemctl --user) is a
@@ -228,6 +250,9 @@ def classification_sentence(tier: "ToolRiskTier") -> str:
                 "administrator approval.")
     if tier is ToolRiskTier.USER_SCOPE_STATE_CHANGING:
         return "This makes a change within your own account or session."
+    if tier is ToolRiskTier.NETWORK_EGRESS:
+        return ("This changes nothing here, but sends a request from this "
+                "computer to another one on the network.")
     return "This only reads information from your system and changes nothing."
 
 
@@ -844,6 +869,22 @@ _NOT_RUN_WHY = {
     HANDED_OFF_BEFORE: ("It didn't run when it came up earlier in this "
                         "conversation, so I'm not offering it again."),
 }
+
+
+#: What the audit record of a held call that leaves the machine says first:
+#: the class it was held for, never what was read before it (2026-10-22).
+NETWORK_EGRESS_HELD = (
+    "Held: the call sends a request off this machine, and the person had not "
+    "asked for it directly with nothing from outside read in the conversation")
+
+
+def _held_summary(decision: DispatchDecision, summary: str) -> str:
+    """A held call's audit summary, led by the class it was held for when
+    the call leaves the machine; any other held call's summary is unchanged."""
+    if (decision.action == "hold_for_review"
+            and decision.risk_tier is ToolRiskTier.NETWORK_EGRESS):
+        return f"{NETWORK_EGRESS_HELD}. {summary}"
+    return summary
 
 
 def review_not_decided(answer: object) -> tuple[str, str]:
@@ -1733,7 +1774,8 @@ class ToolRegistry:
                     call, decision, ingress_tracker,
                     user_outcome=NO_REVIEW_UI,
                     exit_code=1,
-                    result_summary="No review UI available; implicit refusal",
+                    result_summary=_held_summary(
+                        decision, "No review UI available; implicit refusal"),
                     source_attribution=source_attribution,
                     excerpt=excerpt,
                 )
@@ -1786,7 +1828,8 @@ class ToolRegistry:
                         "denied" if user_choice == "deny" else "deny_conversation"
                     ),
                     exit_code=1,
-                    result_summary="User denied via review modal",
+                    result_summary=_held_summary(
+                        decision, "User denied via review modal"),
                     source_attribution=source_attribution,
                     excerpt=excerpt,
                 )
@@ -1817,9 +1860,9 @@ class ToolRegistry:
                     call, decision, ingress_tracker,
                     user_outcome=outcome,
                     exit_code=1,
-                    result_summary=f"Not run: {what}" + (
+                    result_summary=_held_summary(decision, f"Not run: {what}" + (
                         f" ({type(review_error).__name__}: {review_error})"
-                        if review_error is not None else ""),
+                        if review_error is not None else "")),
                     source_attribution=source_attribution,
                     excerpt=excerpt,
                 )
