@@ -96,7 +96,7 @@ The distinguishing feature of InterGenOS is its deeply integrated AI assistant, 
     *   Tier 2 (Qwen3.5-9B): a discrete GPU with roughly 7 GB of VRAM or more.
     *   Tier 3 (Qwen3.5-35B-A3B MoE): a discrete GPU with roughly 22 GB of VRAM or more.
 *   **Llama Manager (`intergen/llama_manager.py`)**: Handles the lifecycle (start, stop, load, unload) of the `llama.cpp` inference engine.
-*   **Priority Router (`intergen/router.py`)**: A critical component managing concurrent demands on the AI engine. It utilizes an 8-priority queue system to arbitrate requests (e.g., user-interactive chat vs. background log summarization).
+*   **Priority Router (`intergen/router.py`)**: Selects a response path using a P0–P4 decision ladder: compound-query handling, keyword/regex matching, semantic matching, eligible model tool calls, and freeform fallback.
 *   **Safety Classifier**: All prompts and outputs pass through a safety classifier that determines actionability (AUTO, CONFIRM, BLOCKED) based on the user-control posture.
 *   **D-Bus Integration**: The `dbus_daemon.py` exposes the assistant's capabilities to the broader desktop environment via D-Bus, allowing other applications to request completions or semantic searches securely.
 *   **MCP Client**: Facilitates communication via the Model Context Protocol, allowing the AI to interact with specialized external tools or services when authorized.
