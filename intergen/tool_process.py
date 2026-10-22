@@ -52,8 +52,9 @@ executor runs gets an environment written here and nothing inherited
 (LOADER_UNSAFE_VARIABLES) for env itself, and env -i starts the command with
 the allowlist alone, its values read from the password database and the
 account's id, never from the environment, and the program resolved on the
-fixed TOOL_PATH. An MCP server keeps the environment it is configured with;
-see launch_argv.
+fixed TOOL_PATH. An MCP server's service unsets the same list, and a
+launcher starts the server with the allowlist and its configured names
+alone (intergen/mcp_client.py).
 
 DROP-INS ARE REFUSED. A drop-in directory in the user manager's unit search
 path applies to every service whose name it matches (service.d to every
@@ -402,9 +403,11 @@ def launch_argv(argv: list[str], *, unit: str,
     unsets LOADER_UNSAFE_VARIABLES and env -i starts the command with
     tool_environment() and nothing else, so no value of the user manager's
     block reaches it; `argv[0]` must then be a path (resolved on TOOL_PATH by
-    the caller) with no "=" in it, which env would read as an assignment. An
-    MCP server is started with the environment it is configured with, its
-    variables handed over by name (`setenv_names`).
+    the caller) with no "=" in it, which env would read as an assignment. For
+    an MCP server, intergen/mcp_client.py hands its configured variables over
+    by name (`setenv_names`) and adds to this command line the written
+    environment, the unsetting of LOADER_UNSAFE_VARIABLES and a launcher that
+    keeps only those names.
 
     Raises ToolProcessNotStarted when a credential file is absent, cannot be
     read or cannot be named, when the program cannot be named to env, or when

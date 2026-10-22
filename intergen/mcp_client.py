@@ -14,6 +14,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import select
 import shutil
 import subprocess
@@ -76,6 +77,66 @@ _MCP_PROTOCOL_VERSION = "2024-11-05"
 # connect() now reads during the handshake, which the prior stub did not, so
 # the timeout closes the hang-on-startup window that adding reads would open.
 _MCP_IO_TIMEOUT = 30.0
+
+# A server's service is spawned by the user manager with the manager's own
+# environment block, which any process of the account can change, compiled at
+# the moment of the spawn: names read from the block beforehand and unset would
+# miss one set in between. So the service runs this launcher first, on the
+# system's interpreter with -I (no PYTHON* variable, user site or current
+# directory read), after the service has unset glibc's unsafe variables. It
+# keeps only the names it is given, whatever the block held at the spawn, and
+# execs the server with those alone. Its first argument is the names, separated
+# by spaces; the rest is the program and its arguments.
+_LAUNCHER_PYTHON = "/usr/bin/python3"
+_LAUNCHER = ("import os, sys; keep = set(sys.argv[1].split()); "
+             "os.execve(sys.argv[2], sys.argv[2:], "
+             "{k: v for k, v in os.environ.items() if k in keep})")
+
+# A configured name the launcher can carry: a variable name, nothing else.
+_VARIABLE_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*\Z")
+
+
+def _server_launch(program: str, args: list[str], configured: dict[str, str],
+                   unit: str) -> list[str]:
+    """The command line that starts an MCP server with its environment written.
+
+    As a command the executor runs: the service unsets glibc's unsafe variables
+    (tool_process.LOADER_UNSAFE_VARIABLES), and the server starts with the
+    command's written environment (tool_process.tool_environment), here plus
+    its configured names and nothing else. The written values are set on the
+    service; a configured value is handed over by name, systemd-run reading it
+    from the environment it is given, so it appears on no command line. A
+    configured name overrides the written one of the same name.
+
+    Raises ToolProcessNotStarted when a configured name is not a variable name,
+    or is one the service unsets before anything runs (it would never arrive),
+    and whenever launch_argv refuses.
+    """
+    unusable = sorted(name for name in configured if not _VARIABLE_NAME.match(name))
+    if unusable:
+        raise tool_process.ToolProcessNotStarted(
+            f"the server's configuration names {', '.join(map(repr, unusable))}, "
+            f"which cannot be handed over as an environment variable, so the "
+            f"server was not started")
+    unset = sorted(set(configured) & set(tool_process.LOADER_UNSAFE_VARIABLES))
+    if unset:
+        raise tool_process.ToolProcessNotStarted(
+            f"the server's configuration sets {', '.join(unset)}, which the "
+            f"server's service unsets before anything runs, so it would never "
+            f"arrive; the server was not started. Remove it from the "
+            f"configuration.")
+    written = {name: value for name, value in tool_process.tool_environment().items()
+               if name not in configured}
+    keep = " ".join(sorted(set(written) | set(configured)))
+    launch = tool_process.launch_argv(
+        [_LAUNCHER_PYTHON, "-I", "-c", _LAUNCHER, keep, program] + list(args),
+        unit=unit, setenv_names=tuple(sorted(configured)))
+    split = launch.index("--")
+    return (launch[:split]
+            + [f"--setenv={name}={value}" for name, value in written.items()]
+            + ["--property=UnsetEnvironment="
+               + " ".join(tool_process.LOADER_UNSAFE_VARIABLES)]
+            + launch[split:])
 
 
 class MCPClient(MCPClientInterface):
@@ -240,20 +301,20 @@ class _MCPServerConnection:
         """
         env = dict(self.config.env)
         # The server runs as its own transient service, where the install's
-        # credential files cannot be opened (intergen/tool_process.py). Its
-        # command is resolved here as the direct start resolved it, so a missing
-        # command still raises FileNotFoundError, and its configured environment
-        # is handed over by NAME: systemd-run reads each value from the
-        # environment it is given, so no value appears in a process listing.
+        # credential files cannot be opened (intergen/tool_process.py), with
+        # an environment written for it and its configured names, nothing
+        # inherited (_server_launch). Its command is resolved on the fixed
+        # system PATH a command runs with, never this process's own nor a
+        # configured PATH: a directory the account can write, first in either,
+        # would decide which program a name starts. A missing command still
+        # raises FileNotFoundError.
         command = self.config.command
-        resolved = shutil.which(command, path=env.get("PATH")) if "/" not in command \
-            else os.path.abspath(command)
+        resolved = (os.path.abspath(command) if "/" in command
+                    else shutil.which(command, path=tool_process.TOOL_PATH))
         if resolved is None:
             raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), command)
         unit = tool_process.new_unit_name()
-        launch = tool_process.launch_argv(
-            [resolved] + list(self.config.args), unit=unit,
-            setenv_names=tuple(sorted(env)))
+        launch = _server_launch(resolved, list(self.config.args), env, unit)
         # stderr -> DEVNULL: we read stdout only (_read_response), so a PIPE'd
         # stderr is never drained and a server that writes >~64KB to it would
         # fill the pipe buffer and block. We surface failures via our own
