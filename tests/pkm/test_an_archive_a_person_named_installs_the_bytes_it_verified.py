@@ -16,6 +16,11 @@ is made in a directory no other account can change and is gone afterwards.
 The path is judged before it is opened to read: a FIFO whose writer waits in
 its open is refused without the writer being let go, and a file that belongs
 neither to the account that asked for the command nor to root is refused.
+At the installed version and release, `pkm upgrade --archive` compares the
+archive with the installed build before it says there is nothing to do; that
+comparison reads the copy too: the same four swaps after the hold, to the
+installed build's content or to another build, and a FIFO whose writer waits,
+change neither what is compared nor what is said.
 """
 
 import io
@@ -303,6 +308,129 @@ def test_a_fifo_with_a_writer_waiting_is_refused_and_the_writer_is_not_let_go(lo
         assert local.db.get_installed("widget") is None
     else:
         assert local.db.get_installed("widget")["release"] == 3
+
+
+INSTALLED = b"#!/bin/sh\necho the installed build\n"
+
+
+def _install_the_same_release(local, content):
+    """widget 1.0-4 installed from an archive carrying `content`: the version
+    and release of the archive the person names, so `pkm upgrade --archive`
+    reaches its same-build decision."""
+    (local.tmp / "installed").mkdir()
+    built = _make_archive(local.tmp / "installed" / local.named.name, "widget", "1.0", 4,
+                          {"usr/bin/widget": content})
+    ok, message = local.installer.install("widget", archive_path=built)
+    assert ok, message
+    return built
+
+
+def _swap_at_the_index_lookup(local, swap):
+    lookup = local.repo.get_package
+    swapped = []
+
+    def get_package_then_swap(name):
+        if not swapped:
+            swap()
+            swapped.append(True)
+        return lookup(name)
+
+    local.repo.get_package = get_package_then_swap
+    return swapped
+
+
+@pytest.mark.parametrize("swap", list(SWAPS))
+def test_the_same_build_decision_reads_the_held_copy_not_the_name(local, swap):
+    """At the installed version and release the archive is compared with the
+    installed build before "nothing to do" is said. That comparison opened the
+    name again: swapped after the hold to an archive of the installed build's
+    content, it was read as the archive compared, and the command said the
+    archive's build was already installed while the verified copy, another
+    build, was never compared or deployed."""
+    local.other = _install_the_same_release(local, INSTALLED)
+    swapped = _swap_at_the_index_lookup(local, lambda: SWAPS[swap](local))
+    rc, said = invoke(local, "upgrade")
+    assert swapped, said
+    assert not rc, said
+    assert "Nothing to do" not in said, said
+    assert "is NOT the installed build" in said, said
+    assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED, (
+        f"after {swap} the same-build decision compared what the name reaches, not the copy")
+
+
+@pytest.mark.parametrize("swap", list(SWAPS))
+def test_a_verified_copy_of_the_installed_build_is_nothing_to_do_whatever_the_name_reaches(
+        local, swap):
+    """The converse: the verified copy is the installed build and the name is
+    swapped after the hold to another build. Read from the copy, the command
+    says there is nothing to do, and never reads the swapped file."""
+    _install_the_same_release(local, VERIFIED)
+    swapped = _swap_at_the_index_lookup(local, lambda: SWAPS[swap](local))
+    rc, said = invoke(local, "upgrade")
+    assert swapped, said
+    assert not rc, said
+    assert "is already installed at exactly the archive's build" in said, said
+    assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED
+
+
+def test_a_fifo_swapped_in_after_the_hold_is_never_opened_by_the_same_build_decision(local):
+    """The name swapped after the hold to a FIFO whose writer waits in its
+    open: the comparison opened it by name and let the writer go. Read from
+    the copy, the FIFO is never opened and the verified build is deployed."""
+    _install_the_same_release(local, INSTALLED)
+    fifo = local.named
+    tid = []
+    let_go = threading.Event()
+    seen = []
+    done = threading.Event()
+
+    def writer():
+        tid.append(threading.get_native_id())
+        fd = os.open(fifo, os.O_WRONLY)
+        let_go.set()
+        os.close(fd)
+
+    def release_waiting_readers():
+        # The old comparison opened the name once for each compression tarfile
+        # tries; every open after the writer had gone waited for another one.
+        # Each reader found waiting is let go so the command finishes; finding
+        # one is the proof that the name was opened again.
+        while not done.wait(0.2):
+            try:
+                fd = os.open(fifo, os.O_WRONLY | os.O_NONBLOCK)
+            except OSError:
+                continue
+            seen.append("a reader was waiting")
+            os.close(fd)
+
+    releaser = threading.Thread(target=release_waiting_readers)
+
+    def swap_in_a_fifo():
+        os.unlink(fifo)
+        os.mkfifo(fifo)
+        threading.Thread(target=writer, daemon=True).start()
+        while not tid:
+            threading.Event().wait(0.01)
+        _wait_until_blocked_in_open(tid[0])
+        releaser.start()
+
+    swapped = _swap_at_the_index_lookup(local, swap_in_a_fifo)
+    try:
+        rc, said = invoke(local, "upgrade")
+        released = let_go.wait(0.5)
+    finally:
+        done.set()
+        if releaser.is_alive():
+            releaser.join()
+        if not let_go.is_set():
+            fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+            let_go.wait(5)
+            os.close(fd)
+    assert swapped, said
+    assert not released, f"the same-build decision opened the FIFO and let its writer go: {said}"
+    assert seen == [], f"pkm waited in the FIFO's open {len(seen)} more time(s): {said}"
+    assert not rc, said
+    assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED, said
 
 
 @pytest.mark.parametrize("verb", ["install", "upgrade"])

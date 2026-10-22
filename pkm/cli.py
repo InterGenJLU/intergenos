@@ -6210,7 +6210,12 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         # before. Different, or not establishable: the archive is deployed,
         # and the reason is stated. Deploying is the fail-closed direction —
         # the person named this file and asked for it to be installed.
-        _verdict, _detail = _archive_matches_installed_build(db, name, path)
+        #
+        # The comparison reads the held copy, as every step after the hold
+        # does: opening the named path again here would read whatever the path
+        # reaches now (a link, a FIFO, another build), not the bytes the trust
+        # gate and the preflight judged.
+        _verdict, _detail = _archive_matches_installed_build(db, name, held.path)
         if _verdict == "match":
             emit_info(
                 f"{txn.describe_subject(name, existing)} is already "
