@@ -73,6 +73,20 @@ logger = logging.getLogger(__name__)
 # RFC §7.2 timeout for the libnotify fallback (one hour); an expiry runs nothing.
 FALLBACK_TIMEOUT_SECONDS = 3600
 
+# THE INGRESS-FLAG CARD OFFERS ALLOW ONCE AND DENY ONLY (2026-10-22). A card
+# raised after a call ran, because the scan flagged what it returned, admits that
+# one result: the registry honours "Allow for this conversation" there as Allow
+# once and records nothing for the conversation. Offering it promised the person
+# something nothing does, so this card offers the two answers the web card
+# offers. The registry builds the card's decision with this reason, read here.
+INGRESS_FLAG_REASON_PREFIX = "Sentinel ingress scan flagged the returned content"
+
+
+def is_ingress_flag_card(decision: DispatchDecision) -> bool:
+    """True for the card the registry raises over a flagged result."""
+    return str(getattr(decision, "reason", "") or "").startswith(INGRESS_FLAG_REASON_PREFIX)
+
+
 # How often the libnotify fallback re-checks session-active state while
 # waiting for the user to unlock. 5s balances responsiveness against
 # subprocess overhead of repeated gdbus calls.
@@ -285,18 +299,20 @@ def _prompt_review_zenity(
     )
     header = review_header(decision)
     text = f"{header}\n\n{body}"
+    argv = [
+        zenity, "--text-info",
+        "--title=InterGen — action review needed",
+        "--width=720",
+        "--height=480",
+        f"--timeout={FALLBACK_TIMEOUT_SECONDS}",
+        "--ok-label=Allow once",
+        "--cancel-label=Deny",
+    ]
+    if not is_ingress_flag_card(decision):
+        argv.append("--extra-button=Allow for this conversation")
     try:
         result = consent_dialog.run_bounded(
-            [
-                zenity, "--text-info",
-                "--title=InterGen — action review needed",
-                "--width=720",
-                "--height=480",
-                f"--timeout={FALLBACK_TIMEOUT_SECONDS}",
-                "--ok-label=Allow once",
-                "--cancel-label=Deny",
-                "--extra-button=Allow for this conversation",
-            ],
+            argv,
             input=text,
             timeout=FALLBACK_TIMEOUT_SECONDS + 60,
         )
@@ -327,7 +343,7 @@ def _prompt_review_zenity(
                      result.returncode)
         return REVIEW_FAILED
     stdout = result.stdout.strip()
-    if "Allow for this conversation" in stdout:
+    if "Allow for this conversation" in stdout and not is_ingress_flag_card(decision):
         return "allow_conversation"
     # Exit 1 with no extra-button text: the person pressed Deny, pressed Esc,
     # or closed the dialog.
@@ -437,14 +453,19 @@ def prompt_review(
         # real rendered decision — INCLUDING deny — is returned as-is; we only fall
         # through to zenity when the binary could not render at all (return None),
         # never re-prompting after the user already decided.
-        gtk_result = consent_dialog.run_review_dialog(
-            call, decision, source_attribution, excerpt, reasoning
-        )
+        # The branded dialog's review mode always offers the conversation
+        # answer, so an ingress-flag card goes to the modal below, which offers
+        # Allow once and Deny only (see INGRESS_FLAG_REASON_PREFIX).
+        gtk_result = None
+        if not is_ingress_flag_card(decision):
+            gtk_result = consent_dialog.run_review_dialog(
+                call, decision, source_attribution, excerpt, reasoning
+            )
         if gtk_result is not None:
             return gtk_result
         logger.warning(
-            "consent: branded GTK review dialog did not render — falling back to "
-            "the zenity 3-button modal")
+            "consent: branded GTK review dialog not used or did not render — "
+            "falling back to the zenity modal")
         result = _prompt_review_zenity(
             call, decision, source_attribution, excerpt, reasoning
         )
