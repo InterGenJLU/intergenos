@@ -30,9 +30,10 @@ Caller policy   : the bus policy admits root, the administrators' group and,
                   org.intergenos.forge.install: an administrator's password
                   by default; the medium's own rule grants the live account
                   at its local, active session. GetStatus is a read. A dry
-                  run is refused: it is a preview a client makes without
-                  this service. The disk StartInstall names, the one path a
-                  caller hands this service, is established from the object
+                  run is refused: only the TUI previews an install, its disk
+                  phase only, without this service; the GUI has none. The
+                  disk StartInstall names, the one path a caller hands this
+                  service, is established from the object
                   itself before anything is written or started: a block
                   device node owned by root directly under /dev
                   (establish_target_disk). The identity established travels
@@ -337,14 +338,16 @@ class ForgeInstallerService:
             )
             return
 
-        # A dry run is a preview the client makes; this service never runs
-        # one, so nothing it starts can act as root under the name of one.
+        # A dry run is the TUI's alone, a preview of the disk phase made
+        # without this service; this service never runs one, so nothing it
+        # starts can act as root under the name of one.
         if method == "StartInstall" and bool(params.unpack()[2]):
             LOG.warning("StartInstall from %s refused: a dry run", sender)
             invocation.return_dbus_error(
                 ERROR_DRY_RUN_REFUSED,
-                "the installer backend runs no dry run; a dry run is a "
-                "preview the client makes without it",
+                "the installer backend runs no dry run; only the text "
+                "installer previews an install, its disk phase only, "
+                "without this service",
             )
             return
 

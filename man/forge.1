@@ -98,9 +98,12 @@ in
 are installed without tier filtering.
 .TP
 .B \-\-dry-run
-Log all destructive commands (partitioning, package install, account
-creation, bootloader install) without executing them. The walking sequence
-and yaml emit still run; only the destructive steps are skipped.
+TUI only. The walking sequence, the yaml emit and the prompts run as usual;
+then the disk phase logs its destructive commands (wiping, partitioning,
+formatting, encryption) without running them, and the run stops there: no
+later phase runs or is previewed, and nothing is installed. A completed dry
+run says so and exits 0. The graphical installer has no dry run: started
+with this option it says so and starts nothing.
 .TP
 .B \-\-version
 Print
@@ -203,18 +206,22 @@ Mountpoint where the target root is assembled before the bootloader install.
 .SH EXIT STATUS
 .TP
 .B 0
-Install completed successfully (or
-.B \-\-dry-run
-exit).
+The install completed, or a TUI dry run completed.
 .TP
 .B 1
-User cancelled during the walking phase or the disk/password prompt phase.
+The install failed, or the person left the walking phase or the
+disk/password prompt phase, or forge refused to start: the TUI not run as
+root, the GUI run as root,
+.B \-\-archives
+missing or not found.
 .TP
 .B 2
-.B \-\-archives
-directory not found, or unknown
+An unknown
 .B \-\-mode
-value, or running as non-root.
+value or a command-line error.
+.TP
+.B 130
+The person cancelled the TUI with Ctrl-C.
 .SH EXAMPLES
 .TP
 Auto-detect mode from the GRUB cmdline:
@@ -223,8 +230,8 @@ Auto-detect mode from the GRUB cmdline:
 Force the TUI builder (e.g. for testing from a graphical session):
 .B forge \-\-mode tui \-\-archives /var/lib/igos/archives
 .TP
-Dry-run the GUI install path against a custom archive directory:
-.B forge \-\-mode gui \-\-archives ~/build/archives \-\-dry-run
+Preview the TUI's disk phase against a custom archive directory:
+.B forge \-\-mode tui \-\-archives ~/build/archives \-\-dry-run
 .SH SECURITY
 .B forge
 must run as

@@ -42,6 +42,14 @@ from gi.repository import Adw, Gio, GLib, Gtk
 
 from ._base import _ForgePage
 
+# What the GUI says when it was started with --dry-run, in place of starting
+# an install: the privileged service runs no dry run, so none is sent to it.
+GUI_HAS_NO_DRY_RUN = (
+    "The graphical installer has no dry run, so nothing was started: only the "
+    "text installer's --dry-run previews an install, and it logs the disk "
+    "phase's destructive commands without running them and previews no later "
+    "phase.")
+
 
 class ProgressPage(_ForgePage):
     tag = "progress"
@@ -168,6 +176,13 @@ class ProgressPage(_ForgePage):
         if self._install_started:
             return
 
+        # The GUI has no dry run: the privileged service runs none, so a dry
+        # run is never sent to it, and nothing is started.
+        if getattr(self._window, "dry_run", False):
+            self._install_started = True
+            self._on_install_failed(state, GUI_HAS_NO_DRY_RUN)
+            return
+
         state.install_started = True
         self._install_started = True
 
@@ -192,7 +207,6 @@ class ProgressPage(_ForgePage):
             return
 
         install_io = state.to_install_io()
-        dry_run = bool(getattr(self._window, "dry_run", False))
         self._current_state = state
 
         # Wire up the D-Bus client + signal subscriptions BEFORE issuing
@@ -205,9 +219,7 @@ class ProgressPage(_ForgePage):
                 on_integrity_warning=self._on_bus_integrity_warning,
                 on_complete=self._on_bus_complete,
             )
-            self._install_id = self._client.start_install(
-                yaml_content, install_io, dry_run=dry_run,
-            )
+            self._install_id = self._client.start_install(yaml_content, install_io)
         except Exception as e:
             self._on_install_failed(
                 state, f"Could not start install backend over D-Bus: "

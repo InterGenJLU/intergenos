@@ -324,8 +324,9 @@ def _ask_yesno(title, prompt, default_no=False):
     return rc == 0
 
 
-def _show_confirm_summary(cfg, install_io):
-    """Show a summary dialog before the destructive install begins.
+def _show_confirm_summary(cfg, install_io, dry_run=False):
+    """Show a summary dialog before the destructive install begins (or, for a
+    dry run, before its preview of the disk phase).
     Returns True if the user confirms, False if they cancel."""
     disk = install_io.get("disk", "unknown")
     if install_io.get("luks_enabled"):
@@ -338,8 +339,10 @@ def _show_confirm_summary(cfg, install_io):
         luks_line = f"LUKS encryption: ENABLED{extras_tail}"
     else:
         luks_line = "LUKS encryption: disabled"
+    erased = ("a dry run: nothing on it is erased" if dry_run
+              else "ALL DATA WILL BE ERASED")
     lines = [
-        f"Target disk:     {disk} (ALL DATA WILL BE ERASED)",
+        f"Target disk:     {disk} ({erased})",
         luks_line,
         f"Hostname:        {cfg.get('hostname', '?')}",
         f"Locale:          {cfg.get('locale', '?')}",
@@ -350,6 +353,13 @@ def _show_confirm_summary(cfg, install_io):
     ]
     msg = "\n".join(lines)
 
+    if dry_run:
+        return _ask_yesno(
+            "Confirm dry run",
+            f"Review your choices:\n\n{msg}\n\nProceed with the dry run? The "
+            "disk phase's destructive commands are logged, not run, and no "
+            "later phase runs.",
+        )
     return _ask_yesno(
         "Confirm installation",
         f"Review your choices:\n\n{msg}\n\nProceed with installation?",
@@ -1233,7 +1243,9 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
     )
     _reporter.detail(f"target disk={install_io['disk']}")
     if dry_run:
-        _reporter.note("--dry-run set — destructive disk ops will log only.")
+        _reporter.note("--dry-run set: the disk phase's destructive commands will be "
+                       "logged, not run, and the run stops after that phase; no "
+                       "later phase runs or is previewed.")
 
     phases_total = len(backend_install.PHASE_ORDER)
 
@@ -1287,6 +1299,10 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
     )
 
     _reporter.info("")
+    if dry_run and result.dry_run_complete:
+        _reporter.ok("Dry run complete: the disk phase's destructive commands were "
+                     "logged and nothing was run; no later phase is previewed")
+        return 0
     if result.success:
         _reporter.ok("Install complete.")
         if result.luks_recovery_key:
@@ -1430,14 +1446,14 @@ def run_installer(archive_dir, packages_dir=None, dry_run=False):
                 install_io["ssh_public_key"] = answers["ssh_public_key"]
 
         # Confirm summary — last chance before destructive install
-        if not _show_confirm_summary(answers, install_io):
+        if not _show_confirm_summary(answers, install_io, dry_run=dry_run):
             return _cleanup_on_abort(yaml_path=str(yaml_path))
 
         rc = run_declarative(str(yaml_path), install_io, archive_dir,
                              packages_dir, dry_run)
 
-        # Reboot prompt
-        if rc == 0:
+        # Reboot prompt, after an install only: a dry run installed nothing.
+        if rc == 0 and not dry_run:
             if _ask_yesno(
                 "Installation complete",
                 "Installation completed successfully.\n\n"

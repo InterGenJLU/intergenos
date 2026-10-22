@@ -548,8 +548,8 @@ _ii_forge_trace_readable() {
 # M1 — the gate actually ran + the walk was complete.
 check_integrity_gate_ran() {
     if [ ! -f "$_ii_audit_log" ]; then
-        # No audit log => verify did not run. Distinguish a sanctioned dev/
-        # dry-run skip from a DARKENED RELEASE install (the re-dormancy this
+        # No audit log => verify did not run. Distinguish a sanctioned dev
+        # skip from a DARKENED RELEASE install (the re-dormancy this
         # guards against). On a booted RELEASE live root the /install/ trust
         # triplet is present and there is NO dev-allow marker; a missing audit
         # log there means the gate went dark -> FAIL. (On the installed target
@@ -686,7 +686,7 @@ check_integrity_key_immutable() {
     check_pass "integrity/key-immutable" "booted with igos.verity.roothash active — /install/ trust triplet is verity-sealed read-only (R5: a key swap breaks dm-verity)"
 }
 
-# M6 — verify is skipped ONLY explicitly (dev marker / --dry-run), never silently.
+# M6 — verify is skipped ONLY explicitly (the dev marker), never silently.
 check_integrity_dev_skip_explicit() {
     local trace; trace="$(_ii_latest_forge_trace)"
     if [ -z "$trace" ]; then
@@ -698,11 +698,13 @@ check_integrity_dev_skip_explicit() {
         return
     fi
     # The §4C gating skips verify ONLY for an explicit IGOS_DEV_ALLOW_UNVERIFIED
-    # marker or --dry-run; absent-no-marker now hard-aborts (install never
-    # completes). So a completed install whose trace shows a verify skip is a
-    # SANCTIONED skip by construction — never the silent absence-skip (R1).
+    # marker; absent-no-marker now hard-aborts (install never completes). A
+    # --dry-run skips verify too, but it ends after the disk phase and
+    # installs nothing, so no completed install carries its skip. So a
+    # completed install whose trace shows a verify skip is a SANCTIONED skip
+    # by construction — never the silent absence-skip (R1).
     if grep -qE 'verify phase skipped' "$trace"; then
-        check_pass "integrity/dev-skip" "verify explicitly skipped + logged (dev/unsigned-test or --dry-run) — sanctioned, not silent"
+        check_pass "integrity/dev-skip" "verify explicitly skipped + logged (dev/unsigned-test media) — sanctioned, not silent"
     elif grep -qE 'verifying archive integrity' "$trace"; then
         check_skip "integrity/dev-skip" "verify ran on this install (not a dev-skip scenario) — see integrity/gate-ran"
     else
@@ -736,11 +738,11 @@ check_signing_manifest_self_reval() {
     fi
     # A copied triplet is only EXPECTED when verify actually ran (a release
     # install with a verify_config copies it from PHASE_CLEANUP). The audit
-    # log's verify_started is that precondition. Without it — dev/dry-run
-    # install, or a build/dev box with stale artifacts — no triplet copy is
-    # expected, so SKIP rather than false-FAIL.
+    # log's verify_started is that precondition. Without it — a dev install
+    # from unsigned-test media, or a build/dev box with stale artifacts — no
+    # triplet copy is expected, so SKIP rather than false-FAIL.
     if [ ! -f "$_ii_audit_log" ] || ! grep -q '"verify_started"' "$_ii_audit_log"; then
-        check_skip "integrity/self-reval" "verify did not run on this system (dev/dry-run or not a real release install) — no triplet copy expected"
+        check_skip "integrity/self-reval" "verify did not run on this system (a dev install from unsigned-test media, or not a real release install) — no triplet copy expected"
         return
     fi
     if [ -n "$trace" ] && ! _ii_forge_trace_readable "$trace"; then

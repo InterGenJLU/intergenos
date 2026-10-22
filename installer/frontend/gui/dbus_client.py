@@ -177,6 +177,11 @@ class ForgeInstallerClient:
 
         The actual install runs asynchronously in the backend; subscribe
         to Progress and Complete signals beforehand to observe it.
+
+        dry_run is the method's own argument, and the service refuses every
+        call that sets it (DryRunRefused) before it acts: the service runs
+        no dry run. The GUI never sets it; only the TUI previews an install,
+        its disk phase only, without the service.
         """
         self.connect()
         # The outer Variant("(sa{sv}b)", ...) constructor wraps the

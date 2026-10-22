@@ -184,7 +184,9 @@ def build_parser():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Log all destructive commands without executing them",
+        help="TUI only: log the disk phase's destructive commands without "
+             "running them, then stop; no later phase runs or is previewed and "
+             "nothing is installed. The GUI has no dry run.",
     )
     parser.add_argument(
         "--version",

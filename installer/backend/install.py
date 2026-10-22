@@ -223,6 +223,9 @@ class InstallResult:
     #: installed system — if the person does not write it down, it is gone,
     #: and the completion screen says so.
     luks_recovery_key: str = ""
+    #: True only when a dry run reached its end: the disk phase logged its
+    #: commands, ran none, and the run stopped there by design.
+    dry_run_complete: bool = False
     warnings: list = field(default_factory=list)
     cancelled: bool = False
 
@@ -766,6 +769,7 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             result.error_message = (
                 "dry run: the disk phase logged the commands it would run; "
                 "no later phase ran, so nothing was installed")
+            result.dry_run_complete = True
             _emit(PHASE_PARTITION, 3, result.error_message)
             return result
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
