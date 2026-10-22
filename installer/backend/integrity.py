@@ -791,6 +791,24 @@ def copy_signed_manifest_to_target(
 # trust DECISION below is the single source of truth those three share so
 # the policy cannot drift between them.
 INSTALL_MEDIA_DEV_MARKER = Path("/install/IGOS_DEV_ALLOW_UNVERIFIED")
+INSTALL_MEDIA_MANIFEST = Path("/install/intergenos-archive-manifest.txt")
+
+
+def on_install_media(root: Path = Path("/")) -> bool:
+    """Whether the system under `root` is the install medium.
+
+    The medium carries its archive-integrity trust set under /install/ (a
+    release) or the explicit dev marker there (an unsigned-test build); an
+    installed system carries neither, since the installer copies the trust
+    set to /var/lib/igos/manifest/ on the target and never to /install/.
+    The Forge backend's unit starts only when one of these two paths exists
+    (forge-installer-backend.service) and the backend refuses every method
+    call when neither does, so the unit's condition and this check are the
+    same two paths. `root` exists for tests that build a scratch root.
+    """
+    root = Path(root)
+    return any((root / path.relative_to("/")).exists()
+               for path in (INSTALL_MEDIA_MANIFEST, INSTALL_MEDIA_DEV_MARKER))
 
 
 class ReleaseMediaIntegrityError(Exception):

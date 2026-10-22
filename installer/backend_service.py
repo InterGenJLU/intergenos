@@ -16,10 +16,22 @@ Bus name        : org.intergenos.ForgeInstaller1
 Object path     : /org/intergenos/ForgeInstaller1
 Interface       : org.intergenos.ForgeInstaller1
 Bus type        : SYSTEM
-Activation      : on-demand via D-Bus activation (no always-running daemon)
-Caller policy   : intergenos user on live ISO (per the live-ISO polkit rule);
-                  on installed systems, polkit auth_admin_keep prompts the
-                  user once per session.
+Activation      : on-demand via D-Bus activation (no always-running daemon),
+                  and only on the install medium: the unit starts only when
+                  the medium's trust set or its dev marker is present, and
+                  this service refuses every method call (and refuses to
+                  start) where neither is (integrity.on_install_media). An
+                  installed system has neither, so nothing here acts there.
+Caller policy   : the bus policy admits root, the administrators' group and,
+                  on the medium, the live account (a policy the live overlay
+                  writes at boot). Each acting method (StartInstall,
+                  CancelInstall, AckIntegrityOverride) then asks polkit, per
+                  call, whether its caller may perform the action
+                  org.intergenos.forge.install: an administrator's password
+                  by default; the medium's own rule grants the live account
+                  at its local, active session. GetStatus is a read. A dry
+                  run is refused: it is a preview a client makes without
+                  this service.
 
 State model — at most ONE concurrent install ever. StartInstall returns
 an opaque install_id (UUID4 string); subsequent CancelInstall /
@@ -80,6 +92,14 @@ DEFAULT_ARCHIVE_DIR = "/var/lib/igos/archives"
 # clear of the way.
 DEFAULT_PACKAGES_DIR = "/usr/share/intergenos/installer-hooks"
 DEFAULT_YAML_DIR = "/var/lib/forge"
+
+# The polkit action every acting method asks for, per call
+# (packages/desktop/forge/polkit/org.intergenos.forge.policy).
+POLKIT_ACTION = "org.intergenos.forge.install"
+ACTING_METHODS = frozenset(("StartInstall", "CancelInstall", "AckIntegrityOverride"))
+ERROR_NOT_ON_MEDIUM = "org.intergenos.ForgeInstaller1.Error.NotOnInstallMedium"
+ERROR_NOT_AUTHORIZED = "org.intergenos.ForgeInstaller1.Error.NotAuthorized"
+ERROR_DRY_RUN_REFUSED = "org.intergenos.ForgeInstaller1.Error.DryRunRefused"
 
 INTROSPECTION_XML = """
 <node>
@@ -171,13 +191,62 @@ class _IntegrityAckBridge:
             return False
 
 
+class PolkitAuthority:
+    """Asks polkit, per call, whether the sender of a method call may perform
+    an action: CheckAuthorization on the system bus with the caller's unique
+    bus name as the subject, so polkit resolves that caller's process and
+    user from the bus itself rather than from a pid this service read.
+    User interaction is allowed, so an authentication agent can prompt; the
+    call is asynchronous, so this service keeps serving while a prompt is
+    open, and it waits as long as the person takes."""
+
+    NAME = "org.freedesktop.PolicyKit1"
+    PATH = "/org/freedesktop/PolicyKit1/Authority"
+    INTERFACE = "org.freedesktop.PolicyKit1.Authority"
+    ALLOW_USER_INTERACTION = 0x1
+    TIMEOUT_MS = GLib.MAXINT32
+
+    def __init__(self, bus):
+        self._bus = bus
+
+    def check(self, sender: str, action_id: str, on_result) -> None:
+        """Calls on_result(authorized, reason) once polkit has decided; an
+        error from polkit or the bus is a refusal, never a grant."""
+        subject = ("system-bus-name", {"name": GLib.Variant("s", sender)})
+        args = GLib.Variant("((sa{sv})sa{ss}us)", (
+            subject, action_id, {}, self.ALLOW_USER_INTERACTION, "",
+        ))
+
+        def _done(bus, res, _data=None):
+            try:
+                reply = bus.call_finish(res)
+            except GLib.Error as exc:
+                on_result(False, f"polkit could not decide: {exc.message}")
+                return
+            (authorized, _challenge, _details), = reply.unpack()
+            on_result(bool(authorized),
+                      None if authorized else "polkit did not authorize it")
+
+        self._bus.call(
+            self.NAME, self.PATH, self.INTERFACE, "CheckAuthorization", args,
+            GLib.VariantType.new("((bba{ss}))"), Gio.DBusCallFlags.NONE,
+            self.TIMEOUT_MS, None, _done, None,
+        )
+
+
 class ForgeInstallerService:
     """D-Bus service implementation. One instance per process."""
 
     def __init__(self, archive_dir: str = DEFAULT_ARCHIVE_DIR,
-                 packages_dir: str = DEFAULT_PACKAGES_DIR):
+                 packages_dir: str = DEFAULT_PACKAGES_DIR,
+                 medium_root: Path = Path("/"), authority=None):
         self._archive_dir = archive_dir
         self._packages_dir = packages_dir
+        # The root the install-medium check reads (integrity.on_install_media)
+        # and the medium's trust set is read from; a scratch root in tests.
+        self._medium_root = Path(medium_root)
+        # Asks polkit per acting call; made on the bus connection in run().
+        self._authority = authority
 
         self._loop: Optional[GLib.MainLoop] = None
         self._bus: Optional[Gio.DBusConnection] = None
@@ -201,6 +270,8 @@ class ForgeInstallerService:
         except GLib.Error as exc:
             LOG.error("could not connect to system bus: %s", exc.message)
             return 2
+        if self._authority is None:
+            self._authority = PolkitAuthority(self._bus)
 
         node_info = Gio.DBusNodeInfo.new_for_xml(INTROSPECTION_XML)
         interface_info = node_info.interfaces[0]
@@ -244,6 +315,53 @@ class ForgeInstallerService:
             GLib.source_remove(self._idle_exit_source)
             self._idle_exit_source = None
 
+        # Off the install medium nothing here acts: every method is refused
+        # before its arguments are read (the unit does not start there either).
+        if not backend_integrity.on_install_media(self._medium_root):
+            LOG.warning("%s from %s refused: this is not the install medium",
+                        method, sender)
+            invocation.return_dbus_error(
+                ERROR_NOT_ON_MEDIUM,
+                "the Forge installer backend acts only on the install medium; "
+                "this system carries neither the medium's trust set nor its "
+                "dev marker under /install",
+            )
+            return
+
+        # A dry run is a preview the client makes; this service never runs
+        # one, so nothing it starts can act as root under the name of one.
+        if method == "StartInstall" and bool(params.unpack()[2]):
+            LOG.warning("StartInstall from %s refused: a dry run", sender)
+            invocation.return_dbus_error(
+                ERROR_DRY_RUN_REFUSED,
+                "the installer backend runs no dry run; a dry run is a "
+                "preview the client makes without it",
+            )
+            return
+
+        if method in ACTING_METHODS:
+            self._authority.check(
+                sender, POLKIT_ACTION,
+                lambda authorized, reason: self._after_authorization(
+                    authorized, reason, sender, method, params, invocation),
+            )
+            return
+        self._dispatch(sender, method, params, invocation)
+
+    def _after_authorization(self, authorized, reason, sender, method, params,
+                             invocation):
+        if not authorized:
+            LOG.warning("%s from %s refused: %s (%s)", method, sender,
+                        reason or "not authorized", POLKIT_ACTION)
+            invocation.return_dbus_error(
+                ERROR_NOT_AUTHORIZED,
+                f"{method} needs the {POLKIT_ACTION} authorization: "
+                f"{reason or 'not authorized'}",
+            )
+            return
+        self._dispatch(sender, method, params, invocation)
+
+    def _dispatch(self, sender, method, params, invocation):
         try:
             if method == "StartInstall":
                 yaml_content, install_io_variant, dry_run = params.unpack()
@@ -427,8 +545,9 @@ class ForgeInstallerService:
         if dry_run:
             return None
 
-        manifest_path = Path("/install/intergenos-archive-manifest.txt")
-        pubkey_path = Path("/install/intergenos-release-key.asc")
+        medium = self._medium_root
+        manifest_path = medium / "install/intergenos-archive-manifest.txt"
+        pubkey_path = medium / "install/intergenos-release-key.asc"
         audit_log_path = Path("/var/log/igos-integrity-override.log")
         # Shared fail-closed policy (install-integrity §4C). On real release
         # media missing its trust set this RAISES ReleaseMediaIntegrityError;
@@ -436,6 +555,7 @@ class ForgeInstallerService:
         # before any disk write. "skip-dev" => explicit dev marker => None.
         decision = backend_integrity.install_media_trust_decision(
             manifest_path, pubkey_path,
+            medium / "install/IGOS_DEV_ALLOW_UNVERIFIED",
         )
         if decision == "skip-dev":
             return None
@@ -590,6 +710,14 @@ def main(argv=None) -> int:
 
     if os.geteuid() != 0:
         LOG.error("forge backend service must run as root (uid 0); refusing")
+        return 1
+
+    # The unit's start condition is the same check; this covers a start that
+    # does not go through the unit.
+    if not backend_integrity.on_install_media():
+        LOG.error("forge backend service runs only on the install medium "
+                  "(neither its trust set nor its dev marker is under "
+                  "/install); refusing to start")
         return 1
 
     service = ForgeInstallerService()

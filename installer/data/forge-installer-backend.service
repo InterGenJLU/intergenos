@@ -5,6 +5,14 @@ Description=InterGenOS Forge installer D-Bus backend
 # Not enabled by default — there is nothing to install until the user
 # launches Forge.
 Documentation=https://github.com/InterGenJLU/intergenos
+# Only on the install medium: the medium carries its archive-integrity trust
+# set (a release) or the dev marker (an unsigned-test build) under /install,
+# and an installed system carries neither. So on an installed system neither
+# a bus activation nor any start request runs the backend; the service makes
+# the same check on every method call (installer/backend/integrity.py,
+# on_install_media).
+ConditionPathExists=|/install/intergenos-archive-manifest.txt
+ConditionPathExists=|/install/IGOS_DEV_ALLOW_UNVERIFIED
 
 [Service]
 Type=dbus

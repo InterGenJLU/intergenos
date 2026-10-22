@@ -534,9 +534,11 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         progress_callback: fn(phase, current, total, message). Called at
                            phase boundaries + per-package within the
                            packages phase. None disables progress events.
-        dry_run: if True, set disks._DRY_RUN globally so destructive disk
-                 operations log instead of executing. Mounts + chroot +
-                 package installs still execute.
+        dry_run: if True, the disk phase logs its destructive commands
+                 instead of running them (disks._DRY_RUN) and the run ends
+                 there: no later phase runs, since each one mounts,
+                 extracts, configures or registers on this machine. The
+                 result is not a success and says nothing was installed.
         target: target root mountpoint. Defaults to /mnt/target.
         verify_config: optional VerifyConfig enabling PHASE_VERIFY (signed-
                        manifest integrity check before partition). Pass None
@@ -738,6 +740,17 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
             _emit(PHASE_PARTITION, 3,
                   "recovery key added as a second unlock slot")
         result.phase_completed = PHASE_PARTITION
+        if dry_run:
+            # The disk phase's own dry run is where a dry run ends: the phases
+            # after it have no dry run of their own (they mount the host's
+            # /dev, proc and sysfs into the target, extract and run package
+            # hooks, generate keys, queue a MOK import and register a boot
+            # entry), so none of them runs.
+            result.error_message = (
+                "dry run: the disk phase logged the commands it would run; "
+                "no later phase ran, so nothing was installed")
+            _emit(PHASE_PARTITION, 3, result.error_message)
+            return result
         _emit(PHASE_PARTITION, 3, "partitioned + formatted")
 
         _check_cancel(PHASE_MOUNT)
