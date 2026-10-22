@@ -49,9 +49,10 @@ cannot wait for it, a point release limited to the following fixes may be
 published:
 
 - Security fixes in components present on a default install, including the
-  assistant and its test harness, for a published advisory rated Critical or
-  High or a defect the project rates Critical or High under `SECURITY.md`.
-- Transparency fixes in the assistant's consent and disclosure surfaces.
+  assistant and its test harness, for a published advisory or a defect when
+  the project rates it Critical or High under the severities in `SECURITY.md`.
+- Transparency and accuracy fixes in the assistant's answers and in its consent
+  and disclosure surfaces.
 - Fixes to defects in the update path itself.
 - Hardware-enablement patches that change no foundation component's version.
 
