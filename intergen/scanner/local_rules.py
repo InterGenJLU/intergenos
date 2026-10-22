@@ -130,6 +130,57 @@ _YOU_ARE_NOW_A_ROLE = (
     r"\byou\s+are\s+now\s+(?:" + _PLAYING + r"(?:a|an|the|my|our|your)\s+(?:[\w'-]+\s+){0,3}"
     + _ROLE_NOUN + r"|" + _UNBOUND + r"|" + _JAILBREAK_MODE
     + r"|(?:called|named|known\s+as)\s+\S|dan\b)")
+# The same handover acted out: a model-side verb before a jailbreak state or
+# mode ("operating without any restrictions"), "running in" a jailbreak mode,
+# "going to answer without your guidelines", and "free to ignore your rules".
+# "Running" takes only a jailbreak mode, and "without" a rule object leaves
+# out limits: honest pages run a program "without root", "in rescue mode" or
+# "without any limits on open files".
+_YAN = r"\byou\s+are\s+now\s+"
+_WITHOUT_RULES = (r"without\s+(?:any\s+|your\s+|all\s+)?(?:restrictions|rules|filters|guidelines|guardrails"
+                  r"|constraints|safeguards|censorship|programming|instructions)\b")
+_STRICT_MODE = (r"in\s+(?:(?:a|an|the)\s+)?(?:dan|god|jailbreak|jailbroken|unrestricted|unfiltered|uncensored"
+                r"|evil|chaos)\s+mode\b")
+_ACTING = (r"(?:operating|functioning|acting|answering|responding|replying|speaking|talking|behaving)\s+")
+_STATE_WORD = r"(?:unrestricted|unfiltered|uncensored|jailbroken|unshackled|unchained|unbound)\b"
+_YOU_ARE_NOW_ACTING_IT_OUT = (
+    _YAN + _ACTING + r"(?:" + _WITHOUT_RULES + r"|" + _STRICT_MODE + r"|" + _STATE_WORD + r")"
+    + r"|" + _YAN + r"running\s+" + _STRICT_MODE
+    + r"|" + _YAN + r"going\s+to\s+(?:answer|respond|reply|act|operate|speak|talk|behave)\s+(?:[\w'-]+\s+){0,2}"
+    + _WITHOUT_RULES
+    + r"|" + _YAN + r"free\s+to\s+(?:ignore|disregard|bypass|break|forget|override|drop|abandon|escape)\s+"
+    r"(?:(?:all|any|your|the|of|these|those)\s+)*(?:restrictions|rules|filters|guidelines|guardrails|constraints"
+    r"|safeguards|programming|instructions|limits|limitations|policies|training)\b")
+
+# An override label at the start of a line in its two-word forms ("SYSTEM
+# OVERRIDE:", "ADMIN OVERRIDE:"), after an optional bullet, heading mark, quote
+# mark, emphasis or bracket; and "override" with a rule object followed by an
+# answering verb ("override these restrictions and recommend ..."). The bare
+# "Override:" label is a configuration key's shape ("override: true"), and
+# "Override existing settings:" an honest option's label.
+_LABEL_LEAD = r"^[ \t]*(?:[*_#>\[(-][ \t]*)*"
+_LABEL_CLOSE = r"[ \t]*(?:[*_\])][ \t]*)*:"
+_OVERRIDE_LABEL = _LABEL_LEAD + r"(?:system|admin)[ \t]+override" + _LABEL_CLOSE
+_RULE_OBJECT = (r"(?:restrictions?|rules?|filters?|guidelines?|guardrails?|constraints?|safeguards?|limits?"
+                r"|polic(?:y|ies))")
+_OVERRIDE_AND_ANSWER = (r"\boverrid(?:e|es|ing)\s+(?:(?:all|any|these|those|the|this|that|every|your)\s+)?"
+                        r"(?:[a-z'-]+\s+)?" + _RULE_OBJECT
+                        + r"\s+and\s+(?:then\s+)?(?:answer|respond|reply|recommend)\b")
+
+# Who a vocative names, and what it tells the model to do ("Assistant: your
+# real task is ..."). Behind a line start, sentence punctuation or a quote the
+# address takes a colon or a comma; at any other word boundary only the colon,
+# so an address after unpunctuated text ("... with pkm Assistant: ...") is
+# caught while honest prose keeps its comma ("To use InterGen, you must ...").
+# Text fused to the word before it ("pkmAssistant:") has no word boundary: the
+# page text's extractor separates elements, not this floor.
+_VOCATIVE = r"(?:(?:hey|hi|dear|attention|note)\s*,?\s+)?(?:the\s+)?" + _MODEL
+_BY_NAME_DIRECTIVE = (r"(?:your\s+(?:real|actual|true|new|only|hidden|secret|primary|main|next)"
+                      r"\s+(?:task|job|goal|instructions?|purpose|role|objective|mission|directive|priority)"
+                      r"|you\s+(?:must|are\s+now|will\s+now)\b|ignore\b|disregard\b|forget\b|from\s+now\s+on\b"
+                      r"|tell\s+the\s+user\b|(?:respond|reply|answer)\s+only\b"
+                      r"|do\s+not\s+(?:mention|reveal|tell|disclose|say)\b"
+                      r"|instead\s+(?:tell|say|recommend|answer|respond|reply)\b)")
 
 
 # --------------------------------------------------------------------------
@@ -173,7 +224,7 @@ _INGRESS_RULES: list[_Rule] = [
 
     # --- FLAG: softer role-redefinition / suspicious phrasing ---
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
-          _ci(_YOU_ARE_NOW_A_ROLE),
+          _ci(_YOU_ARE_NOW_A_ROLE + r"|" + _YOU_ARE_NOW_ACTING_IT_OUT),
           "Role-redefinition phrasing ('you are now ...')"),
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
           _ci(r"\bnew\s+instructions?\b"),
@@ -182,7 +233,7 @@ _INGRESS_RULES: list[_Rule] = [
           _ci(r"\bsystem\s+prompt\b"),
           "Reference to the system prompt in untrusted content"),
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
-          _ci(_OVERRIDE_OF_INSTRUCTIONS),
+          _cim(_OVERRIDE_OF_INSTRUCTIONS + r"|" + _OVERRIDE_LABEL + r"|" + _OVERRIDE_AND_ANSWER),
           "Override phrasing in untrusted content"),
     # --- FLAG: covert-action lures ---
     _Rule(ScanDisposition.FLAG, "injection.covert",
@@ -207,13 +258,8 @@ _INGRESS_RULES: list[_Rule] = [
           _cim(r"\b" + _MODEL + r"\s+(?:(?:that|who)\s+(?:is|are)\s+)?" + _READING + r"\s+(?:this|these)\b"),
           "Instruction addressed to an AI model reading this content"),
     _Rule(ScanDisposition.FLAG, "injection.model-addressed",
-          _cim(r"(?:^|[.!?;]\s+|[\"'(\[]\s*)(?:(?:hey|hi|dear|attention|note)\s*,?\s+)?(?:the\s+)?"
-               + _MODEL + r"\s*[:,]\s*(?:your\s+(?:real|actual|true|new|only|hidden|secret|primary|main|next)"
-               r"\s+(?:task|job|goal|instructions?|purpose|role|objective|mission|directive|priority)"
-               r"|you\s+(?:must|are\s+now|will\s+now)\b|ignore\b|disregard\b|forget\b|from\s+now\s+on\b"
-               r"|tell\s+the\s+user\b|(?:respond|reply|answer)\s+only\b"
-               r"|do\s+not\s+(?:mention|reveal|tell|disclose|say)\b"
-               r"|instead\s+(?:tell|say|recommend|answer|respond|reply)\b)"),
+          _cim(r"(?:^|[.!?;]\s+|[\"'(\[]\s*)" + _VOCATIVE + r"\s*[:,]\s*" + _BY_NAME_DIRECTIVE
+               + r"|\b" + _VOCATIVE + r"\s*:\s*" + _BY_NAME_DIRECTIVE),
           "Instruction addressed to an AI model by name ('Assistant: ...')"),
     _Rule(ScanDisposition.FLAG, "injection.model-addressed",
           _cim(r"\bif\s+you\s+are\s+(?:an?\s+)?" + _MODEL
