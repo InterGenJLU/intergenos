@@ -9257,12 +9257,13 @@ class ConversationRouter(RouterInterface):
                 return {"action": "remove", "package": pkg}
             # UPDATE / UPGRADE (2026-07-14) — a system-upgrade request
             # ("update this system", "update all my packages", "upgrade
-            # everything", bare "update") maps to a whole-system `pkm update`;
-            # "update <pkg>" targets one package. ROOT of the raw-sentence bug:
+            # everything", bare "update") maps to the package tool's update, the
+            # index refresh then the upgrade of every package; "update <pkg>"
+            # targets one package. ROOT of the raw-sentence bug:
             # with no update branch these fell through to the search fallback and
             # pkm searched the literal SENTENCE (query="update this system for
             # me?") — a nonsense dispatch the 2B then narrated. The privileged
-            # update still gates on polkit at run (manage_packages._build_command).
+            # update still gates on polkit at run (manage_packages.build_commands).
             # MUST precede LIST: "update ... packages" contains "package".
             if "update" in parts or "upgrade" in parts:
                 verb = "update" if "update" in parts else "upgrade"

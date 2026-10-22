@@ -65,7 +65,11 @@ class ManagePackagesBuildsNoTransitionTests(unittest.TestCase):
         self.tool = ManagePackagesTool()
 
     def _command(self, action, package="cowsay", query="cowsay"):
-        return self.tool._build_command(action, package, query)
+        """The action's one command, or for a sequence (the update) its first;
+        None when the builder builds nothing."""
+        commands = self.tool.build_commands(
+            {"action": action, "package": package, "query": query}, pkm="pkm")
+        return commands[0] if commands else None
 
     def test_no_action_produces_an_escalating_command(self):
         for action in sorted(AUTO_SUBCOMMANDS | CONFIRM_SUBCOMMANDS):
@@ -113,9 +117,15 @@ class ManagePackagesBuildsNoTransitionTests(unittest.TestCase):
         self.assertEqual(self._command("verify"), ["pkm", "verify", "cowsay"])
 
     def test_update_without_a_package_still_updates_everything(self):
+        # The refresh, then the upgrade of every package: pkm reads "update"
+        # as "sync", a refresh that changes no installed package, so the act
+        # an update means is both commands, under the one approval.
         self.assertEqual(
-            self.tool._build_command("update", "", ""), ["pkm", "update"],
+            self.tool.build_commands({"action": "update"}, pkm="pkm"),
+            [["pkm", "sync"], ["pkm", "upgrade", "--all", "--yes"]],
         )
+        for argv in self.tool.build_commands({"action": "update"}, pkm="pkm"):
+            self.assertFalse(ESCALATION_BINARIES & set(argv), argv)
 
     def test_an_unknown_action_still_builds_nothing(self):
         self.assertIsNone(self._command("not-a-real-action"))

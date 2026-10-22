@@ -3891,7 +3891,9 @@ PROCESS_LISTING = _run(_command_call("ps aux"),
                        "USER PID %CPU COMMAND\nroot 1 0.0 systemd\n"
                        "christopher 2210 1.2 done")
 UPGRADED = _run(UPGRADE_ALL, PACKAGES_UPGRADED)
-INDEX_REFRESHED = _run(_package_call(action="update"),
+# pkm's refresh by its update alias. (The package tool's update action ran it
+# alone until its update became the refresh then the upgrade.)
+INDEX_REFRESHED = _run(_command_call("pkm update"),
                        "Package index updated: 1342 packages, 3 can be "
                        "upgraded.")
 INDEX_SYNCED = _run(_command_call("pkm sync"),
@@ -3938,10 +3940,10 @@ class RecordAttributionTests(unittest.TestCase):
             WEB_PAGE)
         self.assertEqual([(run.tool, run.command) for run in record], [
             ("run_command", "lpstat -p -d"),
-            # The package tool's own argument lists: its update action runs
-            # `pkm update`, which pkm reads as `pkm sync`.
+            # The package tool's own argument lists; pkm's refresh by its
+            # update alias is a command line run as written.
             ("manage_packages", "pkm install --yes htop"),
-            ("manage_packages", "pkm update"),
+            ("run_command", "pkm update"),
             ("manage_packages", "pkm list"),
             ("manage_services", "systemctl restart cups"),
             ("web_search", "")])
@@ -4004,7 +4006,7 @@ class RecordAttributionTests(unittest.TestCase):
 
     def test_a_completed_state_reads_only_its_acts_output(self):
         for name, runs in (
-                ("the package tool's refresh", [INDEX_REFRESHED]),
+                ("pkm's refresh by its update alias", [INDEX_REFRESHED]),
                 ("pkm sync, all up to date", [INDEX_SYNCED]),
                 ("a fetched page", [WEB_PAGE]),
                 ("another tool's counts line", [COUNTS_LINE]),
@@ -4015,7 +4017,7 @@ class RecordAttributionTests(unittest.TestCase):
                     self.assertEqual(self._screen(text, *runs),
                                      ("violation", marker))
         for name, runs in (
-                ("the package tool's refresh", [INDEX_REFRESHED]),
+                ("pkm's refresh by its update alias", [INDEX_REFRESHED]),
                 ("a fetched page", [WEB_PAGE]),
                 ("another tool's counts line", [COUNTS_LINE]),
                 ("an upgrade", [UPGRADED])):

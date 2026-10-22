@@ -9,6 +9,11 @@ clear feedback when pkm isn't available.
 Safety tiers:
   auto    — list, search, info, verify
   confirm — install, remove, update
+
+The schema's enum, the builder, the tier tables below and the router's mapping
+name ONE set of actions. "upgrade" and "uninstall" are not actions of this
+tool: the router maps those words onto update and remove, and an action
+outside the enum is refused before any review card (validate_arguments).
 """
 
 from __future__ import annotations
@@ -16,6 +21,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shlex
 import shutil
 import subprocess
 from typing import Any
@@ -33,20 +39,33 @@ PKM_VENDOR_PATH = "/usr/bin/pkm"
 #: Actions that change the system. These are exactly the actions that reach
 #: this tool through the privileged dispatcher, and the only ones the root
 #: invariant below applies to.
-MUTATING_SUBCOMMANDS = ("install", "remove", "uninstall", "update", "upgrade")
+MUTATING_SUBCOMMANDS = ("install", "remove", "update")
+
+#: Every action this tool takes, in the order its schema lists them.
+ACTIONS = ("list", "search", "info", "install", "remove", "verify", "update")
+
+#: How long pkm's upgrade may run before this tool stops it. An upgrade of every
+#: package is the longest act here, so it is bounded by the privileged dispatch
+#: unit's own ceiling (tool_registry._DISPATCH_UNIT_MAX_SECONDS, 900 s) less the
+#: index refresh's 120 s and 60 s for the dispatcher's own work, so this
+#: tool's bound never fires after the unit's.
+COMMAND_TIMEOUT_SECONDS = 120
+UPGRADE_TIMEOUT_SECONDS = 720
+
+#: How execute names each command of a sequence above that command's own
+#: output, and the commands a failed one left unrun after it. The record of
+#: what ran reads both (conversation_state.ConversationState.record_execution),
+#: so each command's output is kept as that command's and no other's.
+SEQUENCE_COMMAND_LINE = "$ "
+SEQUENCE_NOT_RUN = "Not run, because the command above failed: "
 
 log = logging.getLogger(__name__)
 
 # Subcommands that are read-only
-AUTO_SUBCOMMANDS = frozenset({
-    "list", "search", "info", "verify", "query", "status",
-    "list-installed", "list-available",
-})
+AUTO_SUBCOMMANDS = frozenset({"list", "search", "info", "verify"})
 
 # Subcommands that modify the system
-CONFIRM_SUBCOMMANDS = frozenset({
-    "install", "remove", "uninstall", "update", "upgrade",
-})
+CONFIRM_SUBCOMMANDS = frozenset(MUTATING_SUBCOMMANDS)
 
 # Header pkm prints for a package listing, e.g. "  Installed packages (824):"
 # (pkm/cli.py cmd_list). The count lives in the parens — the most-asked
@@ -113,10 +132,12 @@ class ManagePackagesTool(BaseTool):
         return (
             "Manage installed SOFTWARE PACKAGES (applications and libraries) on "
             "this system using pkm. Supports: list, search, info, install, "
-            "remove, verify — all operating on software packages ONLY. This does "
-            "NOT list printers, hardware, devices, services, or files; for any of "
-            "those, use run_command instead. "
-            "Install and remove operations require user confirmation."
+            "remove, verify, update — all operating on software packages ONLY. "
+            "update refreshes the package index (pkm sync) and then upgrades "
+            "every installed package that has a newer build (pkm upgrade --all), "
+            "or only the package named. This does NOT list printers, hardware, "
+            "devices, services, or files; for any of those, use run_command "
+            "instead. Install, remove and update require user confirmation."
         )
 
     @property
@@ -129,15 +150,15 @@ class ManagePackagesTool(BaseTool):
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": [
-                            "list", "search", "info", "install",
-                            "remove", "verify", "update",
-                        ],
+                        "enum": list(ACTIONS),
                         "description": "Package operation to perform.",
                     },
                     "package": {
                         "type": "string",
-                        "description": "Package name (required for install/remove/info/verify).",
+                        "description": (
+                            "Package name (required for install/remove/info/"
+                            "verify; with update, only that package is "
+                            "upgraded)."),
                     },
                     "query": {
                         "type": "string",
@@ -148,6 +169,24 @@ class ManagePackagesTool(BaseTool):
             },
             safety_tier=SafetyTier.CONFIRM,
         )
+
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
+        """The structural checks, then the one the builder holds: an action that
+        needs a package or a query and names none is refused here, in words,
+        before the dispatcher gate and before any review card. A card for an
+        install that names no package asks a person to approve something that
+        would then refuse to run."""
+        error = super().validate_arguments(arguments)
+        if error:
+            return error
+        if self.build_commands(arguments, pkm="pkm") is not None:
+            return None
+        action = str(arguments.get("action", "") or "")
+        if action == "search":
+            return ("'search' needs a query; nothing was run — say what to "
+                    "search for")
+        return (f"'{action}' needs a package name (the 'package' argument); "
+                f"nothing was proposed — say which package to {action}")
 
     def classify_safety(self, arguments: dict[str, Any]) -> SafetyTier:
         """Classify based on the action subcommand."""
@@ -224,74 +263,109 @@ class ManagePackagesTool(BaseTool):
                     success=False,
                 )
 
-        # Build the pkm command
-        cmd = self._build_command(action, package, query, pkm_path)
-        if cmd is None:
+        # Build the pkm commands: the one builder every consent surface
+        # describes, so what runs here is what the person approved.
+        commands = self.build_commands(arguments, pkm=pkm_path)
+        if commands is None:
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Invalid action or missing parameters for '{action}'",
                 success=False,
             )
 
-        try:
-            result = subprocess.run(
-                cmd, capture_output=True, text=True, timeout=120,
-            )
-            output_parts = []
+        output_parts: list[str] = []
+        returncode = 0
+        for index, cmd in enumerate(commands):
+            timeout = (UPGRADE_TIMEOUT_SECONDS if cmd[1:2] == ["upgrade"]
+                       else COMMAND_TIMEOUT_SECONDS)
+            # A command of a sequence is named above its own output, so the
+            # refresh's lines are never read as the upgrade's.
+            if len(commands) > 1:
+                output_parts.append(SEQUENCE_COMMAND_LINE + shlex.join(cmd))
+            try:
+                result = subprocess.run(
+                    cmd, capture_output=True, text=True, timeout=timeout,
+                )
+            except subprocess.TimeoutExpired:
+                output_parts.append(
+                    f"pkm {cmd[1]} timed out after {timeout} seconds")
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content="\n".join(output_parts), success=False,
+                )
+            except OSError as e:
+                output_parts.append(f"Failed to execute pkm: {e}")
+                return ToolResult(
+                    call_id="", name=self.name,
+                    content="\n".join(output_parts), success=False,
+                )
             if result.stdout:
                 output_parts.append(result.stdout)
             if result.stderr:
                 output_parts.append(f"[stderr] {result.stderr}")
             if result.returncode != 0:
                 output_parts.append(f"[exit code: {result.returncode}]")
+            returncode = result.returncode
+            if returncode != 0 and index + 1 < len(commands):
+                # The upgrade does not run on an index the refresh failed to
+                # read: the sequence stops at the first failure, and says so.
+                skipped = " && ".join(shlex.join(c) for c in commands[index + 1:])
+                output_parts.append(SEQUENCE_NOT_RUN + skipped)
+                break
 
-            content = "\n".join(output_parts) if output_parts else "(no output)"
-            # G3-22 real fix: `list` returns the full ~42 KB/824-package dump,
-            # which times out the 2B on synthesis. Hand the MODEL a concise
-            # structured summary (count + sample); the USER keeps the full
-            # `content` unchanged. Other actions (info/search/verify) are
-            # already small/salient → model_summary stays None (pass-through).
-            model_summary = None
-            if action == "list" and result.returncode == 0:
-                model_summary = summarize_package_list(content)
-            return ToolResult(
-                call_id="", name=self.name,
-                content=content,
-                success=result.returncode == 0,
-                model_summary=model_summary,
-            )
-        except subprocess.TimeoutExpired:
-            return ToolResult(
-                call_id="", name=self.name,
-                content=f"pkm {action} timed out after 120 seconds",
-                success=False,
-            )
-        except OSError as e:
-            return ToolResult(
-                call_id="", name=self.name,
-                content=f"Failed to execute pkm: {e}",
-                success=False,
-            )
+        content = "\n".join(output_parts) if output_parts else "(no output)"
+        # G3-22 real fix: `list` returns the full ~42 KB/824-package dump,
+        # which times out the 2B on synthesis. Hand the MODEL a concise
+        # structured summary (count + sample); the USER keeps the full
+        # `content` unchanged. Other actions (info/search/verify) are
+        # already small/salient → model_summary stays None (pass-through).
+        model_summary = None
+        if action == "list" and returncode == 0:
+            model_summary = summarize_package_list(content)
+        return ToolResult(
+            call_id="", name=self.name,
+            content=content,
+            success=returncode == 0,
+            model_summary=model_summary,
+        )
 
-    def _build_command(self, action: str, package: str, query: str,
-                       pkm: str = "pkm") -> list[str] | None:
-        """Build the pkm command list.
+    @staticmethod
+    def program_for(action: str) -> str:
+        """The pkm an action runs: the vendor path for a mutation, the resolved
+        one for a read (see PKM_VENDOR_PATH)."""
+        if action in MUTATING_SUBCOMMANDS:
+            return PKM_VENDOR_PATH
+        return shutil.which("pkm") or "pkm"
 
-        `pkm` is the program to invoke, resolved by the caller — absolute in
-        every case the caller produces. It is a parameter rather than a
-        constant so the mutating and read-only paths can differ in WHICH pkm
-        they name without this builder deciding privilege policy.
+    def build_commands(self, arguments: dict[str, Any],
+                       pkm: str | None = None) -> list[list[str]] | None:
+        """THE builder: the pkm command lines this call runs, in order, or None
+        when the arguments name no act this tool can run.
+
+        `pkm` is the program to invoke; by default the one program_for names.
+        It is a parameter so the mutating and read-only paths can differ in
+        WHICH pkm they name without this builder deciding privilege policy, and
+        so a description can name it the way the person would type it.
+
+        Every consent surface describes the call from this list (one command
+        line per entry, joined with &&), so the card, the handoff, the dialogs
+        and the model's guard can only show what runs.
         """
+        action = str(arguments.get("action", "") or "")
+        package = str(arguments.get("package", "") or "").strip()
+        query = str(arguments.get("query", "") or "").strip()
+        if pkm is None:
+            pkm = self.program_for(action)
         if action == "list":
-            return [pkm, "list"]
+            return [[pkm, "list"]]
         elif action == "search":
             if not query:
                 return None
-            return [pkm, "search", query]
+            return [[pkm, "search", query]]
         elif action in ("info", "verify"):
             if not package:
                 return None
-            return [pkm, action, package]
+            return [[pkm, action, package]]
         # State-changing package actions need root, and by the time this builder
         # runs they already HAVE it. manage_packages is on the privileged
         # allowlist and these actions classify CONFIRM, so the dispatcher routes
@@ -311,7 +385,7 @@ class ManagePackagesTool(BaseTool):
         # The read-only actions above (list/search/info/verify) never reach the
         # privileged path at all: they classify AUTO and run as the user, which
         # is correct — reading your own machine's state changes nothing.
-        elif action in ("install", "remove", "uninstall"):
+        elif action in ("install", "remove"):
             if not package:
                 return None
             # --yes, because the consent is already given and bound: the
@@ -320,9 +394,17 @@ class ManagePackagesTool(BaseTool):
             # runs with no terminal attached, where pkm refuses a removal, and
             # an install that pulls in more than the package named, unless
             # --yes says the question has been answered.
-            return [pkm, action, "--yes", package]
-        elif action in ("update", "upgrade"):
+            return [[pkm, action, "--yes", package]]
+        elif action == "update":
+            # The update is ONE act under one approval: the index refresh, then
+            # the upgrade. pkm reads "update" as "sync", a refresh that never
+            # changes an installed package, and a bare "pkm upgrade" refuses to
+            # run, so the act a person means by "update" is these two commands.
+            # --all upgrades every installed package with a newer signed build
+            # and leaves held packages and linux-kernel as they are (pkm's own
+            # --ignore-holds and --allow-kernel-replace are not passed); --yes
+            # answers the pause, as above.
             if package:
-                return [pkm, "update", package]
-            return [pkm, "update"]
+                return [[pkm, "sync"], [pkm, "upgrade", "--yes", package]]
+            return [[pkm, "sync"], [pkm, "upgrade", "--all", "--yes"]]
         return None

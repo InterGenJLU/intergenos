@@ -24,7 +24,8 @@ So the invariant is made explicit and testable:
     attempting any command;
   * a mutating action, when it does run, invokes pkm by ABSOLUTE path — a root
     process resolving a bare program name through PATH is a different and worse
-    thing than a root process naming the binary it means;
+    thing than a root process naming the binary it means — on every command it
+    runs (an update runs two: the index refresh, then the upgrade);
   * read-only actions are untouched: they classify AUTO, run as the user, and
     must keep working exactly as before.
 
@@ -39,10 +40,16 @@ from __future__ import annotations
 import unittest
 from unittest import mock
 
-from intergen.tools.manage_packages import ManagePackagesTool
+from intergen.tools.manage_packages import (
+    MUTATING_SUBCOMMANDS, PKM_VENDOR_PATH, ManagePackagesTool,
+)
 
-MUTATING = ("install", "remove", "uninstall", "update", "upgrade")
+#: The tool's own mutating actions, read from it so the two cannot drift.
+MUTATING = MUTATING_SUBCOMMANDS
 READ_ONLY = ("list", "search", "info", "verify")
+#: Words that are not actions of the tool: the router maps them onto update
+#: and remove, and the tool builds nothing for them.
+NOT_ACTIONS = ("uninstall", "upgrade")
 
 #: Arguments that make each action well-formed, so a refusal under test is the
 #: root guard and never a missing-parameter rejection.
@@ -111,23 +118,45 @@ class MutationUsesAnAbsolutePkmPath(unittest.TestCase):
         for action in MUTATING:
             with self.subTest(action=action):
                 result, runner = _run(action, euid=0)
-                runner.assert_called_once()
-                argv = runner.call_args.args[0]
-                self.assertTrue(
-                    argv[0].startswith("/"),
-                    f"a root process resolved {argv[0]!r} through PATH; name "
-                    f"the binary absolutely: {argv}",
-                )
+                # Every command the builder returns, in order, and no other.
+                ran = [call.args[0] for call in runner.call_args_list]
+                self.assertEqual(ran, ManagePackagesTool().build_commands(
+                    {"action": action, **_ARGS[action]}, pkm=PKM_VENDOR_PATH))
+                for argv in ran:
+                    self.assertTrue(
+                        argv[0].startswith("/"),
+                        f"a root process resolved {argv[0]!r} through PATH; "
+                        f"name the binary absolutely: {argv}",
+                    )
 
     def test_no_mutating_argv_builds_a_second_transition(self):
         """The removed pkexec must not come back by any route."""
         for action in MUTATING:
             with self.subTest(action=action):
                 _, runner = _run(action, euid=0)
-                argv = runner.call_args.args[0]
-                for word in argv:
-                    self.assertNotIn("pkexec", word, argv)
-                    self.assertNotIn("sudo", word, argv)
+                self.assertTrue(runner.call_args_list)
+                for call in runner.call_args_list:
+                    argv = call.args[0]
+                    for word in argv:
+                        self.assertNotIn("pkexec", word, argv)
+                        self.assertNotIn("sudo", word, argv)
+
+
+class TheWordsThatAreNotActionsAttemptNothing(unittest.TestCase):
+    """"uninstall" and "upgrade" are not actions of the tool: its argument
+    validation refuses them before any review card, and its execute attempts
+    no command for them as root or not."""
+
+    def test_a_word_that_is_not_an_action_attempts_nothing(self):
+        for action in NOT_ACTIONS:
+            self.assertNotIn(action, MUTATING)
+            self.assertTrue(ManagePackagesTool().validate_arguments(
+                {"action": action, **_ARGS[action]}))
+            for euid in (0, 1000):
+                with self.subTest(action=action, euid=euid):
+                    result, runner = _run(action, euid=euid)
+                    self.assertFalse(result.success, result.content)
+                    runner.assert_not_called()
 
 
 class TheGuardIsTheReasonForTheRefusal(unittest.TestCase):

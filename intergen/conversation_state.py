@@ -49,9 +49,9 @@ class ExecutedOutput:
 
 
 def command_line(call: Any) -> str:
-    """The command line a tool call runs, read from the code that runs it:
-    run_command's own command, the pkm argument list the package tool builds
-    (its update action runs `pkm update`, which pkm reads as `pkm sync`), the
+    """The command line a tool call runs, read from the builder that runs it:
+    run_command's own command, the pkm argument lists the package tool builds
+    (its update action runs `pkm sync && pkm upgrade --all --yes`), the
     systemctl line of a service action; "" for a tool that runs no command
     line, or for no call."""
     if call is None:
@@ -61,10 +61,8 @@ def command_line(call: Any) -> str:
         return str(args.get("command", "") or "")
     if call.name == "manage_packages":
         from intergen.tools.manage_packages import ManagePackagesTool
-        argv = ManagePackagesTool()._build_command(
-            str(args.get("action", "") or ""), str(args.get("package", "") or ""),
-            str(args.get("query", "") or ""))
-        return " ".join(argv) if argv else ""
+        commands = ManagePackagesTool().build_commands(args, pkm="pkm")
+        return " && ".join(" ".join(argv) for argv in commands or ())
     if call.name == "manage_services":
         from intergen.tool_registry import handoff_command
         return handoff_command(call)

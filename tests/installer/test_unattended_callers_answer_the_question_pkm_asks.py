@@ -126,7 +126,8 @@ class TheAssistantsApprovedRemovalRunsWithNoTerminal(unittest.TestCase):
 
     def test_the_built_removal_is_carried_out(self):
         from intergen.tools.manage_packages import ManagePackagesTool
-        cmd = ManagePackagesTool()._build_command("remove", "demo", "", pkm=str(self.pkm))
+        [cmd] = ManagePackagesTool().build_commands(
+            {"action": "remove", "package": "demo"}, pkm=str(self.pkm))
         env = {k: v for k, v in os.environ.items()
                if k not in ("IGOS_TRACE_RUNID", "IGOS_TRACE_ROOT")}
         env["PKM_PRETXN_HANDLER_DIR"] = str(self.handlers)
@@ -142,7 +143,8 @@ class TheUnattendedInstallsAnswerTheConfirmation(unittest.TestCase):
 
     def test_the_assistants_install_command(self):
         from intergen.tools.manage_packages import ManagePackagesTool
-        cmd = ManagePackagesTool()._build_command("install", "gaming", "")
+        [cmd] = ManagePackagesTool().build_commands(
+            {"action": "install", "package": "gaming"}, pkm="pkm")
         self.assertTrue(_confirms_unattended(cmd[1:]),
                         f"pkm refuses {cmd} with no terminal attached")
 
