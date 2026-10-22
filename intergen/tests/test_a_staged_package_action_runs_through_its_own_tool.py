@@ -95,7 +95,12 @@ def test_a_prefixed_yes_with_a_new_ask_keeps_the_offer_armed(router):
 
 def test_the_teachers_offer_runs_through_the_package_tool(router):
     calls = capture(router)
-    with mock.patch.object(router._howto, "retrieve", return_value=(None, 0.0)):
+    # The teach parser offers only a name the package index resolves; the
+    # index is stood in for, resolving neovim-qt, as the teach parser's own
+    # cases do: the live index is never read by a case.
+    with mock.patch.object(router._howto, "retrieve", return_value=(None, 0.0)), \
+            mock.patch.object(type(router), "_package_in_index",
+                              lambda self, name: name == "neovim-qt"):
         answer = router.route("how do I install neovim-qt?")
     assert "pkm install neovim-qt" in answer.text, answer.text
     assert router._conv.pending_action_offer is not None
