@@ -814,7 +814,10 @@ def _watch_acts(parts: list[str]) -> bool:
 
 def _shell_runs_startup(parts: list[str]) -> bool:
     """True when a shell given a -c string first runs a start-up file: --rcfile or
-    --init-file FILE, --login, --debugger, or -i or -l in a short cluster."""
+    --init-file FILE, --login, --debugger, or -i or -l in a short cluster. bash
+    reads the --rcfile FILE when it is interactive and also when its standard
+    input is a network connection (bash(1), INVOCATION), which the classifier
+    cannot see, so the option confirms with or without -i."""
     argv = _argv(parts)
     if argv is None:
         return True
@@ -1203,12 +1206,14 @@ def classify_command(command: str, _piped: bool = False,
     # env is an exec wrapper: classify it by its WRAPPED command (a read stays AUTO,
     # a write confirms, a dangerous one is refused), not as a flat AUTO that would
     # launder `env touch x` / `env <unknown>` past the confirm gate. Bare env (no
-    # wrapped command) just prints/sets the environment -> AUTO. An assignment that
-    # can change what runs, or another working directory, is CONFIRM at least.
+    # wrapped command) runs nothing and prints the environment -> AUTO, whatever it
+    # sets. An assignment that can change what the wrapped command runs, or another
+    # working directory, is CONFIRM at least.
     if base_cmd == "env":
         wrapped = _env_wrapped_command(parts)
-        tier = SafetyTier.AUTO if wrapped is None else classify_command(
-            wrapped, _piped=_piped, _egress=_egress)
+        if wrapped is None:
+            return SafetyTier.AUTO
+        tier = classify_command(wrapped, _piped=_piped, _egress=_egress)
         return _at_least_confirm(tier) if _env_acts(parts) else tier
 
     # watch is an exec wrapper like env: classify by its WRAPPED command so
