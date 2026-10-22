@@ -558,7 +558,11 @@ def walking():
         "your Applications menu OR by running `intergen setup` in a "
         "terminal. Either path enables the service and downloads the "
         "local AI model (~4–5 GB on standard hardware, larger on "
-        "premium tiers). No data leaves your machine.",
+        "premium tiers). The assistant runs on this machine and sends "
+        "nothing in the background; a web search you ask for, or accept "
+        "when it is offered, sends its search words to the search service "
+        "and fetches the first result's page, and a question goes to a "
+        "cloud provider only if you set one up.",
         default_no=True,
     )
 

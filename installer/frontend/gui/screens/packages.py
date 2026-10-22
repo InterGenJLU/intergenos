@@ -200,8 +200,12 @@ class PackagesPage(_ForgePage):
         self._intergen_switch.set_subtitle(
             "Starts the InterGen AI assistant at first login. First "
             "use downloads the local model (~4-5 GB on standard "
-            "hardware, larger on premium tiers). No data leaves your "
-            "machine. Enabling this auto-enables the Local AI runtime "
+            "hardware, larger on premium tiers). It runs on this machine "
+            "and sends nothing in the background; a web search you ask "
+            "for, or accept when it is offered, sends its search words to "
+            "the search service and fetches the first result's page, and a "
+            "question goes to a cloud provider only if you set one up. "
+            "Enabling this auto-enables the Local AI runtime "
             "below (the service needs the binaries to run)."
         )
         self._intergen_switch.set_active(False)  # D-010 default OFF

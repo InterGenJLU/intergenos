@@ -4651,8 +4651,11 @@ def build_intergen_page():
     setup_desc = Gtk.Label(
         label='One click downloads the local AI model that fits your hardware '
               f'({_size_phrase}5–30 minutes) and gets InterGen ready — no '
-              'terminal needed. The model runs entirely on your machine; no '
-              'conversation data ever leaves your computer. You\'ll be asked to '
+              'terminal needed. The model runs on your machine and sends '
+              'nothing in the background; a web search you ask for, or accept '
+              'when it is offered, sends its search words to the search service '
+              'and fetches the first result\'s page, and a question goes to a '
+              'cloud provider only if you set one up. You\'ll be asked to '
               'authenticate once, and the model\'s license is shown as it installs.'
     )
     setup_desc.add_css_class('intergen-summon-text')
