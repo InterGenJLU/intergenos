@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import shlex
 import functools
 import logging
 from pathlib import Path
@@ -105,8 +106,9 @@ _AUTO_COMMANDS_SINGLE = frozenset({
     # ioctl, not netlink, so they run fine in the hardened daemon).
     "ping", "dig", "nslookup", "host", "netstat", "traceroute",
     "ifconfig",
-    # package info
-    "dpkg", "rpm",
+    # package info: NOT dpkg or rpm (2026-10-22). Both install and erase
+    # packages as well as reading them, neither ships on InterGenOS (pkm is its
+    # package manager), and nothing here calls them; unknown, they confirm.
     # printing (read-only queries — lpstat shows printers/jobs/status, lpq the
     # queue. lpoptions/lpadmin can WRITE config so they stay CONFIRM.)
     "lpstat", "lpq",
@@ -437,6 +439,102 @@ def _find_mutates(parts: list[str]) -> bool:
     return any(tok in _FIND_WRITE_FORMS for tok in parts[1:])
 
 
+# State changes classed read-only (2026-10-22). timedatectl, hostnamectl,
+# hostname, date and dmesg are AUTO because their plain forms print, but each
+# has forms that change the machine: the clock, the time zone and network time,
+# the host name, the kernel ring buffer and the console's log level. Like
+# sort -o and find -delete, those forms are CONFIRM, so AUTO keeps meaning
+# cannot-change-regardless-of-args. Each reads the argv the shell-free executor
+# would hand the program (shlex, as run_command splits it), so a quoted format
+# string is one word; input that does not split is a change, fail closed.
+_CTL_VALUE_OPTIONS = frozenset({"-H", "--host", "-M", "--machine", "-p", "--property", "-P"})
+_TIMEDATECTL_READS = frozenset({"status", "show", "list-timezones", "timesync-status", "show-timesync"})
+_HOSTNAMECTL_GETTERS = frozenset({"hostname", "icon-name", "chassis", "deployment", "location"})
+_DATE_VALUE_OPTIONS = frozenset({"-d", "--date", "-r", "--reference", "-f", "--file"})
+_DMESG_SET_LONG = frozenset({"--clear", "--read-clear", "--console-level", "--console-off",
+                             "--console-on"})
+
+
+def _argv(parts: list[str]) -> list[str] | None:
+    """The argv the executor would start, or None when the line does not split."""
+    try:
+        return shlex.split(" ".join(parts))
+    except ValueError:
+        return None
+
+
+def _sets_state(base_cmd: str, parts: list[str]) -> bool:
+    """True when this timedatectl, hostnamectl, hostname, date or dmesg form
+    changes the machine rather than printing."""
+    argv = _argv(parts)
+    if argv is None:
+        return True
+    args = argv[1:]
+    if base_cmd in ("timedatectl", "hostnamectl"):
+        words, i = [], 0
+        while i < len(args):
+            if args[i] in _CTL_VALUE_OPTIONS:
+                i += 2
+                continue
+            if not args[i].startswith("-"):
+                words.append(args[i])
+            i += 1
+        if not words:
+            return False                      # bare: prints the status
+        if base_cmd == "timedatectl":
+            return words[0] not in _TIMEDATECTL_READS
+        if words[0] == "status":
+            return False
+        return not (words[0] in _HOSTNAMECTL_GETTERS and len(words) == 1)
+    if base_cmd == "hostname":
+        # An operand is a new name; -F/--file reads one from a file, -b/--boot sets one.
+        return any(not a.startswith("-") or a in ("-F", "--file", "-b", "--boot")
+                   or a.startswith("--file=") for a in args)
+    if base_cmd == "date":
+        i = 0
+        while i < len(args):
+            a = args[i]
+            if a in ("-s", "--set") or a.startswith("--set="):
+                return True
+            if a in _DATE_VALUE_OPTIONS:
+                i += 2
+                continue
+            if a.startswith("-") and not a.startswith("--"):
+                for c in a[1:]:
+                    if c == "s":
+                        return True
+                    if c in "dfrI":
+                        break                 # the rest of the word is that option's value
+            elif not a.startswith("-") and not a.startswith("+"):
+                return True                   # MMDDhhmm[[CC]YY][.ss] sets the clock
+            i += 1
+        return False
+    if base_cmd == "dmesg":
+        for a in args:
+            if a in _DMESG_SET_LONG or a.startswith("--console-level="):
+                return True
+            if a.startswith("-") and not a.startswith("--"):
+                for c in a[1:]:
+                    if c in "CcnDE":
+                        return True
+                    if c in "lfFs":
+                        break                 # a value-taking option: the rest is its value
+        return False
+    return False
+
+
+#: The git remote subcommands that change nothing: the listing and get-url. The
+#: ones that leave the machine are _GIT_REMOTE_LEAVES; every other subcommand
+#: (rename, remove, rm, set-branches, anything new) changes the remotes.
+_GIT_REMOTE_READS = frozenset({"get-url"})
+
+
+def _git_remote_changes(parts: list[str]) -> bool:
+    """True when `git remote ...` rewrites the repository's remotes here."""
+    sub = _git_remote_subcommand(parts)
+    return sub is not None and sub not in _GIT_REMOTE_READS | _GIT_REMOTE_LEAVES
+
+
 # env's OWN options. The value-taking ones consume the next token; --opt=val carries
 # its value inline. Everything after env + its options + NAME=VALUE assignments is the
 # WRAPPED command, which carries the real tier.
@@ -735,6 +833,14 @@ def classify_command(command: str, _piped: bool = False,
     # is CONFIRM, not AUTO — same cannot-mutate-regardless-of-args rule. Read-only
     # find stays AUTO.
     if base_cmd == "find" and _find_mutates(parts):
+        return SafetyTier.CONFIRM
+    # The set forms of timedatectl, hostnamectl, hostname, date and dmesg, and the
+    # git remote subcommands that rewrite the remotes, are CONFIRM: a state change
+    # classed read-only by its first word is the same silent change as sort -o's.
+    if base_cmd in ("timedatectl", "hostnamectl", "hostname", "date", "dmesg") \
+            and _sets_state(base_cmd, parts):
+        return SafetyTier.CONFIRM
+    if two_word == "git remote" and _git_remote_changes(parts):
         return SafetyTier.CONFIRM
     # env is an exec wrapper: classify it by its WRAPPED command (a read stays AUTO,
     # a write confirms, a dangerous one is refused), not as a flat AUTO that would
