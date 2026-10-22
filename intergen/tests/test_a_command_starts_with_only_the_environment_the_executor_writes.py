@@ -363,19 +363,19 @@ class ADropInTheAccountCanWriteRefusesTheStart(_ADropInGate):
         self.assertEqual(len(runs.launched), 1, runs.launched)
         self.assertTrue(result.success)
 
-    def test_a_drop_in_only_root_can_write_is_logged_and_the_command_starts(self) -> None:
+    def test_a_drop_in_the_account_owns_is_refused_with_its_write_bits_cleared(self) -> None:
+        # Ownership decides, never the mode: the owner can give the write bits
+        # back. A drop-in only root has is the control in
+        # test_a_unit_directory_the_account_can_change_refuses_a_tool_start.
         if os.geteuid() == 0:
-            self.skipTest("run as root, every directory is writable by the account")
+            self.skipTest("run as root, every directory is root's")
         path = self.units / "service.d"
         path.mkdir()
         for each in (path, self.units):
             each.chmod(0o555)
             self.addCleanup(each.chmod, 0o755)
-        with self.assertLogs("intergen.tool_process", level="WARNING") as logged:
-            result, runs = self._execute("df -h")
-        self.assertEqual(len(runs.launched), 1, runs.launched)
-        self.assertTrue(result.success)
-        self.assertTrue([line for line in logged.output if str(path) in line], logged.output)
+        result, runs = self._execute("df -h")
+        self._assert_refused_by_name(result, runs, path)
 
     def test_a_search_path_the_manager_does_not_give_starts_nothing(self) -> None:
         answers = {

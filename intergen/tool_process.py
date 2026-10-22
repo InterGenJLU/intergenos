@@ -56,13 +56,18 @@ fixed TOOL_PATH. An MCP server's service unsets the same list, and a
 launcher starts the server with the allowlist and its configured names
 alone (intergen/mcp_client.py).
 
-DROP-INS ARE REFUSED. A drop-in directory in the user manager's unit search
-path applies to every service whose name it matches (service.d to every
-service, intergen-.service.d and intergen-tool-.service.d to every tool's), and
-one in a directory the account can write is anyone's to fill. The launcher
-reads the search path the manager actually uses, at every launch, and refuses
-the start, naming the directory, when such a drop-in exists where the account
-can write (check_unit_dropins).
+DROP-INS AND DEPENDENCY DIRECTORIES ARE REFUSED. Beside a unit's file the user
+manager reads a drop-in directory (.d), whose files change the unit, and three
+dependency directories (.wants, .requires, .upholds), whose entries are units
+it starts with the unit, each under every name systemd applies to the unit:
+its own, every dash-ended prefix of it (intergen-tool-.service,
+intergen-.service) and its type alone (service). One the account owns, or one
+under a directory the account owns, is the account's to change whatever its
+mode says, and so anyone's to fill. The launcher derives those names by
+systemd's own rule (unit_directory_names), reads the search path the manager
+actually uses, at every launch, and refuses the start, naming the directory
+and the reason, unless every such directory present is root's alone
+(check_unit_dropins).
 
 IT FAILS CLOSED. A credential file that is absent cannot be masked, and systemd
 refuses to start a service whose mask it cannot make, so the launcher checks
@@ -92,6 +97,7 @@ import os
 import pwd
 import re
 import secrets
+import stat
 import subprocess
 from pathlib import Path
 from urllib.parse import unquote
@@ -142,10 +148,18 @@ TOOL_PINS = (
 #: (glibc reads a locale whose name holds a slash from that file).
 _LOCALE_VALUE = re.compile(r"[A-Za-z0-9_.@-]+\Z")
 
-#: Drop-in directories the user manager applies to a tool's service: the
-#: top-level one for every service, and the prefix ones of the tool services'
-#: names (systemd reads a drop-in for each dash-ended prefix of a unit's name).
-TOOL_UNIT_DROPINS = ("service.d", "intergen-.service.d", "intergen-tool-.service.d")
+#: The directories the user manager reads beside a unit's file, under every name
+#: it applies to the unit (unit_directory_names): the dependency directories,
+#: whose entries name units it starts with the unit, and the drop-in directory,
+#: whose .conf files change the unit itself (systemd 259.1,
+#: src/core/load-dropin.c unit_load_dropin, lines 116-129).
+UNIT_DIRECTORY_SUFFIXES = (".wants", ".requires", ".upholds", ".d")
+
+#: systemd's unit types (259.1, src/basic/unit-def.c unit_type_table, 73-85). A name
+#: that is a type alone is the top-level name a directory applies to every unit
+#: of that type under, and no prefix is taken from it.
+_UNIT_TYPES = ("service", "socket", "target", "device", "mount", "automount",
+               "swap", "timer", "path", "slice", "scope")
 
 #: The daemon unit's hardening lines, verbatim and in order, from the [Service]
 #: section of intergen/data/intergen.service. A test holds the two equal.
@@ -367,30 +381,132 @@ def unit_search_path() -> list[str]:
         f"the tool's process was not started")
 
 
-def check_unit_dropins(unit: str) -> None:
-    """Refuse a tool's service that a drop-in the account can write would change.
+def unit_directory_names(unit: str) -> list[str]:
+    """Every name under which the user manager applies a directory to `unit`.
 
-    A drop-in directory named for every service (service.d), for the tool
-    services' name prefixes, or for this unit, applies to the service it
-    matches; one where the account can write is anyone's to fill. Such a
-    directory refuses the start and is named. One that only root can write is
-    the administrator's, and is logged.
+    systemd's own rule (259.1, src/shared/dropin.c): unit_file_find_dropin_paths
+    (lines 240-295) searches the unit's own name and, last, its type alone
+    ("service"); unit_file_find_dirs (143-238) searches each name it is given,
+    then an instance's template, and then, unless the name is a type alone, the
+    name built from its dash-ended prefix, the same way in turn: for
+    "intergen-tool-1f.service" also "intergen-tool-.service" and
+    "intergen-.service". A trailing dash is chopped once before the next dash is
+    looked for, and no prefix is taken at a leading dash. (A prefix cut from a
+    valid unit name always passes unit_prefix_is_valid, so that check is not
+    repeated here.) Each name takes every suffix in UNIT_DIRECTORY_SUFFIXES.
+    """
+    names: list[str] = []
+
+    def search(name: str) -> None:
+        names.append(name)
+        stem, _, kind = name.rpartition(".")
+        prefix, at, instance = stem.partition("@")
+        if at and instance:
+            search(f"{prefix}@.{kind}")
+        if name in _UNIT_TYPES:
+            return
+        chopped = False
+        while True:
+            dash = prefix.rfind("-")
+            if dash <= 0:
+                return
+            if dash + 1 < len(prefix) or chopped:
+                prefix = prefix[:dash + 1]
+                break
+            prefix = prefix[:dash]
+            chopped = True
+        search(f"{prefix}@{instance}.{kind}" if at and instance else f"{prefix}.{kind}")
+
+    search(unit)
+    names.append(unit.rpartition(".")[2])
+    return names
+
+
+def _not_root_alone(path: str) -> str | None:
+    """Why the directory entry at `path` is not root's alone, in words; None when it is.
+
+    Decided by ownership, never by a mode its owner can change: the entry, every
+    directory above it, the same for the path it resolves to, and everything
+    within it (a link within, and every directory above what it leads to), each
+    owned by uid 0, none but a link writable by its group or by others. What the
+    account owns is the account's to change, and an account-owned directory above
+    lets it put another entry in that place.
+    """
+    uid = os.getuid()
+
+    def components(spelled: str) -> list[str]:
+        # The entry first, then each directory above it, so the reason names
+        # the nearest one that is not root's alone.
+        parts = os.path.abspath(spelled).split(os.sep)
+        return [os.sep.join(parts[:i]) or os.sep for i in range(len(parts), 0, -1)]
+
+    def judge(each: str) -> str | None:
+        try:
+            st = os.lstat(each)
+        except OSError as exc:
+            return f"{each} could not be read ({exc.strerror or exc})"
+        if st.st_uid != 0:
+            who = "this account" if st.st_uid == uid else "another account"
+            return f"{each} is owned by {who} (uid {st.st_uid}), not root"
+        if not stat.S_ISLNK(st.st_mode) and st.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            return f"{each} is writable by {'others' if st.st_mode & stat.S_IWOTH else 'its group'}"
+        return None
+
+    def root_alone(spelled: str) -> str | None:
+        for each in components(spelled) + components(os.path.realpath(spelled)):
+            why = judge(each)
+            if why:
+                return why
+        return None
+
+    why = root_alone(path)
+    if why:
+        return why
+    resolved = os.path.realpath(path)
+    if os.path.isdir(resolved):
+        unread: list[OSError] = []
+        for top, dirs, files in os.walk(resolved, onerror=unread.append):
+            for name in dirs + files:
+                why = root_alone(os.path.join(top, name))
+                if why:
+                    return why
+        if unread:
+            return f"{unread[0].filename} could not be read ({unread[0].strerror or unread[0]})"
+    return None
+
+
+def check_unit_dropins(unit: str) -> None:
+    """Refuse a tool's service that a directory the account can change would change.
+
+    Every drop-in and dependency directory the user manager would apply to
+    `unit` (unit_directory_names x UNIT_DIRECTORY_SUFFIXES, in every directory of
+    the search path the manager reports) that is present must be root's alone
+    (_not_root_alone): one the account owns, whatever its mode, or one under a
+    directory the account owns, is the account's to fill, and refuses the start,
+    named with the reason. One that is root's alone is the administrator's, and
+    is logged.
     """
     for directory in unit_search_path():
-        for name in TOOL_UNIT_DROPINS + (f"{unit}.d",):
-            path = os.path.join(directory, name)
-            if not os.path.lexists(path):
-                continue
-            if os.access(directory, os.W_OK) or os.access(path, os.W_OK):
-                raise ToolProcessNotStarted(
-                    f"{path} is a drop-in directory in the user manager's unit "
-                    f"search path, where this account can write, and what it "
-                    f"sets would apply to the tool's service, so the tool's "
-                    f"process was not started. Remove it if you did not create "
-                    f"it.")
-            logger.warning(
-                "%s applies to every tool service; only root can write it, so "
-                "it is read as the administrator's", path)
+        for name in unit_directory_names(unit):
+            for suffix in UNIT_DIRECTORY_SUFFIXES:
+                path = os.path.join(directory, name + suffix)
+                if not os.path.lexists(path):
+                    continue
+                why = _not_root_alone(path)
+                if why:
+                    kind = ("a drop-in directory, whose files change the service"
+                            if suffix == ".d" else
+                            f"a dependency directory ({suffix}), whose entries the "
+                            f"manager starts with the service")
+                    raise ToolProcessNotStarted(
+                        f"{path} is {kind}, in the user manager's unit search path "
+                        f"and applied to the tool's service; {why}, so this account "
+                        f"can change what it holds, and the tool's process was not "
+                        f"started. Remove it if you did not create it.")
+                logger.warning(
+                    "%s applies to the tool's service; it, every directory above "
+                    "it and everything within it are root's alone, so it is read "
+                    "as the administrator's", path)
 
 
 def launch_argv(argv: list[str], *, unit: str,
@@ -411,8 +527,8 @@ def launch_argv(argv: list[str], *, unit: str,
 
     Raises ToolProcessNotStarted when a credential file is absent, cannot be
     read or cannot be named, when the program cannot be named to env, or when
-    a drop-in the account can write would apply to the service
-    (check_unit_dropins), so nothing is started without its boundary.
+    a drop-in or dependency directory the account can change would apply to the
+    service (check_unit_dropins), so nothing is started without its boundary.
     """
     if not argv:
         raise ToolProcessNotStarted("an empty command has no process to start")
