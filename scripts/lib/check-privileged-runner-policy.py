@@ -41,8 +41,16 @@ action or per file (the action itself, <defaults>, each <allow_*>, each
 <description> and <message>) appears twice reads differently to PolicyKit than
 to anyone reading its first; such a file is refused, naming the action and the
 element. So is a file PolicyKit would stop reading. A comment or a different
-action still cannot satisfy the check, and the allowlist is read from the
-registry's syntax tree; nothing is imported.
+action still cannot satisfy the check.
+
+READ AS THE DISPATCHER HOLDS IT. The dispatcher imports _PRIVILEGED_TOOLS, so it
+holds the value Python bound last. The allowlist is read from the registry's
+syntax tree (nothing is imported) and only from a single unconditional
+module-level definition: a reassignment, a definition inside a function or a
+branch, or any other binding of the name (an import, a del, a global
+declaration, a string naming it, a call such as exec, globals or setattr that
+binds names at run time) is refused, naming each line, and so is a registry
+that binds frozenset itself.
 
 Usage: check-privileged-runner-policy.py --policy FILE --registry FILE [--runner PATH]
 Exit 0 = every action bound to the runner passes; 1 = violations, each named;
@@ -241,27 +249,140 @@ def read_policy(path):
     return reading
 
 
-def privileged_tools(registry_path):
-    """The _PRIVILEGED_TOOLS allowlist, read from the registry's syntax tree."""
+_TYPE_PARAMS = tuple(getattr(ast, kind) for kind in ("TypeVar", "ParamSpec", "TypeVarTuple")
+                     if hasattr(ast, kind))
+_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda, ast.ListComp,
+           ast.SetComp, ast.DictComp, ast.GeneratorExp)
+
+
+def _how_bound(node, name):
+    """How `node` binds, rebinds or unbinds `name`, or None when it does not."""
+    if isinstance(node, ast.Name) and node.id == name:
+        if isinstance(node.ctx, ast.Del):
+            return "deleted"
+        if isinstance(node.ctx, ast.Store):
+            return "assigned"
+    elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.name == name:
+        return "defined by a def or class statement"
+    elif isinstance(node, (ast.Global, ast.Nonlocal)) and name in node.names:
+        return "declared global or nonlocal, so a function can rebind it"
+    elif isinstance(node, ast.alias):
+        if node.name == "*":
+            return "possibly bound by a star import"
+        if (node.asname or node.name.partition(".")[0]) == name:
+            return "bound by an import"
+    elif isinstance(node, ast.arg) and node.arg == name:
+        return "a parameter of that name"
+    elif isinstance(node, ast.ExceptHandler) and node.name == name:
+        return "bound by an except clause"
+    elif isinstance(node, (ast.MatchAs, ast.MatchStar)) and node.name == name:
+        return "bound by a match pattern"
+    elif isinstance(node, ast.MatchMapping) and node.rest == name:
+        return "bound by a match pattern"
+    elif isinstance(node, _TYPE_PARAMS) and node.name == name:
+        return "a type parameter of that name"
+    elif isinstance(node, ast.Constant) and node.value == name:
+        return "named in a string, which can bind it at run time (globals(), setattr)"
+    return None
+
+
+#: Builtins that bind a module's names by a value computed at run time, which a
+#: syntax tree cannot show.
+_DYNAMIC_BINDERS = ("exec", "eval", "compile", "globals", "vars", "locals", "setattr", "delattr",
+                    "__import__")
+
+
+def _dynamic_binder(node):
+    """The builtin a call names when it is one of _DYNAMIC_BINDERS, else None."""
+    if not isinstance(node, ast.Call):
+        return None
+    func = node.func
+    if isinstance(func, ast.Name):
+        called = func.id
+    elif (isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)
+            and func.value.id == "builtins"):
+        called = func.attr
+    else:
+        return None
+    return called if called in _DYNAMIC_BINDERS else None
+
+
+def _bindings(tree, parents, name):
+    """Every place in `tree` that can bind, rebind or unbind `name`: (node, words)."""
+    found = []
+    for node in ast.walk(tree):
+        how = _how_bound(node, name)
+        called = _dynamic_binder(node)
+        if called:
+            how = f"possibly bound by {called}(), which binds names the syntax tree does not show"
+        if how is None:
+            continue
+        where, up = "at module level", parents.get(node)
+        while up is not None and up is not tree:
+            if isinstance(up, _SCOPES):
+                where = "inside a function, class, lambda or comprehension"
+                break
+            if isinstance(up, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.Try, ast.With,
+                               ast.AsyncWith, ast.Match)) or type(up).__name__ == "TryStar":
+                where = "inside an if, for, while, try, with or match block"
+            up = parents.get(up)
+        found.append((node, f"line {getattr(node, 'lineno', '?')}, {where}: {how}"))
+    return sorted(found, key=lambda item: (getattr(item[0], "lineno", 0), item[1]))
+
+
+def read_registry(registry_path):
+    """The registry's syntax tree and each node's parent; nothing is imported."""
     with open(registry_path, encoding="utf-8") as fh:
         tree = ast.parse(fh.read(), registry_path)
-    for node in ast.walk(tree):
-        if isinstance(node, ast.Assign) and len(node.targets) == 1:
-            target, value = node.targets[0], node.value
-        elif isinstance(node, ast.AnnAssign):
-            target, value = node.target, node.value
-        else:
-            continue
-        if not (isinstance(target, ast.Name) and target.id == "_PRIVILEGED_TOOLS"):
-            continue
-        if (isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
-                and value.func.id == "frozenset" and len(value.args) == 1
-                and isinstance(value.args[0], ast.Set)
-                and all(isinstance(e, ast.Constant) and isinstance(e.value, str)
-                        for e in value.args[0].elts)):
-            return {e.value for e in value.args[0].elts}
-        raise ValueError(f"{registry_path}: _PRIVILEGED_TOOLS is not a frozenset of string literals")
-    raise ValueError(f"{registry_path}: _PRIVILEGED_TOOLS is not assigned")
+    return tree, {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+
+
+def registry_definition(registry_path, tree, parents, name):
+    """The value `name` holds once Python has run the registry module, read from
+    its syntax tree: (the value's node or None, refusals).
+
+    The dispatcher imports the name, so it holds the value Python bound LAST.
+    The syntax tree shows that value only when the module binds the name exactly
+    once, unconditionally, at module level: a reassignment, a definition inside
+    a function or a branch, or any other binding (an import, a del, a global
+    declaration, a string that names it, a call that binds names at run time)
+    is refused, naming each line.
+    """
+    bindings = _bindings(tree, parents, name)
+    if not bindings:
+        raise ValueError(f"{registry_path}: {name} is not assigned")
+    if len(bindings) == 1:
+        target = bindings[0][0]
+        statement = parents.get(target)
+        if parents.get(statement) is tree and (
+                isinstance(statement, ast.Assign) and len(statement.targets) == 1
+                and statement.targets[0] is target
+                or isinstance(statement, ast.AnnAssign) and statement.target is target
+                and statement.value is not None):
+            return statement.value, []
+    return None, [f"{registry_path}: {name} is bound {len(bindings)} time(s) "
+                  f"({'; '.join(words for _, words in bindings)}); the dispatcher holds the value "
+                  f"Python bound last, so {name} is read only from one unconditional "
+                  f"module-level definition"]
+
+
+def privileged_tools(registry_path):
+    """The _PRIVILEGED_TOOLS allowlist as the dispatcher holds it, read from the
+    registry's syntax tree: (the set or None, refusals)."""
+    tree, parents = read_registry(registry_path)
+    value, refusals = registry_definition(registry_path, tree, parents, "_PRIVILEGED_TOOLS")
+    if value is None:
+        return None, refusals
+    for _, words in _bindings(tree, parents, "frozenset"):
+        refusals.append(f"{registry_path}: frozenset is bound ({words}), so frozenset(...) "
+                        f"may not be the builtin")
+    if (isinstance(value, ast.Call) and isinstance(value.func, ast.Name)
+            and value.func.id == "frozenset" and len(value.args) == 1 and not value.keywords
+            and isinstance(value.args[0], ast.Set)
+            and all(isinstance(e, ast.Constant) and isinstance(e.value, str)
+                    for e in value.args[0].elts)):
+        return {e.value for e in value.args[0].elts}, refusals
+    raise ValueError(f"{registry_path}: _PRIVILEGED_TOOLS is not a frozenset of string literals")
 
 
 def reading_violations(reading):
@@ -281,10 +402,10 @@ def reading_violations(reading):
 
 def check(policy_path, registry_path, runner=RUNNER):
     """Return (bound action ids, violations, allowlist); raise on unreadable input."""
-    tools = privileged_tools(registry_path)
+    tools, violations = privileged_tools(registry_path)
     reading = read_policy(policy_path)
     bound, argv1s = [], []
-    violations = reading_violations(reading)
+    violations += reading_violations(reading)
     for action in reading.actions.values():
         if action.annotations.get(EXEC_PATH) != runner:
             continue
@@ -304,12 +425,13 @@ def check(policy_path, registry_path, runner=RUNNER):
     repeated = sorted({name for name in argv1s if argv1s.count(name) > 1})
     if repeated:
         violations.append(f"exec.argv1 named by more than one action: {repeated}")
-    missing = sorted(tools - set(argv1s))
-    extra = sorted(set(argv1s) - tools)
-    if missing:
-        violations.append(f"privileged tools with no action of their own: {missing}")
-    if extra:
-        violations.append(f"actions naming a tool outside _PRIVILEGED_TOOLS: {extra}")
+    if tools is not None:
+        missing = sorted(tools - set(argv1s))
+        extra = sorted(set(argv1s) - tools)
+        if missing:
+            violations.append(f"privileged tools with no action of their own: {missing}")
+        if extra:
+            violations.append(f"actions naming a tool outside _PRIVILEGED_TOOLS: {extra}")
     return bound, violations, tools
 
 

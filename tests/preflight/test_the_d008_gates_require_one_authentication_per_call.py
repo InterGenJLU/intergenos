@@ -28,6 +28,14 @@ judged the FIRST <defaults> and <allow_*> and trimmed the text, so a repeated
 <allow_active> whose second value was a keep passed both gates. Each element
 PolicyKit reads once is now refused when it appears twice, naming the action and
 the element, and so is a file PolicyKit would stop reading.
+
+The allowlist is read as the dispatcher holds it. The dispatcher imports
+_PRIVILEGED_TOOLS, so it holds the value Python bound last; until 2026-10-22 the
+checker took the first assignment its walk of the syntax tree met, so a
+reassignment, a definition only inside a function or one in a branch Python
+does not run passed against a set the dispatcher does not hold. Only a single
+unconditional module-level definition is read now; every other binding of the
+name is refused, naming its line.
 """
 
 from __future__ import annotations
@@ -345,6 +353,87 @@ def test_the_runtime_gate_reads_the_exec_path_as_polkit_does(tmp_path):
     runtime = _run_runtime(_runtime_root(tmp_path, text))
     assert runtime.returncode == 1, runtime.stdout + runtime.stderr
     assert "VIOLATION: PolicyKit exec.path does not match canonical runner location" in runtime.stdout
+
+
+DEFINITION = ("_PRIVILEGED_TOOLS = frozenset({'manage_packages', 'manage_services', "
+              "'run_command', 'write_file'})")
+OTHER = "frozenset({'fixture_other'})"
+
+#: Registries whose module, once Python has run it, holds a _PRIVILEGED_TOOLS
+#: other than the first definition's (or none): the checker read that first
+#: definition and passed the shipped policy against it.
+REGISTRY_FORMS = {
+    "a reassignment": f"{DEFINITION}\n_PRIVILEGED_TOOLS = {OTHER}\n",
+    "a definition inside a function": f"def unused():\n    {DEFINITION}\n",
+    "a definition in a branch": f"if False:\n    {DEFINITION}\nelse:\n    _PRIVILEGED_TOOLS = {OTHER}\n",
+    "an augmented assignment": f"{DEFINITION}\n_PRIVILEGED_TOOLS |= {OTHER}\n",
+    "a function that rebinds the global": (f"{DEFINITION}\ndef rebind():\n    global _PRIVILEGED_TOOLS\n"
+                                           f"    _PRIVILEGED_TOOLS = {OTHER}\nrebind()\n"),
+    "a loop target": f"{DEFINITION}\nfor _PRIVILEGED_TOOLS in [{OTHER}]:\n    pass\n",
+    "an import of that name": f"{DEFINITION}\nfrom json import loads as _PRIVILEGED_TOOLS\n",
+    "a binding by name at run time": f'{DEFINITION}\nglobals()["_PRIVILEGED_TOOLS"] = {OTHER}\n',
+    "an exec of a built string": f'{DEFINITION}\nexec("_PRIVILEGED_" + "TOOLS = {OTHER}")\n',
+    "a rebound frozenset": ("import builtins\nfrozenset = lambda items: builtins.frozenset({'fixture_other'})\n"
+                            f"{DEFINITION}\n"),
+}
+
+
+@pytest.mark.parametrize("form", sorted(REGISTRY_FORMS))
+def test_the_checker_refuses_a_registry_python_binds_otherwise(tmp_path, form):
+    """The dispatcher imports _PRIVILEGED_TOOLS, so it holds what Python bound
+    last; the checker reads only a single unconditional module-level definition."""
+    registry = tmp_path / "tool_registry.py"
+    registry.write_text(REGISTRY_FORMS[form])
+    completed = _checker(POLICY, registry)
+    assert completed.returncode == 1, f"{form}: {completed.stdout}{completed.stderr}"
+    assert ("_PRIVILEGED_TOOLS is bound" in completed.stdout
+            or "frozenset is bound" in completed.stdout), completed.stdout
+    assert "PASS" not in completed.stdout
+
+
+def test_the_refusal_names_each_binding_and_where_it_is(tmp_path):
+    registry = tmp_path / "tool_registry.py"
+    registry.write_text(REGISTRY_FORMS["a definition in a branch"])
+    completed = _checker(POLICY, registry)
+    assert ("_PRIVILEGED_TOOLS is bound 2 time(s) (line 2, inside an if, for, while, try, with or match "
+            "block: assigned; line 4, inside an if, for, while, try, with or match block: assigned)"
+            ) in completed.stdout, completed.stdout
+
+
+def test_the_checker_reads_the_value_python_binds(tmp_path):
+    """A single definition, mentioned in a comment and a docstring besides, is
+    the value the module holds when run, and the shipped policy passes on it."""
+    registry = tmp_path / "tool_registry.py"
+    registry.write_text(f'"""_PRIVILEGED_TOOLS is the allowlist."""\n# _PRIVILEGED_TOOLS = {OTHER}\n'
+                        f"{DEFINITION.replace(' =', ': frozenset[str] =', 1)}\n")
+    ran = subprocess.run(
+        ["python3", "-I", "-c", "import runpy, sys; print(sorted(runpy.run_path(sys.argv[1])['_PRIVILEGED_TOOLS']))",
+         str(registry)], capture_output=True, text=True, check=True, timeout=60)
+    completed = _checker(POLICY, registry)
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    held = ran.stdout.strip().strip("[]").replace("'", "")
+    assert completed.stdout.rstrip().endswith(f"_PRIVILEGED_TOOLS ({held})"), (ran.stdout, completed.stdout)
+
+
+def test_both_gates_refuse_a_reassigned_registry_at_a_real_firing(tmp_path):
+    """The tree's registry with the allowlist rebound after its definition: the
+    dispatcher would hold the second set, the checker read the first and passed."""
+    reassigned = REGISTRY.read_text() + f"\n_PRIVILEGED_TOOLS = {OTHER}\n"
+    source = _compliance_tree(tmp_path / "source", POLICY.read_text())
+    (source / "intergen" / "tool_registry.py").write_text(reassigned)
+    compliance = _run_compliance(source)
+    assert compliance.returncode == 1, compliance.stdout + compliance.stderr
+    assert "_PRIVILEGED_TOOLS is bound 2 time(s)" in compliance.stdout
+    assert ("VIOLATION: the PolicyKit policy does not require one administrator "
+            "authentication per privileged call") in compliance.stdout
+
+    chroot = _runtime_root(tmp_path / "chroot", POLICY.read_text())
+    (chroot / PYROOT / "tool_registry.py").write_text(reassigned)
+    runtime = _run_runtime(chroot)
+    assert runtime.returncode == 1, runtime.stdout + runtime.stderr
+    assert "_PRIVILEGED_TOOLS is bound 2 time(s)" in runtime.stdout
+    assert ("VIOLATION: deployed PolicyKit policy does not require one administrator "
+            "authentication per privileged call") in runtime.stdout
 
 
 @pytest.mark.parametrize("gate", ["check-d008-compliance.sh", "check-d008-runtime.sh"])
