@@ -76,6 +76,8 @@ import secrets
 import stat
 import time
 
+from intergen.held_open import HeldOpenRefused, open_held
+
 __all__ = [
     "FORMAT_VERSION",
     "MAX_REQUEST_BYTES",
@@ -534,8 +536,11 @@ def read_request(path: str, *, expected_uid: int | None = None
     The path comes from the unprivileged side, so everything about the file is
     checked before its contents are believed:
 
-      * opened O_NOFOLLOW|O_RDONLY, so a symlink at the final component is a
-        refusal rather than a redirect;
+      * held before it is opened (held_open.open_held): the directory walked
+        from / without following a link and the name held with
+        O_PATH|O_NOFOLLOW, so a symlink is a refusal rather than a redirect,
+        and a FIFO or a device at the name is refused before anything opens
+        it — the runner never waits on a FIFO's open;
       * a regular file (not a directory, fifo, device or socket);
       * owned by `expected_uid` when one is given — the uid pkexec reports for
         the calling user, so a file planted by anyone else is refused;
@@ -562,12 +567,20 @@ def read_request(path: str, *, expected_uid: int | None = None
             docstring.
     """
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
+        fd, _held = open_held(path, os.O_RDONLY)
+    except HeldOpenRefused as exc:
+        if exc.refusal == "link":
             raise RequestError(
                 f"privileged request {path} is a symbolic link; refusing"
             ) from exc
+        if exc.refusal == "kind":
+            raise RequestError(
+                f"privileged request {path} is not a regular file; refusing"
+            ) from exc
+        raise RequestError(
+            f"privileged request {path} was not opened: {exc} Refusing."
+        ) from exc
+    except OSError as exc:
         raise RequestError(
             f"cannot open privileged request {path}: {exc}"
         ) from exc

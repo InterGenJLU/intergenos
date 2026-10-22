@@ -229,5 +229,45 @@ class TheRunnersFileToolHoldsTheObjectFirst(_Scratch):
         self.assertEqual(opened_for_io("/dev/null"), [])
 
 
+class TheRequestFileIsHeldBeforeItIsRead(_Scratch):
+    """privileged_request.read_request holds the request file before it opens
+    it: a FIFO at the request's name is refused at once, and the runner never
+    waits on it."""
+
+    def _read_within(self, path: Path, seconds: float = 3.0):
+        from intergen import privileged_request
+        out: dict = {}
+
+        def read() -> None:
+            try:
+                out["result"] = privileged_request.read_request(
+                    str(path), expected_uid=os.getuid())
+            except BaseException as exc:  # the refusal is the result
+                out["error"] = exc
+        thread = threading.Thread(target=read, daemon=True)
+        thread.start()
+        thread.join(seconds)
+        waited = thread.is_alive()
+        if waited:  # release the open from this side so the thread ends
+            recording, _RECORDING[0] = _RECORDING[0], False
+            try:
+                mine = os.open(path, os.O_RDWR | os.O_NONBLOCK)
+                thread.join(5.0)
+                os.close(mine)
+            finally:
+                _RECORDING[0] = recording
+        return waited, out
+
+    def test_a_fifo_at_the_request_name_is_refused_without_waiting(self) -> None:
+        from intergen import privileged_request
+        fifo = self.fifo("intergen-request-0123456789abcdef0123456789abcdef")
+        _OPENS.clear()
+        waited, out = self._read_within(fifo)
+        self.assertFalse(waited, "read_request waited on the FIFO's open")
+        self.assertIsInstance(out.get("error"), privileged_request.RequestError)
+        self.assertIn("not a regular file", str(out["error"]))
+        self.assertEqual(opened_for_io(str(fifo)), [])
+
+
 if __name__ == "__main__":
     unittest.main()
