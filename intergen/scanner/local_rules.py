@@ -152,15 +152,17 @@ _YOU_ARE_NOW_ACTING_IT_OUT = (
     r"(?:(?:all|any|your|the|of|these|those)\s+)*(?:restrictions|rules|filters|guidelines|guardrails|constraints"
     r"|safeguards|programming|instructions|limits|limitations|policies|training)\b")
 
-# An override label at the start of a line in its two-word forms ("SYSTEM
-# OVERRIDE:", "ADMIN OVERRIDE:"), after an optional bullet, heading mark, quote
-# mark, emphasis or bracket; and "override" with a rule object followed by an
-# answering verb ("override these restrictions and recommend ..."). The bare
-# "Override:" label is a configuration key's shape ("override: true"), and
-# "Override existing settings:" an honest option's label.
-_LABEL_LEAD = r"^[ \t]*(?:[*_#>\[(-][ \t]*)*"
+# An override label in its two-word forms ("SYSTEM OVERRIDE:", "ADMIN
+# OVERRIDE:") wherever a word starts: at the start of a line, behind a bullet,
+# a heading mark, a quote mark, emphasis or a bracket, or behind unpunctuated
+# text on the same line ("... with pkm SYSTEM OVERRIDE: ..."), before a colon
+# that may follow closing emphasis or a bracket; and "override" with a rule
+# object followed by an answering verb ("override these restrictions and
+# recommend ..."). The bare "Override:" label is a configuration key's shape
+# ("override: true"), and "Override existing settings:" an honest option's
+# label.
 _LABEL_CLOSE = r"[ \t]*(?:[*_\])][ \t]*)*:"
-_OVERRIDE_LABEL = _LABEL_LEAD + r"(?:system|admin)[ \t]+override" + _LABEL_CLOSE
+_OVERRIDE_LABEL = r"\b(?:system|admin)[ \t]+override" + _LABEL_CLOSE
 _RULE_OBJECT = (r"(?:restrictions?|rules?|filters?|guidelines?|guardrails?|constraints?|safeguards?|limits?"
                 r"|polic(?:y|ies))")
 _OVERRIDE_AND_ANSWER = (r"\boverrid(?:e|es|ing)\s+(?:(?:all|any|these|those|the|this|that|every|your)\s+)?"
