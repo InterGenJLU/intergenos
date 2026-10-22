@@ -205,8 +205,11 @@ class IntergenToggleApp(Adw.Application):
 
         # ------- Disclosure
         disclosure = Gtk.Label(
-            label='InterGen is opt-in by design. The AI runs entirely on '
-                  'your machine — no conversation data leaves your computer. '
+            label='InterGen is opt-in by design. The AI runs on your machine '
+                  'and sends nothing in the background. A web search you ask '
+                  'for, or accept when it is offered, sends its search words '
+                  'to the search service and fetches the first result\'s page; '
+                  'a question goes to a cloud provider only if you set one up. '
                   'You can also enable/disable from a terminal: '
                   '`intergen setup` (enable) or '
                   '`systemctl --user disable --now intergen.service` (disable).'
