@@ -44,11 +44,11 @@ So this corpus documents the floor boundary in three honest parts:
 
 | Coverage tier | Fixtures | Meaning |
 |---|---:|---|
-| `FLOOR`    | 44 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
-| `DEEP`     | 12 | evasion the floor misses by design → deep tier (asserted `ALLOW`) |
+| `FLOOR`    | 51 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
+| `DEEP`     | 15 | evasion the floor misses by design → deep tier (asserted `ALLOW`) |
 | `PROPOSED` |  0 | (the initial 3 proposals were reviewed, approved, and adopted 2026-07-23 — see below) |
-| `HONEST`   | 13 | honest text beside a caught shape (asserted `ALLOW`) |
-| **total**  | **69** | |
+| `HONEST`   | 20 | honest text beside a caught shape (asserted `ALLOW`) |
+| **total**  | **86** | |
 
 ## Attack taxonomy
 
@@ -66,6 +66,12 @@ So this corpus documents the floor boundary in three honest parts:
 - `injection.role-redefine` / `injection.covert` / `injection.tool-lure` —
   softer role-redefinition, covert-action lures (including a note that tells
   the model not to mention it), embedded tool/command lures. **FLOOR (FLAG).**
+  "You are now" is caught with a role handed to the model (a kind of model or
+  persona, a jailbreak state or mode, a new name, DAN) and "override" with an
+  instruction object (the model's instructions, guidelines or system prompt,
+  or rules said to be the model's, active or passive); bare, both are
+  ordinary in honest pages and are `HONEST` rows ("You are now running a
+  system built from source", "a drop-in override").
 - `injection.model-addressed` — a plain-language instruction addressed to the
   model that reads the content: a label for it ("Important notice for language
   models:"), the reading model itself ("AI assistants summarizing this page
@@ -118,6 +124,9 @@ scanner.
 | `sec-evade-zw-aws`        | secret    | zero-width char inside the key |
 | `sec-evade-homoglyph-cred`| secret    | homoglyphed `password` key token |
 | `sec-evade-hex-privkey`   | secret    | hex-encoded PEM header, no decode |
+| `override-evade-label`    | injection | an override label with no instruction object |
+| `role-evade-free`         | injection | "you are now free" names no role |
+| `role-evade-human-role`   | injection | a person's role, not a model's |
 
 These are not defects in the floor — they are the deep tier's mandate. Listing
 them makes the division of labour explicit and testable. At the shipped
@@ -165,6 +174,24 @@ drives the six `FLAG` shapes and the `BLOCK` through `ToolRegistry.execute()`
 with the production policy under every provenance: both model-facing fields
 withheld when no review can ask or the person denies it, the audit row naming
 the verdict's reason and never the page text.
+
+## The role and override rules in their narrower forms (added 2026-10-21)
+
+Bare, the `injection.role-redefine` rules for "you are now" and "override" held
+honest text: 30 of 9000 paragraphs of the installed wiki, 13 of its 88 pages and
+12 of its 88 source pages ("You are now running a system built from source", a
+GSettings override, a drop-in override, packages that override a default, the
+integrity gate's override phrase). Each now needs a role or an instruction
+object. Before adoption the reshaped forms were matched against the same honest
+corpora as the plain-language rules (the training bank's answers, the how-to
+answers, every installed wiki paragraph and page, and the wiki source): none
+of those texts matches. The `role-*` and `override-*` rows pin the hostile forms
+at `FLAG`, seven `HONEST` rows the wiki's own sentences and nearby honest forms
+(a unit's directives, a login). Three hostile shapes are given up with the bare
+words, because no surface form tells them from honest text: an override label
+with no instruction object, "you are now free", and a person's role handed
+over. They are `DEEP` rows: at the shipped depth they reach the model
+spotlighted only.
 
 ## Residual
 

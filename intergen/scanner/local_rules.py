@@ -86,6 +86,51 @@ _READING = (r"(?:reading|summari[sz]ing|processing|parsing|analy[sz]ing|viewing"
 _SHELL = (r"(?:sudo[ \t]+(?:-[A-Za-z]+[ \t]+)*)?(?:(?:/usr)?/bin/)?"
           r"(?:ba|z|da|k|c|tc|fi|mk|a)?sh\b")
 
+# "override" with an instruction object: the model's instructions, guidelines,
+# guardrails, programming or system prompt; or rules, a policy, restrictions,
+# filters, directives and the like when a word in front says whose (your,
+# previous, safety, ...). Active ("override your instructions") or passive
+# ("your content policy is overridden"). Bare, the word is ordinary in honest
+# pages: a GSettings override, a drop-in override, packages that override a
+# default.
+_OVERRIDE_VERB = r"\boverrid(?:e|es|ing|den)\s+"
+_DETERMINERS = r"(?:(?:all|any|every|each|of|the|these|those|this|that|its|my|our|their|your)\s+)*"
+_MODEL_SIDE = (r"(?:(?:previous|prior|earlier|above|preceding|original|initial|existing|current|core"
+               r"|built-?in|internal|hidden|safety|content|ethical|moral|system|developer|operator"
+               r"|model|ai|assistant'?s?)\s+)")
+_INSTRUCTIONS = r"(?:instructions?|guidelines?|guardrails?|programming|system\s+prompts?)\b"
+_RULE_WORDS = (r"(?:rules?|polic(?:y|ies)|restrictions?|constraints?|filters?|protocols?|training"
+               r"|limits?|limitations?|prompts?|directives?|safeguards?|alignment)\b")
+_WHOSE = (r"(?:your\s+(?:[a-z'-]+\s+){0,2}|(?:previous|prior|earlier|original|initial|safety|content"
+          r"|ethical|moral|built-?in|core|hidden|ai|model|assistant'?s?)\s+(?:[a-z'-]+\s+){0,1})")
+_IS_OVERRIDDEN = (r"\s+(?:is|are|was|were|has\s+been|have\s+been|(?:is|are)\s+(?:now|hereby)"
+                  r"|(?:has|have)\s+(?:now\s+)?been)\s+(?:now\s+|hereby\s+)?overridden\b")
+_OVERRIDE_OF_INSTRUCTIONS = (
+    _OVERRIDE_VERB + _DETERMINERS + _MODEL_SIDE + r"*" + _INSTRUCTIONS
+    + r"|" + _OVERRIDE_VERB + _DETERMINERS + _WHOSE + _RULE_WORDS
+    + r"|\b" + _WHOSE + r"(?:" + _INSTRUCTIONS + r"|" + _RULE_WORDS + r")" + _IS_OVERRIDDEN)
+
+# "you are now" with a role handed to the model: a kind of model or persona
+# ("an unrestricted assistant", "acting as an unfiltered AI"), a jailbreak state
+# ("unrestricted", "free of your rules", "no longer bound"), a jailbreak mode
+# ("in developer mode"), a new name, or DAN. Bare, the words are ordinary in
+# honest pages ("You are now running a system built from source").
+_ROLE_NOUN = (r"(?:assistants?|ai|a\.i\.|(?:language\s+)?models?|llms?|bots?|chat\s?bots?|agents?"
+              r"|personas?|characters?|entit(?:y|ies)|dan)\b")
+_UNBOUND = (r"(?:unrestricted|unfiltered|uncensored|unbound|unchained|unlimited|unshackled|jailbroken"
+            r"|liberated|freed\b|free\s+(?:from|of)\s+(?:all\s+|any\s+|your\s+)*(?:restrictions|limits"
+            r"|limitations|rules|filters|guidelines|constraints|programming|instructions)"
+            r"|no\s+longer\s+(?:bound|restricted|limited|constrained|an?\s+(?:ai|assistant|language\s+model))"
+            r"|without\s+(?:any\s+)?(?:restrictions|limits|limitations|rules|filters|guidelines|constraints))")
+_JAILBREAK_MODE = (r"in\s+(?:(?:a|an|the)\s+)?(?:developer|dev|admin|administrator|god|dan|jailbreak"
+                   r"|jailbroken|unrestricted|unfiltered|uncensored|evil|chaos)\s+mode\b")
+_PLAYING = (r"(?:(?:acting|playing|operating|functioning|serving|role-?playing|posing|pretending\s+to\s+be)"
+            r"(?:\s+as|\s+the\s+(?:role|part)\s+of)?\s+)?")
+_YOU_ARE_NOW_A_ROLE = (
+    r"\byou\s+are\s+now\s+(?:" + _PLAYING + r"(?:a|an|the|my|our|your)\s+(?:[\w'-]+\s+){0,3}"
+    + _ROLE_NOUN + r"|" + _UNBOUND + r"|" + _JAILBREAK_MODE
+    + r"|(?:called|named|known\s+as)\s+\S|dan\b)")
+
 
 # --------------------------------------------------------------------------
 # INGRESS — content arriving before it re-enters the LLM context (injection).
@@ -111,10 +156,14 @@ _INGRESS_RULES: list[_Rule] = [
           "Spotlight marker literal in content (wrapper break-out attempt)"),
 
     # --- FLAG: bare instruction-override forms (no anchor word) ---
-    # SentinelGuard.validate_tool_description flags the bare substrings
-    # "ignore previous" / "ignore above" / "disregard"; covering them at FLAG
-    # keeps this floor a strict superset of that list while reserving BLOCK
-    # for the unambiguous full directives above.
+    # SentinelGuard.validate_tool_description (intergen/mcp_client.py) refuses
+    # an MCP tool whose description carries any of its bare substrings. This
+    # floor FLAGs that list too ("ignore previous" / "ignore above" /
+    # "disregard" here), reserving BLOCK for the unambiguous full directives
+    # above, except two words it FLAGs only in their narrower forms below:
+    # "you are now" with a role and "override" with an instruction object.
+    # Bare, both are ordinary in honest pages; the tool-description check is
+    # the separate list that keeps refusing them bare.
     _Rule(ScanDisposition.FLAG, "injection.override",
           _ci(r"\bignore\s+(?:the\s+)?(?:previous|above|prior|preceding)\b"),
           "Possible instruction-override ('ignore previous/above ...')"),
@@ -124,7 +173,7 @@ _INGRESS_RULES: list[_Rule] = [
 
     # --- FLAG: softer role-redefinition / suspicious phrasing ---
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
-          _ci(r"\byou\s+are\s+now\b"),
+          _ci(_YOU_ARE_NOW_A_ROLE),
           "Role-redefinition phrasing ('you are now ...')"),
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
           _ci(r"\bnew\s+instructions?\b"),
@@ -133,7 +182,7 @@ _INGRESS_RULES: list[_Rule] = [
           _ci(r"\bsystem\s+prompt\b"),
           "Reference to the system prompt in untrusted content"),
     _Rule(ScanDisposition.FLAG, "injection.role-redefine",
-          _ci(r"\boverride\b"),
+          _ci(_OVERRIDE_OF_INSTRUCTIONS),
           "Override phrasing in untrusted content"),
     # --- FLAG: covert-action lures ---
     _Rule(ScanDisposition.FLAG, "injection.covert",
