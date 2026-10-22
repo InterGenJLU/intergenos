@@ -44,11 +44,11 @@ So this corpus documents the floor boundary in three honest parts:
 
 | Coverage tier | Fixtures | Meaning |
 |---|---:|---|
-| `FLOOR`    | 64 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
+| `FLOOR`    | 65 | caught by the deterministic floor (asserted `BLOCK`/`FLAG`) |
 | `DEEP`     | 19 | evasion the floor misses by design → deep tier (asserted `ALLOW`) |
 | `PROPOSED` |  0 | (the initial 3 proposals were reviewed, approved, and adopted 2026-07-23 — see below) |
-| `HONEST`   | 28 | honest text beside a caught shape (asserted `ALLOW`) |
-| **total**  | **111** | |
+| `HONEST`   | 29 | honest text beside a caught shape (asserted `ALLOW`) |
+| **total**  | **113** | |
 
 ## Attack taxonomy
 
@@ -227,7 +227,11 @@ none of them.
 - `injection.model-addressed`: the by-name address with a colon at any word
   boundary, not only behind a line start, sentence punctuation or a quote. A
   comma there stays anchored, because honest prose has that shape ("To use
-  InterGen, you must install a model first", an `HONEST` row).
+  InterGen, you must install a model first", an `HONEST` row). A literal
+  escape of a newline, a carriage return or a tab before the name, as a
+  tool's JSON text carries it, counts as a line start
+  (`layout-json-escaped-newline`; a JSON transcript line with no directive is
+  an `HONEST` row).
 
 Given up, with the honest text that shares each shape: the bare `Override:`
 label (`override: true` is a configuration key), "Override previous

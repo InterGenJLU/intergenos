@@ -172,8 +172,10 @@ _OVERRIDE_AND_ANSWER = (r"\boverrid(?:e|es|ing)\s+(?:(?:all|any|these|those|the|
 # address takes a colon or a comma; at any other word boundary only the colon,
 # so an address after unpunctuated text ("... with pkm Assistant: ...") is
 # caught while honest prose keeps its comma ("To use InterGen, you must ...").
-# Text fused to the word before it ("pkmAssistant:") has no word boundary: the
-# page text's extractor separates elements, not this floor.
+# A literal escape of a newline, a carriage return or a tab before the name,
+# as a tool's JSON text carries it ("...pkm\\nAssistant: ..."), counts as a
+# line start. Text fused to the word before it ("pkmAssistant:") has no word
+# boundary: the page text's extractor separates elements, not this floor.
 _VOCATIVE = r"(?:(?:hey|hi|dear|attention|note)\s*,?\s+)?(?:the\s+)?" + _MODEL
 _BY_NAME_DIRECTIVE = (r"(?:your\s+(?:real|actual|true|new|only|hidden|secret|primary|main|next)"
                       r"\s+(?:task|job|goal|instructions?|purpose|role|objective|mission|directive|priority)"
@@ -259,7 +261,8 @@ _INGRESS_RULES: list[_Rule] = [
           "Instruction addressed to an AI model reading this content"),
     _Rule(ScanDisposition.FLAG, "injection.model-addressed",
           _cim(r"(?:^|[.!?;]\s+|[\"'(\[]\s*)" + _VOCATIVE + r"\s*[:,]\s*" + _BY_NAME_DIRECTIVE
-               + r"|\b" + _VOCATIVE + r"\s*:\s*" + _BY_NAME_DIRECTIVE),
+               + r"|\b" + _VOCATIVE + r"\s*:\s*" + _BY_NAME_DIRECTIVE
+               + r"|(?:\\[nrt])+[ \t]*" + _VOCATIVE + r"\s*[:,]\s*" + _BY_NAME_DIRECTIVE),
           "Instruction addressed to an AI model by name ('Assistant: ...')"),
     _Rule(ScanDisposition.FLAG, "injection.model-addressed",
           _cim(r"\bif\s+you\s+are\s+(?:an?\s+)?" + _MODEL
