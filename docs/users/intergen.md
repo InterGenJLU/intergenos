@@ -98,7 +98,8 @@ Something leaves the machine only in these cases:
   first shows you the exact text and the provider's name, and sends
   nothing until you approve. The `escalation.mode` setting (`ask` by
   default; `never`, `fallback` or `auto`) decides when InterGen offers
-  this, never whether it asks you first.
+  this; `never` also refuses a send you ask for, and no mode sends
+  without asking you first.
 
 
 ## How it scales to your hardware
