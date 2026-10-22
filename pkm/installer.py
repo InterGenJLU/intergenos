@@ -24,6 +24,7 @@ from the staged tree before deploy. Per RFC v2 §2g and the §8 OQ4 resolution
 generation, so the content-hash property has no NULL-checksum holes.
 """
 
+import errno
 import hashlib
 import json
 import os
@@ -1777,6 +1778,17 @@ def _named_archive_caller_uid(named):
     return os.getuid()
 
 
+def _why_proc_fd_failed(error):
+    """The words for a path under /proc/self/fd that could not be reached.
+    /proc is named only for ENOENT, which is what a /proc that is not mounted
+    gives; any other error (EACCES: an account that cannot read the file) is
+    stated by its own name, so the words point at the cause."""
+    name = errno.errorcode.get(error.errno, str(error.errno))
+    if error.errno == errno.ENOENT:
+        return f"{error.strerror or error}, {name}; is /proc mounted?"
+    return f"{error.strerror or error}, {name}"
+
+
 def _open_named_archive(named):
     """Open the file a person named for reading, having first judged it on a
     descriptor that reads nothing.
@@ -1820,8 +1832,8 @@ def _open_named_archive(named):
         except OSError as e:
             raise NamedArchiveRefused(
                 f"pkm opens {named} for reading through /proc/self/fd, which "
-                f"does not reach it here ({e.strerror or e}; is /proc "
-                f"mounted?). Nothing was changed.") from e
+                f"does not reach it here ({_why_proc_fd_failed(e)}). Nothing "
+                f"was changed.") from e
         opened = os.fstat(fd)
         if (opened.st_dev, opened.st_ino) != (held.st_dev, held.st_ino):
             os.close(fd)
@@ -1885,14 +1897,15 @@ def hold_named_archive(named):
         path = f"/proc/self/fd/{directory_fd}/{leaf}"
         try:
             reached = os.stat(path)
-        except OSError:
-            reached = None
-        if reached is None or ((reached.st_dev, reached.st_ino)
-                               != (written.st_dev, written.st_ino)):
+        except OSError as e:
             raise NamedArchiveRefused(
                 f"pkm reads a private copy of {named} through /proc/self/fd, "
-                f"which does not reach it here (is /proc mounted?). Nothing "
-                f"was changed.")
+                f"which does not reach it here ({_why_proc_fd_failed(e)}). "
+                f"Nothing was changed.") from e
+        if (reached.st_dev, reached.st_ino) != (written.st_dev, written.st_ino):
+            raise NamedArchiveRefused(
+                f"the private copy of {named} that pkm reads through "
+                f"/proc/self/fd is not the file it wrote. Nothing was changed.")
         if _hash_held_copy(path) != digest:
             raise NamedArchiveRefused(
                 f"the private copy of {named} does not hold the bytes read "

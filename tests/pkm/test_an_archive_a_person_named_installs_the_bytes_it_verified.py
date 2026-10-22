@@ -23,10 +23,12 @@ installed build's content or to another build, and a FIFO whose writer waits,
 change neither what is compared nor what is said.
 """
 
+import errno
 import io
 import os
 import shutil
 import stat
+import tempfile
 import threading
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -431,6 +433,65 @@ def test_a_fifo_swapped_in_after_the_hold_is_never_opened_by_the_same_build_deci
     assert seen == [], f"pkm waited in the FIFO's open {len(seen)} more time(s): {said}"
     assert not rc, said
     assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED, said
+
+
+def _failing_under_proc_fd(error_number, real):
+    def call(path, *args, **kwargs):
+        if str(path).startswith("/proc/self/fd/"):
+            raise OSError(error_number, os.strerror(error_number), str(path))
+        return real(path, *args, **kwargs)
+    return call
+
+
+def _private_copies():
+    return {p for p in os.listdir(tempfile.gettempdir()) if p.startswith("pkm-named-archive-")}
+
+
+def _refusal_of_the_hold(local, name, replacement):
+    before = _private_copies()
+    with patch.object(installer_module.os, name, replacement):
+        with pytest.raises(installer_module.NamedArchiveRefused) as refused:
+            installer_module.hold_named_archive(local.named)
+    assert _private_copies() == before, "the refused hold left its private copy behind"
+    words = str(refused.value)
+    assert "Nothing was changed" in words, words
+    return words
+
+
+@pytest.mark.parametrize("call", ["open", "stat"])
+def test_a_missing_path_under_proc_fd_asks_whether_proc_is_mounted(local, call):
+    """ENOENT under /proc/self/fd is what a /proc that is not mounted gives:
+    the reading open of the named file (open) and the read-back of the private
+    copy (stat) both say so."""
+    words = _refusal_of_the_hold(local, call, _failing_under_proc_fd(
+        errno.ENOENT, getattr(os, call)))
+    assert "No such file or directory" in words and "is /proc mounted?" in words, words
+
+
+@pytest.mark.parametrize("call", ["open", "stat"])
+def test_another_error_under_proc_fd_is_named_and_not_blamed_on_proc(local, call):
+    """At EACCES (an account that cannot read a root's file, a run with --root
+    as the account) the words said "is /proc mounted?", pointing away from the
+    cause; they now name the error."""
+    words = _refusal_of_the_hold(local, call, _failing_under_proc_fd(
+        errno.EACCES, getattr(os, call)))
+    assert "Permission denied, EACCES" in words, words
+    assert "/proc mounted" not in words, words
+
+
+def test_a_private_copy_that_is_not_the_file_written_is_named_as_such(local):
+    """The read-back reaching another file than the one written was put down
+    to an unmounted /proc as well."""
+    real = os.stat
+
+    def another_file(path, *args, **kwargs):
+        if str(path).startswith("/proc/self/fd/"):
+            return real(local.other)
+        return real(path, *args, **kwargs)
+
+    words = _refusal_of_the_hold(local, "stat", another_file)
+    assert "is not the file it wrote" in words, words
+    assert "/proc mounted" not in words, words
 
 
 @pytest.mark.parametrize("verb", ["install", "upgrade"])
