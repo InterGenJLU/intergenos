@@ -6512,14 +6512,20 @@ class ConversationRouter(RouterInterface):
         return result
 
     def _maybe_stage_generate_and_save(self, user_input: str,
-                                       generated_text: str) -> str | None:
+                                       generated_text: str, *,
+                                       fallbacks: "list[str] | None" = None
+                                       ) -> str | None:
         """M7 follow-on: for a single-turn "write <artifact> and save it", stage a
         gated write_file offer to save the JUST-generated artifact (branch 3 reused
         with the fresh answer as the draft) and return the offer line to append.
         Returns None when the turn is not a generate-and-save, no artifact was
         produced (an empty completion or an honesty fallback — never stage a bogus
-        save), or the resolver can't resolve a save. getattr-guarded."""
+        save), the text is one the turn's `fallbacks` name (the model client's own
+        text or a screen's: code wrote it, so it is no artifact of the person's),
+        or the resolver can't resolve a save. getattr-guarded."""
         if not _GENERATE_AND_SAVE_RE.search(user_input or ""):
+            return None
+        if fallbacks:
             return None
         text = (generated_text or "").strip()
         # Only a real artifact is saveable — a fenced code block or substantial prose.
@@ -8031,7 +8037,8 @@ class ConversationRouter(RouterInterface):
         # the fresh answer as the draft) rather than leaving the model to narrate a
         # save it cannot perform. The r54 claim-screen above is the net; this restores
         # the gated-offer path for the natural single-turn phrasing.
-        save_line = self._maybe_stage_generate_and_save(user_input, text)
+        save_line = self._maybe_stage_generate_and_save(
+            user_input, text, fallbacks=fallbacks)
         if save_line:
             text = text.rstrip() + "\n\n" + save_line
 
@@ -8077,8 +8084,12 @@ class ConversationRouter(RouterInterface):
             used_llm=True,
             # Free model text: no dispatch stands behind it, and the turn
             # dispatched nothing. Declared rather than left blank so the reply
-            # is never mistaken for an uninstrumented path.
-            answer_linkage=AnswerLinkage(kind="model", renderer="llm_freeform"),
+            # is never mistaken for an uninstrumented path. A text the model
+            # did not write is code's: the linkage names the last writer the
+            # turn recorded, the model client or the screen that served it.
+            answer_linkage=(AnswerLinkage(kind="code", renderer=fallbacks[-1])
+                            if fallbacks else
+                            AnswerLinkage(kind="model", renderer="llm_freeform")),
             escalated=not response.local,
             escalation_provider=(
                 response.model if not response.local else None

@@ -174,5 +174,64 @@ class ANameIsRecordedOnlyForTheTextDelivered(unittest.TestCase):
         self.assertNotIn("Source:", result.text)
 
 
+SAVE_ASK = "compose a poem, then save it"
+
+
+class NoSaveIsStagedFromCodesText(unittest.TestCase):
+    """A text code wrote is no artifact of the person's: asked to compose and
+    save, the turn stages no save of the client's text or of a screen's (the
+    scope steer was staged as draft.txt when the server was down)."""
+
+    def test_no_save_of_the_server_down_text_on_either_floor(self):
+        for locked in (True, False):
+            with self.subTest(locked=locked):
+                result, router, _, _ = _turn(SAVE_ASK, _REFUSED, locked=locked)
+                self.assertEqual(result.text, SERVER_DOWN)
+                self.assertIsNone(router._conv.pending_action_offer)
+
+    def test_no_save_of_a_screens_text(self):
+        # The model refuses twice, so the refusal screen serves the scope steer.
+        result, router, asked, _ = _turn(SAVE_ASK, MODEL_REFUSAL, locked=True)
+        self.assertEqual(asked, 2)
+        self.assertIn("frontier model", result.text)
+        self.assertIsNone(router._conv.pending_action_offer)
+
+    def test_the_models_own_poem_is_still_offered_for_saving(self):
+        poem = ("Amber leaves descend in quiet spirals,\nthe orchard hums a slower "
+                "song,\nand every lamp along the lane\nkeeps the evening company "
+                "all night long.")
+        result, router, _, _ = _turn(SAVE_ASK, poem, locked=True)
+        self.assertTrue(result.text.startswith(poem))
+        offer = router._conv.pending_action_offer
+        self.assertIsNotNone(offer)
+        self.assertEqual(offer[1], "write_file")
+        self.assertEqual(offer[3].get("content"), poem)
+
+
+class TheLinkageNamesWhoWroteTheText(unittest.TestCase):
+    """The freeform route's answer linkage reads kind "code" with the writer's
+    name whenever the delivered text is code's, and kind "model" otherwise."""
+
+    def test_the_clients_text_is_linked_to_the_client(self):
+        for locked in (True, False):
+            with self.subTest(locked=locked):
+                result, _, _, _ = _turn(GENERAL_ASK, _REFUSED, locked=locked)
+                self.assertEqual((result.answer_linkage.kind,
+                                  result.answer_linkage.renderer),
+                                 ("code", "model_server_down"))
+
+    def test_a_screens_text_is_linked_to_the_screen(self):
+        result, _, _, _ = _turn(GENERAL_ASK, MODEL_REFUSAL, locked=True)
+        self.assertEqual((result.answer_linkage.kind, result.answer_linkage.renderer),
+                         ("code", "refusal_screen"))
+
+    def test_the_models_answer_is_linked_to_the_model(self):
+        result, _, _, _ = _turn(GENERAL_ASK, OWN_ANSWER, locked=True,
+                                wiki=WHAT_LEAVES_INTRO_PAGE)
+        self.assertTrue(result.text.endswith(_WHAT_LEAVES_CITATION))
+        self.assertEqual((result.answer_linkage.kind, result.answer_linkage.renderer),
+                         ("model", "llm_freeform"))
+
+
 if __name__ == "__main__":
     unittest.main()
