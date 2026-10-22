@@ -22,3 +22,11 @@ def test_live_information_answer_acknowledges_explicit_web_search():
     assert "local" in text.lower()
     assert "don't browse the web" not in text.lower()
     assert "offline by design" not in text.lower()
+
+
+def test_the_web_search_answer_names_the_page_fetch():
+    # A search also fetches the first result's page from its own site; an
+    # answer naming only the query sent to the provider left that out.
+    text = answer("igos-live-web-and-realtime-data")
+    assert "fetches the first result's page" in text
+    assert "public addresses only" in text

@@ -82,7 +82,7 @@
       "what's the news today",
       "can you tell me today's weather"
     ],
-    "answer": "InterGen has an explicit **web-search tool**. Ask **“search the web for …”**; that is the documented reliable phrasing for an online lookup.\n\nA web search sends the query to the configured search provider. Ordinary local-system questions stay on the machine; web search is a disclosed network exception.\n\nFor current prices, news or weather, use a fresh search result and check its source and date. Model training alone does not establish a live fact, and a failed lookup is not evidence of a current value.",
+    "answer": "InterGen has an explicit **web-search tool**. Ask **“search the web for …”**; that is the documented reliable phrasing for an online lookup.\n\nA web search sends the query to the configured search provider. It then fetches the first result's page from that page's own site (public addresses only, with size and time limits) and reads it. Ordinary local-system questions stay on the machine; web search is a disclosed network exception.\n\nFor current prices, news or weather, use a fresh search result and check its source and date. Model training alone does not establish a live fact, and a failed lookup is not evidence of a current value.",
     "doc_source": "docs/users/intergen.md; intergen/data/capability-surface.json",
     "requires": []
   }
