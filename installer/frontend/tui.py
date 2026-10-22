@@ -561,8 +561,13 @@ def walking():
         "premium tiers). The assistant runs on this machine and sends "
         "nothing in the background; a web search you ask for, or accept "
         "when it is offered, sends its search words to the search service "
-        "and fetches the first result's page, and a question goes to a "
-        "cloud provider only if you set one up.",
+        "and fetches the first result's page. A network check such as ping "
+        "or dig reaches the host it names, and runs without asking only "
+        "when you ask for it directly and nothing from outside has been "
+        "read in the conversation; otherwise the assistant asks you first. "
+        "Your IP address is looked up at a public DNS resolver only when "
+        "you ask for it, and a question goes to a cloud provider only if "
+        "you set one up.",
         default_no=True,
     )
 

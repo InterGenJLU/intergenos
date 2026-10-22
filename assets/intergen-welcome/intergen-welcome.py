@@ -4654,8 +4654,13 @@ def build_intergen_page():
               'terminal needed. The model runs on your machine and sends '
               'nothing in the background; a web search you ask for, or accept '
               'when it is offered, sends its search words to the search service '
-              'and fetches the first result\'s page, and a question goes to a '
-              'cloud provider only if you set one up. You\'ll be asked to '
+              'and fetches the first result\'s page. A network check such as '
+              'ping or dig reaches the host it names, and runs without asking '
+              'only when you ask for it directly and nothing from outside has '
+              'been read in the conversation; otherwise the assistant asks you '
+              'first. Your IP address is looked up at a public DNS resolver '
+              'only when you ask for it, and a question goes to a cloud '
+              'provider only if you set one up. You\'ll be asked to '
               'authenticate once, and the model\'s license is shown as it installs.'
     )
     setup_desc.add_css_class('intergen-summon-text')

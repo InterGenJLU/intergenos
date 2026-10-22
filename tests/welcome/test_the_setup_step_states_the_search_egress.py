@@ -9,7 +9,8 @@ its search words to the search service and then fetches the first result's
 page, and a question goes to a cloud provider once the person sets one up, so
 the sentence denied an egress the code performs. It now says the model runs on
 the machine and sends nothing in the background, names the search and its page
-fetch as happening on the person's word, and names the cloud provider's
+fetch as happening on the person's word, the network check and the IP answer's
+resolver query with the conditions they run under, and the cloud provider's
 condition, as the InterGen toggle's disclosure does.
 
 The label is read from the Welcomer's source as Python reads it, its literal
@@ -59,6 +60,16 @@ def test_the_step_names_the_search_its_page_fetch_and_the_cloud_condition():
     assert "sends its search words to the search service" in text
     assert "fetches the first result's page" in text
     assert "a question goes to a cloud provider only if you set one up" in text
+
+
+def test_the_step_names_the_network_check_and_the_ip_lookup():
+    text = _setup_description()
+    assert "A network check such as ping or dig reaches the host it names" in text
+    assert ("runs without asking only when you ask for it directly and nothing "
+            "from outside has been read in the conversation; otherwise the "
+            "assistant asks you first") in text
+    assert ("Your IP address is looked up at a public DNS resolver only when "
+            "you ask for it") in text
 
 
 def test_the_rest_of_the_step_stays():

@@ -9,9 +9,12 @@ to the search service and then fetches the first result's page, and a question
 goes to a cloud provider once the person sets one up, so the sentence denied an
 egress the code performs. The label now says the AI runs on the machine and
 sends nothing in the background, names the search and its page fetch as
-happening on the person's word (asked for, or accepted when offered), and names
-the cloud provider's condition; the opt-in sentence and the two terminal
-commands stay.
+happening on the person's word (asked for, or accepted when offered), names the
+network check (it reaches the host it names, and runs without asking only on
+the person's direct ask in a conversation that has read nothing from outside)
+and the IP answer's resolver query (only when the person asks), and names the
+cloud provider's condition; the opt-in sentence and the two terminal commands
+stay.
 
 The label is read from the app's source as Python reads it (adjacent string
 literals joined), without importing GTK: the window is not opened here.
@@ -58,6 +61,20 @@ def test_the_disclosure_names_the_cloud_providers_condition():
     text = _disclosure()
     assert "a question goes to a cloud provider only if you set one up" in text
     assert "sends nothing in the background" in text
+
+
+def test_the_disclosure_names_the_network_check_and_the_ip_lookup():
+    # The two other paths that leave the machine: a read-only network command
+    # reaches the host it names, without a prompt only on the person's direct
+    # ask in a conversation that has read nothing from outside, and the IP
+    # answer asks a public resolver only when the person asks for it.
+    text = _disclosure()
+    assert "A network check such as ping or dig reaches the host it names" in text
+    assert ("runs without asking only when you ask for it directly and nothing "
+            "from outside has been read in the conversation; otherwise the "
+            "assistant asks you first") in text
+    assert ("Your IP address is looked up at a public DNS resolver only when "
+            "you ask for it") in text
 
 
 def test_the_opt_in_and_the_two_terminal_commands_stay():
