@@ -299,7 +299,8 @@ def _dirty(state):
     state.action_offer_ttl = 3
     state.offer_in_recent_history = True
     state.offer_topic_terms = frozenset({"upgrade"})
-    state.handed_off_commands.add("sudo pkm upgrade")
+    state.handed_off_commands["sudo pkm upgrade"] = (
+        "it was refused outright before any review")
     state.first_interaction = False
     return state
 
@@ -327,7 +328,7 @@ class NewSessionClearsTheConversationTests(unittest.TestCase):
         self.assertEqual(conv.action_offer_ttl, 0)
         self.assertFalse(conv.offer_in_recent_history)
         self.assertEqual(conv.offer_topic_terms, frozenset())
-        self.assertEqual(conv.handed_off_commands, set())
+        self.assertEqual(conv.handed_off_commands, {})
         self.assertTrue(conv.first_interaction)
 
     def test_a_yes_in_the_new_session_cannot_accept_the_old_offer(self):

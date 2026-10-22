@@ -254,6 +254,27 @@ def _offered_again(command, *, page_read=False):
         return router._stage_action_offer_or_handoff(command, "run_command", ASK)
 
 
+def _offered_again_after(command, answer, *, bridge=False):
+    """(the accepted offer's refusal, the same offer made again) in ONE
+    conversation: what the loop-killer's handoff is told after the action it
+    no longer offers ran nothing. With `bridge` the review is the web panel's
+    own bridge for an accepted offer, under a governance that hard-denies: it
+    refuses the call before any card is raised."""
+    router = _fresh()
+    if bridge:
+        server = WebServer(router=router, llm=_OneCallLLM(None),
+                           tools=router._tools, governance=_HardDeny())
+        router._review_callback = server._make_web_review_callback(
+            None, "turn1", None)
+    else:
+        router._review_callback = _answer(answer)
+    with _nothing_runs(router):
+        first = router._run_staged_action(command, "run_command").text
+        again = router._stage_action_offer_or_handoff(command, "run_command",
+                                                      ASK)
+    return first, again
+
+
 def _commands(text):
     return re.findall(r"`([^`]+)`", text or "")
 
@@ -535,6 +556,30 @@ class EveryOutcomeIsToldItsOwnReason(_Checks):
         # A blocked command is refused before any card, so it is never
         # offered: made again, nothing is offered and nothing handed over.
         self.assertEqual(_offered_again("rm -rf /"), "")
+
+    def test_an_offer_made_again_withholds_what_its_refusal_withheld(self):
+        """In one conversation the accepted offer ran nothing, then the same
+        action is offered again: a command line the first refusal withheld is
+        withheld again, and one it handed over is handed over again, each with
+        the loop-killer's reason."""
+        command = RESTART["command"]
+        for row, answer, bridge in (
+                ("refused outright", reg_mod.REFUSED_WITHOUT_REVIEW, False),
+                ("refused outright by the web panel's review bridge", None,
+                 True)):
+            with self.subTest(row):
+                first, again = _offered_again_after(command, answer,
+                                                    bridge=bridge)
+                self.assertToldWhyAndNothingMore(
+                    first, reg_mod.REFUSED_WITHOUT_REVIEW, "systemctl", "sshd")
+                self.assertToldWhyAndNothingMore(
+                    again, HANDED_OFF_BEFORE, "systemctl", "sshd")
+        with self.subTest("the person's own Deny"):
+            first, again = _offered_again_after(command, "deny")
+            self.assertHandedOverWithItsReason(first, "denied",
+                                               f"sudo {command}")
+            self.assertHandedOverWithItsReason(again, HANDED_OFF_BEFORE,
+                                               f"sudo {command}")
 
     def test_an_outbound_check_refusal(self):
         """The egress scan runs only for a call that is not the person's own

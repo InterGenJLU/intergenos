@@ -3733,12 +3733,15 @@ class ConversationRouter(RouterInterface):
         self._conv.offer_topic_terms = value
 
     @property
-    def _handed_off_commands(self) -> "set[str]":
+    def _handed_off_commands(self) -> "dict[str, str]":
         return self._conv.handed_off_commands
 
     @_handed_off_commands.setter
     def _handed_off_commands(self, value) -> None:
-        self._conv.handed_off_commands = set(value)
+        # A mapping keeps each command's withheld reason; bare commands were
+        # handed over.
+        self._conv.handed_off_commands = (
+            dict(value) if isinstance(value, dict) else dict.fromkeys(value, ""))
 
     @property
     def _turn_index(self):
@@ -6087,13 +6090,23 @@ class ConversationRouter(RouterInterface):
         conversation (loop-killer)."""
         return self._norm_command(command) in self._conv.handed_off_commands
 
-    def _note_handed_off(self, command: str) -> None:
+    def _note_handed_off(self, command: str, withheld: str = "") -> None:
         """Record an action as declined / handed off so it is never re-offered as
-        fresh in this conversation (loop-killer)."""
+        fresh in this conversation (loop-killer), beside `withheld`: the
+        registry's reason its command line was not handed over when it did not
+        run (tool_registry.handoff_withheld), "" when it was. A reason once
+        recorded is kept, so a line withheld once is never handed over later."""
         key = self._norm_command(command)
         if not key:
             return
-        self._conv.handed_off_commands.add(key)
+        handed = self._conv.handed_off_commands
+        handed[key] = handed.get(key) or withheld
+
+    def _handed_off_withheld(self, command: str) -> str:
+        """Why this action's command line was withheld when it did not run
+        earlier in this conversation, or "" (loop-killer)."""
+        return self._conv.handed_off_commands.get(
+            self._norm_command(command), "")
 
     def _handoff_line(self, command: str, *, call: "ToolCall | None" = None,
                       tool_result: "ToolResult | None" = None,
@@ -6160,18 +6173,23 @@ class ConversationRouter(RouterInterface):
             self._stage_single_offer()
             # What is handed over is a command line, so the rule is asked of
             # it as one, under the provenance the gate would give it now.
-            from intergen.tool_registry import HANDED_OFF_BEFORE
+            from intergen.tool_registry import (HANDED_OFF_BEFORE,
+                                                refusal_without_handoff)
+            # A line withheld when the action did not run is withheld again:
+            # the call read alone cannot show it was refused outright.
+            withheld = (self._handed_off_withheld(shown)
+                        or self._handed_off_withheld(command))
             if args is not None:
                 from intergen.tool_registry import (describe_call,
                                                     handoff_command,
                                                     handoff_withheld,
-                                                    honest_handoff_message,
-                                                    refusal_without_handoff)
+                                                    honest_handoff_message)
                 call = ToolCall(name=staged_tool, arguments=args,
                                 source_of_request=self._own_ask_provenance())
                 tools = getattr(self, "_tools", None)
-                if handoff_withheld(call, None, tools.get_tool(staged_tool)
-                                    if tools is not None else None):
+                if withheld or handoff_withheld(
+                        call, None, tools.get_tool(staged_tool)
+                        if tools is not None else None):
                     return refusal_without_handoff(call,
                                                    outcome=HANDED_OFF_BEFORE)
                 return honest_handoff_message("", handoff_command(call),
@@ -6179,6 +6197,8 @@ class ConversationRouter(RouterInterface):
                                               outcome=HANDED_OFF_BEFORE)
             call = ToolCall(name="run_command", arguments={"command": shown},
                             source_of_request=self._own_ask_provenance())
+            if withheld:
+                return refusal_without_handoff(call, outcome=HANDED_OFF_BEFORE)
             return self._handoff_line(shown, call=call,
                                       outcome=HANDED_OFF_BEFORE)
         self._stage_single_offer(action=(shown, staged_tool, original, args))
@@ -6862,7 +6882,13 @@ class ConversationRouter(RouterInterface):
         # write_file (no user-runnable command line): a bare "I can't do that
         # here" is honest there.
         if not tool_result.executed and not tool_result.success:
-            self._note_handed_off(command if tool == "run_command" else display)
+            # Recorded beside why its line is withheld, so the loop-killer's
+            # handoff withholds it as this refusal does.
+            from intergen.tool_registry import handoff_withheld
+            self._note_handed_off(
+                command if tool == "run_command" else display,
+                withheld=handoff_withheld(call, tool_result,
+                                          self._tools.get_tool(call.name)))
             if tool == "run_command":
                 handoff = self._handoff_line(command, call=call,
                                              tool_result=tool_result)

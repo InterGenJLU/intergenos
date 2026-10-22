@@ -183,7 +183,9 @@ class ConversationState:
     ``action_offer_ttl``      turns the preventive-grounding window stays open
     ``offer_in_recent_history`` whether that window is open for THIS turn
     ``offer_topic_terms``     the offered command's content words
-    ``handed_off_commands``   commands already declined or handed off here
+    ``handed_off_commands``   commands already declined or handed off here,
+                              each beside why its command line was withheld
+                              when it did not run ("" when it was handed over)
     ``transcript``            every exchange this conversation has had, in
                               order and verbatim, never trimmed
     ``executed_outputs``      the output of every tool that ran in this
@@ -220,7 +222,13 @@ class ConversationState:
     action_offer_ttl: int = 0
     offer_in_recent_history: bool = False
     offer_topic_terms: frozenset[str] = frozenset()
-    handed_off_commands: set[str] = field(default_factory=set)
+    # The loop-killer's record: each command that did not run when it came up,
+    # beside the registry's reason its command line was withheld then
+    # (tool_registry.handoff_withheld), or "" when it was handed over. The
+    # action is not offered again, and a line withheld once is withheld again:
+    # read back without the reason, a command refused outright would be handed
+    # over the second time it came up.
+    handed_off_commands: dict[str, str] = field(default_factory=dict)
     # Every exchange, in order, verbatim, unbounded — (user_input, response).
     #
     # `history` is the MODEL-FACING buffer and is trimmed in place to the last

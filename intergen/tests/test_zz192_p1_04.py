@@ -127,7 +127,8 @@ def _dirty(state):
     state.action_offer_ttl = 3
     state.offer_in_recent_history = True
     state.offer_topic_terms = frozenset({"upgrade"})
-    state.handed_off_commands.add("pkm upgrade")
+    state.handed_off_commands["pkm upgrade"] = (
+        "it was refused outright before any review")
     state.transcript.append(("how do I update my system",
                              "you would run pkm upgrade"))
     state.first_interaction = False
@@ -166,7 +167,7 @@ def _assert_conversation_ended(case, conv, door):
                      f"{door}: the grounding window flag survived")
     case.assertEqual(conv.offer_topic_terms, frozenset(),
                      f"{door}: the grounding topic terms survived")
-    case.assertEqual(conv.handed_off_commands, set(),
+    case.assertEqual(conv.handed_off_commands, {},
                      f"{door}: the handed-off set survived")
     case.assertEqual(list(conv.transcript), [],
                      f"{door}: the verbatim transcript survived")
