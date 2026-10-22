@@ -91,7 +91,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-from intergen.held_open import HeldOpenRefused, held_directory
+from intergen.held_open import HeldOpenRefused, held_directory, open_held_at
 from intergen.private_state import private_dir
 
 logger = logging.getLogger(__name__)
@@ -845,26 +845,27 @@ def _assert_opened_as_checked(fd: int, text: str) -> None:
 
 def _opened_existing(dir_fd: int, name: str, text: str, flags: int,
                      mode: int) -> int:
-    """Open an existing `name` in `dir_fd` without following a link or waiting
-    on a FIFO, then check it is the regular file at `text` and no secret."""
+    """Open an existing `name` in `dir_fd` as the regular file the hold
+    identified (held_open.open_held_at): never through a link, and never by
+    running what a FIFO or a device does when it is opened, so a refusal here
+    is made before anything was opened. Then check its kernel path is `text`
+    and that it is no secret."""
     try:
-        fd = os.open(name, (flags & ~os.O_CREAT) | os.O_NOFOLLOW | os.O_NONBLOCK,
-                     mode, dir_fd=dir_fd)
-    except OSError as exc:
-        if exc.errno == errno.ELOOP:
+        fd, _held = open_held_at(dir_fd, name, flags, text)
+    except HeldOpenRefused as exc:
+        if exc.refusal == "link":
             raise PathNotOpenedAsChecked(
                 f"{text} is a link now, and under the privileged runner a path "
                 f"is never opened through a link; nothing was read or "
                 f"written.") from exc
-        if exc.errno == errno.ENXIO:
+        if exc.refusal == "kind":
             raise PathNotOpenedAsChecked(
                 f"{text} is not a regular file (a FIFO, a socket or a device); "
                 f"under the privileged runner only a regular file is opened to "
                 f"be read or written, so nothing was.") from exc
-        raise
+        raise PathNotOpenedAsChecked(str(exc)) from exc
     try:
         _assert_opened_as_checked(fd, text)
-        os.set_blocking(fd, True)
     except BaseException:
         os.close(fd)
         raise

@@ -179,5 +179,55 @@ class TheHoldOpensNothingItRefuses(_Scratch):
         self.assertEqual(opened_for_io(str(path)), [])
 
 
+class TheRunnersFileToolHoldsTheObjectFirst(_Scratch):
+    """write_file under the privileged runner opens an existing name through
+    the hold: a FIFO or a device at the name is refused before it is opened,
+    so the refusal's "nothing was" is true. The runner's condition (root with
+    the caller's PKEXEC_UID) is stood in for; the walk and the opens are
+    real."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        from intergen import dispatch_token
+        self.dt = dispatch_token
+        runner = mock.patch.object(dispatch_token, "_under_the_privileged_runner",
+                                   return_value=True)
+        runner.start()
+        self.addCleanup(runner.stop)
+
+    def test_control_a_regular_file_is_read_under_the_runner(self) -> None:
+        path = self.root / "notes.txt"
+        path.write_text("the notes")
+        self.assertEqual(self.dt.read_text_refusing_install_secrets(path),
+                         "the notes")
+
+    def test_a_fifo_read_for_its_old_content_is_not_opened(self) -> None:
+        fifo = self.fifo("notes.txt")
+        peer = _BlockedPeer(fifo, os.O_WRONLY)
+        _OPENS.clear()
+        with self.assertRaises(self.dt.PathNotOpenedAsChecked) as refused:
+            self.dt.read_text_refusing_install_secrets(fifo)
+        self.assertIn("so nothing was", str(refused.exception))
+        self.assertFalse(peer.settle(), "the FIFO was opened for reading")
+        self.assertEqual(opened_for_io(str(fifo)), [])
+
+    def test_a_fifo_written_is_not_opened(self) -> None:
+        fifo = self.fifo("notes.txt")
+        peer = _BlockedPeer(fifo, os.O_RDONLY)
+        _OPENS.clear()
+        with self.assertRaises(self.dt.PathNotOpenedAsChecked) as refused:
+            self.dt.opened_refusing_install_secrets(fifo, os.O_WRONLY)
+        self.assertIn("so nothing was", str(refused.exception))
+        self.assertFalse(peer.settle(), "the FIFO was opened for writing")
+        self.assertEqual(opened_for_io(str(fifo)), [])
+
+    def test_a_device_is_refused_before_it_is_opened(self) -> None:
+        _OPENS.clear()
+        with self.assertRaises(self.dt.PathNotOpenedAsChecked) as refused:
+            self.dt.opened_refusing_install_secrets("/dev/null", os.O_RDONLY)
+        self.assertIn("not a regular file", str(refused.exception))
+        self.assertEqual(opened_for_io("/dev/null"), [])
+
+
 if __name__ == "__main__":
     unittest.main()
