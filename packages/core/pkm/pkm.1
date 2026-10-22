@@ -31,9 +31,11 @@ are fetched from configured repositories and dependencies are resolved
 automatically. With
 .BR \-\-archive ,
 .I PATH
-must be a regular file (a symbolic link or a FIFO is refused); pkm reads it
-once into a private copy, and the trust check, the package checks and the
-install all read that copy, never the named file again.
+must be a regular file that belongs to you (the account that ran sudo or
+pkexec) or to root; a symbolic link, a FIFO, a device and another account's
+file are refused before pkm opens them to read. pkm reads it once into a
+private copy, and the trust check, the package checks and the install all
+read that copy, never the named file again.
 .TP
 .BR install-helper " \fIPACKAGE\fR"
 Install proprietary or third-party software via a named download helper

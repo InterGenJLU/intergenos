@@ -13,6 +13,9 @@ same file rewritten in place, and its parent directory swapped. The installed
 bytes must be the verified ones. The open itself is checked too: a link or a
 FIFO named as the archive is refused, at once, and the private copy pkm reads
 is made in a directory no other account can change and is gone afterwards.
+The path is judged before it is opened to read: a FIFO whose writer waits in
+its open is refused without the writer being let go, and a file that belongs
+neither to the account that asked for the command nor to root is refused.
 """
 
 import io
@@ -34,6 +37,14 @@ from tests.pkm.test_upgrade_from_local_archive import FakeRepo, _make_archive, _
 
 VERIFIED = b"#!/bin/sh\necho the verified build\n"
 SWAPPED = b"#!/bin/sh\necho another build\n"
+
+
+@pytest.fixture(autouse=True)
+def _asked_by_this_account(monkeypatch):
+    # The archive must belong to the account that asked for the command;
+    # every case runs as the account that made its files unless it says so.
+    monkeypatch.delenv("PKEXEC_UID", raising=False)
+    monkeypatch.delenv("SUDO_UID", raising=False)
 
 
 @pytest.fixture
@@ -232,6 +243,108 @@ def test_a_fifo_named_as_the_archive_is_refused_without_waiting(local, verb):
     assert "is not a regular file" in said, said
     if verb == "install":
         assert local.db.get_installed("widget") is None
+
+
+def _wait_until_blocked_in_open(tid):
+    # The writer is waiting for a reader once the kernel parks it in the
+    # FIFO's open (wchan wait_for_partner; openat is syscall 257 on x86_64,
+    # 56 on aarch64), so a release can only come from an open of the FIFO.
+    for _ in range(500):
+        try:
+            with open(f"/proc/self/task/{tid}/wchan") as handle:
+                if handle.read().strip() == "wait_for_partner":
+                    return
+            with open(f"/proc/self/task/{tid}/syscall") as handle:
+                if handle.read().split()[0] in ("257", "56"):
+                    return
+        except (OSError, IndexError):
+            pass
+        threading.Event().wait(0.01)
+    raise AssertionError("the writer never reached the FIFO's open")
+
+
+@pytest.mark.parametrize("verb", ["install", "upgrade"])
+def test_a_fifo_with_a_writer_waiting_is_refused_and_the_writer_is_not_let_go(local, verb):
+    """Opening a FIFO for reading lets a writer waiting in its open go on,
+    whatever the opener does next; a device's open runs its driver the same
+    way. pkm must judge the named path without opening it to read."""
+    if verb == "upgrade":
+        _install_old(local)
+    (local.tmp / "waiting").mkdir()
+    fifo = local.tmp / "waiting" / local.named.name
+    os.mkfifo(fifo)
+    tid = []
+    let_go = threading.Event()
+
+    def writer():
+        tid.append(threading.get_native_id())
+        fd = os.open(fifo, os.O_WRONLY)
+        let_go.set()
+        os.close(fd)
+
+    waiting = threading.Thread(target=writer, daemon=True)
+    waiting.start()
+    while not tid:
+        threading.Event().wait(0.01)
+    _wait_until_blocked_in_open(tid[0])
+    try:
+        rc, said = invoke(local, verb, archive=fifo)
+        released = let_go.wait(0.5)
+    finally:
+        if not let_go.is_set():
+            fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+            waiting.join(5)
+            os.close(fd)
+        waiting.join(5)
+    assert not released, f"pkm opened the FIFO and let its writer go: {said}"
+    assert rc == 1, said
+    assert "is not a regular file" in said, said
+    if verb == "install":
+        assert local.db.get_installed("widget") is None
+    else:
+        assert local.db.get_installed("widget")["release"] == 3
+
+
+@pytest.mark.parametrize("verb", ["install", "upgrade"])
+@pytest.mark.parametrize("variable", ["SUDO_UID", "PKEXEC_UID"])
+def test_a_file_of_another_account_is_refused(local, verb, variable, monkeypatch):
+    """The account that asked (pkexec's PKEXEC_UID, else sudo's SUDO_UID,
+    else the account pkm runs as) must own the archive it names, or root
+    must; a file another account owns is refused and nothing changes. Here
+    the asking account is one that does not own the test's archive."""
+    if verb == "upgrade":
+        _install_old(local)
+    owner = os.stat(local.named).st_uid
+    asker = owner + 1 if owner + 1 != 0 else owner + 2
+    monkeypatch.setenv(variable, str(asker))
+    before = (local.root / "usr/bin/widget").read_bytes() if verb == "upgrade" else None
+    rc, said = invoke(local, verb)
+    assert rc == 1, said
+    assert f"belongs to another account (uid {owner})" in said, said
+    assert f"(uid {asker})" in said, said
+    assert "Nothing was changed" in said, said
+    if verb == "install":
+        assert not (local.root / "usr/bin/widget").exists()
+        assert local.db.get_installed("widget") is None
+    else:
+        assert (local.root / "usr/bin/widget").read_bytes() == before
+        assert local.db.get_installed("widget")["release"] == 3
+
+
+@pytest.mark.parametrize("value", ["alice", "1000x", "", "١٠٠٠"])
+def test_an_asking_account_that_is_not_a_number_is_refused(local, value, monkeypatch):
+    monkeypatch.setenv("SUDO_UID", value)
+    rc, said = invoke(local, "install")
+    assert rc == 1, said
+    assert "is not an account number" in said, said
+    assert local.db.get_installed("widget") is None
+
+
+def test_the_asking_accounts_own_file_installs(local, monkeypatch):
+    monkeypatch.setenv("SUDO_UID", str(os.stat(local.named).st_uid))
+    rc, said = invoke(local, "install")
+    assert not rc, said  # cmd_install returns None on success
+    assert (local.root / "usr/bin/widget").read_bytes() == VERIFIED
 
 
 def test_the_private_copy_is_this_accounts_alone_and_gone_afterwards(local):

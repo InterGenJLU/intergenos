@@ -24,7 +24,6 @@ from the staged tree before deploy. Per RFC v2 §2g and the §8 OQ4 resolution
 generation, so the content-hash property has no NULL-checksum holes.
 """
 
-import errno
 import hashlib
 import json
 import os
@@ -1657,11 +1656,17 @@ def archive_preflight(name, archive_path, expected_sha256=None,
 # root. The file is now opened once, without following a link, and must be a
 # regular file; its bytes are copied from that one descriptor into a new
 # directory only this account can write, hashed as they are read, and the
-# copy is hashed again before anything uses it. Every check and every use
-# after that reads the copy, through the descriptor pkm holds on that
-# directory (/proc/self/fd/N/<the file's name>), so no directory above it --
-# the temporary directory and its parents -- is ever walked again. The copy
-# is removed when the command ends.
+# copy is hashed again before anything uses it. The open that reads it comes
+# last: the path is first opened with O_PATH, which reads nothing and runs
+# nothing a FIFO or a device does when it is opened (a writer waiting on a
+# FIFO is not let go, a driver's open is not called), and only a regular file
+# owned by the account that asked for the command, or by root, is then opened
+# for reading -- the same inode, through /proc/self/fd/N, checked to be the
+# file the first descriptor holds. Every check and every use after that
+# reads the copy, through the descriptor pkm holds on that directory
+# (/proc/self/fd/N/<the file's name>), so no directory above it -- the
+# temporary directory and its parents -- is ever walked again. The copy is
+# removed when the command ends.
 
 class NamedArchiveRefused(ValueError):
     """An archive a person named that pkm does not hold, with the reason in
@@ -1755,41 +1760,101 @@ def _hash_held_copy(path):
         os.close(fd)
 
 
-def hold_named_archive(named):
-    """Open the archive a person named ONCE and hold a private copy of it.
+def _named_archive_caller_uid(named):
+    """The account that asked for this command, which must own an archive it
+    names (root's own file is also accepted): pkexec's PKEXEC_UID, else
+    sudo's SUDO_UID, else the account pkm runs as. A set value that is not an
+    account number is refused, never guessed past."""
+    for variable in ("PKEXEC_UID", "SUDO_UID"):
+        value = os.environ.get(variable)
+        if value is None:
+            continue
+        if value.isascii() and value.isdigit():
+            return int(value)
+        raise NamedArchiveRefused(
+            f"cannot tell which account named {named}: {variable}={value!r} "
+            f"is not an account number. Nothing was changed.")
+    return os.getuid()
 
-    The path is opened without following a link and without waiting (a FIFO
-    is refused, not waited on), and only a regular file is accepted, judged
-    on the open descriptor. Its bytes are read from that descriptor, hashed
-    as they are read and written, mode 0600, under the same file name into a
-    new directory (mode 0700) whose descriptor pkm holds; the directory is
-    checked on that descriptor to be the one pkm made (this account's, mode
-    0700, empty). The copy's path is /proc/self/fd/<that descriptor>/<name>,
-    read back to reach the very file written, and the copy is hashed again
-    through it, so the hash returned is the hash of the bytes every later
-    check and use reads. Returns a HeldArchive; raises NamedArchiveRefused
-    with the reason, having removed anything it made.
-    """
-    named = str(named)
+
+def _open_named_archive(named):
+    """Open the file a person named for reading, having first judged it on a
+    descriptor that reads nothing.
+
+    O_PATH|O_NOFOLLOW opens the name itself -- a link is held as the link --
+    and runs no open-time effect, so a FIFO's waiting writer is not let go
+    and no device's driver is called. That descriptor's fstat must show a
+    regular file owned by the account that asked for the command or by root.
+    Only then is the same inode opened for reading, through
+    /proc/self/fd/<the first descriptor>, and its fstat must name the same
+    device and inode. Returns the reading descriptor; raises
+    NamedArchiveRefused with the reason."""
     try:
-        fd = os.open(named, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
-                     | os.O_CLOEXEC)
+        handle = os.open(named, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
     except OSError as e:
-        if e.errno == errno.ELOOP and os.path.islink(named):
-            raise NamedArchiveRefused(
-                f"{named} is a symbolic link. pkm installs only a file it "
-                f"opens itself, never the file a link names; name the file "
-                f"itself. Nothing was changed.") from e
         raise NamedArchiveRefused(
             f"cannot read archive {named}: {e.strerror or e}. Nothing was "
             f"changed.") from e
-    directory = directory_fd = None
-    leaf = os.path.basename(named)
     try:
-        if not stat.S_ISREG(os.fstat(fd).st_mode):
+        held = os.fstat(handle)
+        if stat.S_ISLNK(held.st_mode):
+            raise NamedArchiveRefused(
+                f"{named} is a symbolic link. pkm installs only a file it "
+                f"opens itself, never the file a link names; name the file "
+                f"itself. Nothing was changed.")
+        if not stat.S_ISREG(held.st_mode):
             raise NamedArchiveRefused(
                 f"{named} is not a regular file; an archive is installed only "
                 f"from one. Nothing was changed.")
+        caller = _named_archive_caller_uid(named)
+        if held.st_uid not in (caller, 0):
+            raise NamedArchiveRefused(
+                f"{named} belongs to another account (uid {held.st_uid}); pkm "
+                f"installs an archive named on the command line only when it "
+                f"belongs to the account that asked (uid {caller}) or to root. "
+                f"Copy it to a file of your own and name that. Nothing was "
+                f"changed.")
+        try:
+            fd = os.open(f"/proc/self/fd/{handle}",
+                         os.O_RDONLY | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError as e:
+            raise NamedArchiveRefused(
+                f"pkm opens {named} for reading through /proc/self/fd, which "
+                f"does not reach it here ({e.strerror or e}; is /proc "
+                f"mounted?). Nothing was changed.") from e
+        opened = os.fstat(fd)
+        if (opened.st_dev, opened.st_ino) != (held.st_dev, held.st_ino):
+            os.close(fd)
+            raise NamedArchiveRefused(
+                f"the file pkm opened for reading is not the {named} it "
+                f"checked. Nothing was changed.")
+        return fd
+    finally:
+        os.close(handle)
+
+
+def hold_named_archive(named):
+    """Open the archive a person named ONCE and hold a private copy of it.
+
+    The path is judged before it is opened for reading (_open_named_archive):
+    a link, a FIFO, a device or any other non-regular file, and a file of
+    another account, are refused without being opened to read, so nothing a
+    FIFO or a device does when opened is run. Its bytes are read from the one
+    reading descriptor, hashed as they are read and written, mode 0600, under
+    the same file name into a new directory (mode 0700) whose descriptor pkm
+    holds; the directory is checked on that descriptor to be the one pkm made
+    (this account's, mode 0700, empty). The copy's path is
+    /proc/self/fd/<that descriptor>/<name>, read back to reach the very file
+    written, and the copy is hashed again through it, so the hash returned is
+    the hash of the bytes every later check and use reads. Returns a
+    HeldArchive; raises NamedArchiveRefused with the reason, having removed
+    anything it made.
+    """
+    named = str(named)
+    fd = _open_named_archive(named)
+    directory = directory_fd = None
+    leaf = os.path.basename(named)
+    try:
         directory = tempfile.mkdtemp(prefix="pkm-named-archive-")
         directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY
                                | os.O_NOFOLLOW | os.O_CLOEXEC)
