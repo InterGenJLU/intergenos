@@ -91,6 +91,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from intergen.held_open import HeldOpenRefused, held_directory
 from intergen.private_state import private_dir
 
 logger = logging.getLogger(__name__)
@@ -806,25 +807,13 @@ def _checked_text(path: object) -> str:
 
 def _walked_to(directory: str) -> int:
     """Open `directory`, a resolved absolute path, one component at a time from
-    /, by descriptor, never through a link. Returns an O_PATH descriptor."""
-    fd = os.open("/", os.O_PATH | os.O_DIRECTORY | os.O_CLOEXEC)
-    walked = "/"
+    /, by descriptor, never through a link (held_open.held_directory). Returns
+    an O_PATH descriptor."""
     try:
-        for part in [part for part in directory.split(os.sep) if part]:
-            here = os.path.join(walked, part)
-            try:
-                below = os.open(part, os.O_PATH | os.O_DIRECTORY | os.O_NOFOLLOW
-                                | os.O_CLOEXEC, dir_fd=fd)
-            except OSError as exc:
-                if exc.errno in (errno.ENOTDIR, errno.ELOOP):
-                    raise _not_a_directory_now(here, exc) from exc
-                raise
-            os.close(fd)
-            fd, walked = below, here
-    except BaseException:
-        os.close(fd)
-        raise
-    return fd
+        return held_directory(directory)
+    except HeldOpenRefused as exc:
+        raise _not_a_directory_now(exc.filename or directory,
+                                   exc.__cause__ or exc) from exc
 
 
 def _not_a_directory_now(here: str, exc: OSError) -> PathNotOpenedAsChecked:

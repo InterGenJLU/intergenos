@@ -1,0 +1,183 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Copyright (C) 2015-2016, 2026 InterGenJLU
+"""A privileged open holds the object before it opens it.
+
+A path a privileged helper is handed can name a FIFO or a device as easily as
+a file, and opening one for reading or writing runs what it does when it is
+opened. Each case stages such an object and watches it with two instruments
+that cannot be fooled by the code under test: a FIFO's peer blocked in its own
+open, which returns only when something opens the FIFO from the other side
+(the kernel's own record of the open), and Python's audit hook, which records
+every open with its flags, so an O_PATH hold (which opens nothing) is told
+apart from an open for reading or writing. The controls show both instruments
+see a real open.
+"""
+from __future__ import annotations
+
+import os
+import sys
+import tempfile
+import threading
+import time
+import unittest
+from pathlib import Path
+from unittest import mock
+
+from intergen import held_open
+
+_OPENS: list[tuple[str, int]] = []
+_RECORDING = [False]
+
+
+def _record_opens(event: str, args: tuple) -> None:
+    if _RECORDING[0] and event == "open" and isinstance(args[0], str):
+        _OPENS.append((args[0], args[2] if len(args) > 2 and args[2] else 0))
+
+
+sys.addaudithook(_record_opens)
+
+
+def opened_for_io(path: str) -> list[tuple[str, int]]:
+    """Every open since the last clear of `path` (by its full path, its last
+    name or a /proc/self/fd path) that was not an O_PATH hold."""
+    name = os.path.basename(path)
+    return [(p, f) for p, f in _OPENS
+            if (p == path or p == name or p.startswith("/proc/self/fd/"))
+            and not f & os.O_PATH]
+
+
+class _BlockedPeer:
+    """A thread blocked in its own open of a FIFO: `side` O_WRONLY waits for a
+    reader, O_RDONLY for a writer. `released` is True once the open returned,
+    which happens only when something opened the FIFO from the other side."""
+
+    def __init__(self, fifo: Path, side: int) -> None:
+        self.fifo, self.released = fifo, False
+        self._thread = threading.Thread(target=self._wait, args=(side,),
+                                        daemon=True)
+        self._thread.start()
+        time.sleep(0.3)
+
+    def _wait(self, side: int) -> None:
+        fd = os.open(self.fifo, side)
+        self.released = True
+        os.close(fd)
+
+    def settle(self) -> bool:
+        """Whether the peer was released, after a moment for it to run; then
+        release it from this side if nothing did, so its thread ends."""
+        self._thread.join(1.0)
+        released = self.released
+        if not released:
+            recording, _RECORDING[0] = _RECORDING[0], False
+            try:
+                mine = os.open(self.fifo, os.O_RDWR | os.O_NONBLOCK)
+                self._thread.join(2.0)
+                os.close(mine)
+            finally:
+                _RECORDING[0] = recording
+        return released
+
+
+class _Scratch(unittest.TestCase):
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        _OPENS.clear()
+        _RECORDING[0] = True
+
+    def tearDown(self) -> None:
+        _RECORDING[0] = False
+        _OPENS.clear()
+        self._tmp.cleanup()
+
+    def fifo(self, name: str = "object") -> Path:
+        path = self.root / name
+        os.mkfifo(path, 0o600)
+        return path
+
+
+class TheHoldOpensNothingItRefuses(_Scratch):
+
+    def test_control_a_regular_file_opens_as_the_object_held(self) -> None:
+        path = self.root / "file"
+        path.write_bytes(b"the bytes")
+        _OPENS.clear()
+        fd, info = held_open.open_held(str(path), os.O_RDONLY)
+        try:
+            self.assertEqual(os.read(fd, 64), b"the bytes")
+            self.assertEqual((info.st_dev, info.st_ino),
+                             (os.stat(path).st_dev, os.stat(path).st_ino))
+        finally:
+            os.close(fd)
+        # The instrument sees the open for reading the hold makes.
+        self.assertEqual(len(opened_for_io(str(path))), 1, _OPENS)
+
+    def test_control_the_peer_instrument_sees_an_open(self) -> None:
+        fifo = self.fifo()
+        peer = _BlockedPeer(fifo, os.O_WRONLY)
+        fd = os.open(fifo, os.O_RDONLY | os.O_NONBLOCK)
+        os.close(fd)
+        self.assertTrue(peer.settle())
+
+    def test_a_fifo_is_refused_and_its_waiting_peers_stay_waiting(self) -> None:
+        for flags, side in ((os.O_RDONLY, os.O_WRONLY),
+                            (os.O_WRONLY, os.O_RDONLY)):
+            with self.subTest(flags=flags):
+                fifo = self.fifo(f"fifo-{flags}")
+                peer = _BlockedPeer(fifo, side)
+                _OPENS.clear()
+                with self.assertRaises(held_open.HeldOpenRefused) as refused:
+                    held_open.open_held(str(fifo), flags)
+                self.assertEqual(refused.exception.refusal, "kind")
+                self.assertIn("a FIFO, not a regular file, so nothing was "
+                              "opened", str(refused.exception))
+                self.assertFalse(peer.settle(), "the FIFO was opened")
+                self.assertEqual(opened_for_io(str(fifo)), [])
+
+    def test_a_device_is_refused_before_it_is_opened(self) -> None:
+        _OPENS.clear()
+        with self.assertRaises(held_open.HeldOpenRefused) as refused:
+            held_open.open_held("/dev/null", os.O_RDONLY)
+        self.assertEqual(refused.exception.refusal, "kind")
+        self.assertIn("a character device", str(refused.exception))
+        self.assertEqual(opened_for_io("/dev/null"), [])
+
+    def test_a_link_at_the_name_or_above_it_is_refused(self) -> None:
+        target = self.root / "target"
+        target.mkdir()
+        (target / "file").write_bytes(b"x")
+        (self.root / "link").symlink_to(target / "file")
+        (self.root / "linked-dir").symlink_to(target)
+        for path, refusal in ((self.root / "link", "link"),
+                              (self.root / "linked-dir" / "file", "walk")):
+            with self.subTest(path=path):
+                _OPENS.clear()
+                with self.assertRaises(held_open.HeldOpenRefused) as refused:
+                    held_open.open_held(str(path), os.O_RDONLY)
+                self.assertEqual(refused.exception.refusal, refusal)
+                self.assertEqual(opened_for_io(str(target / "file")), [])
+
+    def test_a_path_not_written_out_in_full_is_refused(self) -> None:
+        (self.root / "file").write_bytes(b"x")
+        for text in ("file", f"{self.root}/./file", f"{self.root}/sub/../file",
+                     f"{self.root}//file"):
+            with self.subTest(text=text):
+                with self.assertRaises(held_open.HeldOpenRefused) as refused:
+                    held_open.open_held(text, os.O_RDONLY)
+                self.assertEqual(refused.exception.refusal, "path")
+
+    def test_the_callers_check_refuses_before_any_open(self) -> None:
+        path = self.root / "file"
+        path.write_bytes(b"x")
+        _OPENS.clear()
+        with self.assertRaises(held_open.HeldOpenRefused) as refused:
+            held_open.open_held(str(path), os.O_RDONLY,
+                                check=lambda info: f"owned by uid {info.st_uid}")
+        self.assertEqual(refused.exception.refusal, "check")
+        self.assertEqual(str(refused.exception), f"owned by uid {os.getuid()}")
+        self.assertEqual(opened_for_io(str(path)), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
