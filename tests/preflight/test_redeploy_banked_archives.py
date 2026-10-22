@@ -190,6 +190,7 @@ class RedeployBankedArchivesTest(unittest.TestCase):
         self.assertIn("NO-RECIPE", out)
 
     def test_apply_runs_install_then_verify_and_reports(self):
+        (self.chroot / "proc" / "self").mkdir(parents=True)
         self.add_recipe("core", "lib32-libffi", "3.5.2", 1)
         make_archive(self.archives, "lib32-libffi", "3.5.2", 1)
         calls = []
@@ -213,6 +214,7 @@ class RedeployBankedArchivesTest(unittest.TestCase):
         self.assertIn("1/1 healed, 0 failed", out)
 
     def test_apply_failure_is_nonzero_and_named(self):
+        (self.chroot / "proc" / "self").mkdir(parents=True)
         self.add_recipe("core", "libxcrypt", "4.4.38", 1)
         make_archive(self.archives, "libxcrypt", "4.4.38", 1)
 
@@ -223,6 +225,36 @@ class RedeployBankedArchivesTest(unittest.TestCase):
             rc, out = self.run_main("--apply")
         self.assertEqual(rc, 1, out)
         self.assertIn("FAIL: libxcrypt install rc=1", out)
+
+    def test_apply_without_proc_refuses_before_running_pkm(self):
+        self.add_recipe("core", "zlib", "1.3.1", 2)
+        make_archive(self.archives, "zlib", "1.3.1", 2)
+        result = subprocess.CompletedProcess([], 0,
+                    stdout="  ✓ zlib: ok (1 files verified)\n", stderr="")
+        with mock.patch.object(self.mod.subprocess, "run", return_value=result) as run:
+            rc, out = self.run_main("--apply")
+        self.assertEqual(rc, 1, out)
+        self.assertIn(f"mount proc at {self.chroot / 'proc'}", out)
+        run.assert_not_called()
+
+    def test_apply_with_only_a_proc_directory_refuses_before_running_pkm(self):
+        (self.chroot / "proc").mkdir()
+        self.add_recipe("core", "zlib", "1.3.1", 2)
+        make_archive(self.archives, "zlib", "1.3.1", 2)
+        result = subprocess.CompletedProcess([], 0,
+                    stdout="  ✓ zlib: ok (1 files verified)\n", stderr="")
+        with mock.patch.object(self.mod.subprocess, "run", return_value=result) as run:
+            rc, out = self.run_main("--apply")
+        self.assertEqual(rc, 1, out)
+        self.assertIn(f"mount proc at {self.chroot / 'proc'}", out)
+        run.assert_not_called()
+
+    def test_empty_apply_does_not_require_proc(self):
+        with mock.patch.object(self.mod.subprocess, "run") as run:
+            rc, out = self.run_main("--apply")
+        self.assertEqual(rc, 0, out)
+        self.assertIn("0/0 healed, 0 failed", out)
+        run.assert_not_called()
 
     def test_json_output_carries_the_sets(self):
         self.add_recipe("core", "zstd", "1.5.7", 2)

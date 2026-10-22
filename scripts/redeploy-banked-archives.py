@@ -300,6 +300,10 @@ def main() -> int:
         return 2 if findings else 0
 
     # --apply: heal the REDEPLOY set via the proven explicit-archive path.
+    if redeploy and not (chroot / "proc" / "self").is_dir():
+        log(f"FAIL: mount proc at {chroot / 'proc'} before applying banked archives.")
+        return 1
+
     failures = 0
     for e in redeploy:
         rel_archive = f"/var/lib/igos/archives/{e['archive']}"

@@ -65,6 +65,7 @@ def test_no_verdict_at_all_is_a_failure():
 
 def _banked_root(tmp_path):
     chroot = tmp_path / "chroot"
+    (chroot / "proc" / "self").mkdir(parents=True)
     archives = chroot / "var" / "lib" / "igos" / "archives"
     archives.mkdir(parents=True)
     info = b"pkgname=R\npkgver=4.6.1\npkgrel=1\n"
