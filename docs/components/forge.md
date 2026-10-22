@@ -26,6 +26,14 @@ A GTK4 / `libadwaita` application.
 *   Uses `installer/frontend/gui/state.py` to accumulate selections as the user navigates screens.
 *   Handles security-critical interactions such as `integrity_dialog.py`, which disables paste (clipboard, drag-and-drop, and the right-click menu) on the override-phrase entry. The phrase must be typed in full, ensuring deliberate user consent before any integrity-check override is accepted.
 
+## The Root Backend Service (`installer/backend_service.py`)
+
+The GUI runs as the live account and installs nothing itself: it sends the install to a root service on the system bus, `org.intergenos.ForgeInstaller1`, which runs `run_install()`. The service makes three checks before it acts.
+
+1.  **Only on the install medium.** The medium carries its archive trust set (`/install/intergenos-archive-manifest.txt`) or, on an unsigned test build, the dev marker (`/install/IGOS_DEV_ALLOW_UNVERIFIED`); an installed system carries neither. The unit `forge-installer-backend.service` starts only when one of the two exists, the service refuses to start when neither does, and it refuses every method call when neither does (`integrity.on_install_media()`). On an installed system nothing in the service acts, whoever calls it.
+2.  **Authorized on every call.** The bus policy lets a message through and nothing more. Each method that acts (`StartInstall`, `CancelInstall`, `AckIntegrityOverride`) asks polkit, on that call, whether the caller may perform `org.intergenos.forge.install`, naming the caller by its unique bus name. The action's default is an administrator's password at the active local session, and nothing elsewhere. On the medium a rule grants the live account at its own local, active session: the forge package ships that rule inert under `/usr/share/intergenos/forge/`, and only the medium's boot (`installer/init/init.sh`) copies it into `/etc/polkit-1/rules.d/`. `GetStatus` only reads. A refusal, or an error from polkit, leaves nothing written, started, cancelled or accepted.
+3.  **No dry run as root.** The service refuses `StartInstall` with `dry_run` set before it writes anything or starts a worker. In `run_install()` a dry run logs the disk phase's destructive commands without running them and ends there: no later phase runs, since each one mounts, extracts, configures or registers something on the machine. The result is not a success and says that nothing was installed.
+
 ## The Backend Orchestrator (`installer/backend/install.py`)
 
 The `run_install()` function is the entry point for the backend. It consumes the YAML state and the interactive-state structure, then executes the following 13-phase pipeline (`PHASE_ORDER`):
