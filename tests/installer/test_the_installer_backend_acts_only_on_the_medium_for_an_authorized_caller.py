@@ -23,12 +23,19 @@ machine. Every process the backend would start is recorded and not started.
   - A dry run is refused on the bus before any write or worker, and the
     install pipeline itself runs no phase after the disk phase's own dry run,
     so no process starts under one.
+  - The disk StartInstall names, the one path a caller hands the service, is
+    established from the object itself before anything is written or started:
+    a name directly under /dev, opened O_PATH | O_NOFOLLOW (a FIFO with a
+    writer blocked on it stays blocked: nothing opened it), a root-owned block
+    device by that descriptor's fstat, and re-opened through /proc/self/fd as
+    the same object.
 Nothing here reaches a bus, polkit or a real process.
 """
 
 import configparser
 import os
 import shutil
+import stat
 import subprocess
 import tempfile
 import threading
@@ -50,6 +57,7 @@ ACTION = "org.intergenos.forge.install"
 NOT_ON_MEDIUM = "org.intergenos.ForgeInstaller1.Error.NotOnInstallMedium"
 NOT_AUTHORIZED = "org.intergenos.ForgeInstaller1.Error.NotAuthorized"
 DRY_RUN_REFUSED = "org.intergenos.ForgeInstaller1.Error.DryRunRefused"
+INVALID_TARGET_DISK = "org.intergenos.ForgeInstaller1.Error.InvalidTargetDisk"
 CALLER = ":1.4242"
 YAML = ("version: 1\nlocale: en_US.UTF-8\ntimezone: UTC\nhostname: intergenos\n"
         "package_groups: [core]\n")
@@ -156,6 +164,10 @@ class _BackendCase(unittest.TestCase):
 
     MEDIUM = False
     AUTHORIZE = True
+    # The disk the tests name (/dev/vdz) exists on no machine: every class but
+    # the one that tests the disk check stands it in and records each disk it
+    # was asked about.
+    REAL_DISK_CHECK = False
 
     def setUp(self):
         self.root = Path(tempfile.mkdtemp())
@@ -178,6 +190,11 @@ class _BackendCase(unittest.TestCase):
                      "spawnv", "spawnve", "spawnvp", "spawnvpe", "posix_spawn", "posix_spawnp"):
             if hasattr(os, name):
                 patches.append(mock.patch.object(os, name, _refuse_exec))
+        self.established = []
+        if not self.REAL_DISK_CHECK:
+            patches.append(mock.patch.object(
+                backend_service, "establish_target_disk",
+                lambda path, *a, **kw: self.established.append(path) or (0, 0, 0), create=True))
         for p in patches:
             p.start()
             self.addCleanup(p.stop)
@@ -285,6 +302,7 @@ class OnTheMediumARefusedCallerActsOnNothing(_BackendCase):
         self.assertEqual((invocation.error or ("none",))[0], NOT_AUTHORIZED, invocation.value)
         self.assertEqual(self.authority.asked, [(CALLER, ACTION)])
         self.assertIsNone(self.service._worker_thread)
+        self.assertEqual(self.established, [], "a refused caller's disk was examined")
 
     def test_cancel_and_ack_ask_polkit_and_change_nothing_when_refused(self):
         self.service._worker_install_id = "an-install"
@@ -324,6 +342,7 @@ class OnTheMediumAnAuthorizedCallerIsAskedForEachCall(_BackendCase):
         self.assertTrue(self.service._cancel_event.is_set())
         self.assertIsNone(ack.error)
         self.assertEqual(self.authority.asked, [(CALLER, ACTION)] * 3)
+        self.assertEqual(self.established, ["/dev/vdz"], "the disk was not established")
 
 
 class ADryRunRunsNothing(_BackendCase):
@@ -377,6 +396,140 @@ class ADryRunRunsNothing(_BackendCase):
         self.assertEqual(result.phase_completed, backend_install.PHASE_PARTITION)
         self.assertFalse(result.success, "a dry run reported an install")
         self.assertIn("dry run", result.error_message or "")
+
+
+class _BlockedWriter:
+    """A FIFO with a writer blocked in open(2) until something opens the FIFO
+    for reading: the writer getting through is the trace of an open."""
+
+    def __init__(self, path):
+        os.mkfifo(path)
+        self.path = path
+        self.opened = threading.Event()
+        self._thread = threading.Thread(target=self._write, daemon=True)
+        self._thread.start()
+
+    def _write(self):
+        fd = os.open(self.path, os.O_WRONLY)
+        self.opened.set()
+        os.close(fd)
+
+    def still_blocked(self):
+        return not self.opened.wait(0.3)
+
+    def release(self):
+        reader = os.open(self.path, os.O_RDONLY | os.O_NONBLOCK)
+        try:
+            self.opened.wait(5)
+        finally:
+            os.close(reader)
+        self._thread.join(5)
+
+
+def _a_block_device_under_dev():
+    """The first root-owned block device node directly under /dev, by name."""
+    for entry in sorted(os.scandir("/dev"), key=lambda e: e.name):
+        try:
+            st = os.lstat(entry.path)
+        except OSError:
+            continue
+        if stat.S_ISBLK(st.st_mode) and st.st_uid == 0:
+            return entry.path, st
+    return None, None
+
+
+class TheTargetDiskIsEstablishedFromTheObjectItself(_BackendCase):
+    """The service's real disk check, on real objects: a FIFO with a writer
+    blocked on it, a regular file, a symlink, a directory, a character device
+    and this machine's own block device nodes."""
+
+    MEDIUM = True
+    AUTHORIZE = True
+    REAL_DISK_CHECK = True
+
+    def writer(self, name):
+        blocked = _BlockedWriter(str(self.root / name))
+        self.addCleanup(blocked.release)
+        return blocked
+
+    def start_with_disk(self, disk):
+        install_io = _install_io()
+        if disk is None:
+            del install_io["disk"]
+        else:
+            install_io["disk"] = GLib.Variant("s", disk)
+        return self.call("StartInstall", GLib.Variant("(sa{sv}b)", (YAML, install_io, False)))
+
+    def test_the_bus_refuses_a_disk_that_is_not_a_device_node_under_dev_before_any_write_or_worker(self):
+        fifo = self.writer("a-fifo")
+        regular = self.root / "a-file"
+        regular.write_text("not a disk\n")
+        for disk in (fifo.path, str(regular), "/dev/../etc/passwd", "/dev/disk", "/dev/",
+                     "sda", "/dev/null", None):
+            with self.subTest(disk=disk):
+                invocation = self.start_with_disk(disk)
+                self.assertEqual((invocation.error or ("none",))[0], INVALID_TARGET_DISK,
+                                 f"{disk!r}: {invocation.value}")
+                self.assert_nothing_acted()
+                self.assertIsNone(self.service._worker_thread)
+        self.assertTrue(fifo.still_blocked(), "the FIFO was opened")
+
+    def test_the_object_is_read_from_its_own_descriptor_and_a_fifo_is_never_opened(self):
+        fifo = self.writer("a-fifo")
+        (self.root / "a-file").write_text("not a disk\n")
+        os.symlink("/dev/null", self.root / "a-link")
+        (self.root / "a-directory").mkdir()
+        scratch = str(self.root)
+        for name, kind in (("a-fifo", "a FIFO"), ("a-file", "a regular file"),
+                           ("a-link", "a symbolic link"), ("a-directory", "a directory")):
+            with self.subTest(name=name):
+                with self.assertRaises(backend_service.TargetDiskRefused) as refused:
+                    backend_service.establish_target_disk(f"{scratch}/{name}", device_dir=scratch)
+                self.assertIn(f"is not a block device: it is {kind}", str(refused.exception))
+        with self.assertRaises(backend_service.TargetDiskRefused) as refused:
+            backend_service.establish_target_disk("/dev/null")
+        self.assertIn("is not a block device: it is a character device", str(refused.exception))
+        self.assertTrue(fifo.still_blocked(), "the FIFO was opened")
+
+    def test_a_root_owned_block_device_passes_type_and_owner_and_is_reopened_as_itself(self):
+        path, st = _a_block_device_under_dev()
+        if path is None:
+            self.skipTest("no block device node directly under /dev on this machine")
+        try:
+            identity = backend_service.establish_target_disk(path)
+        except backend_service.TargetDiskRefused as refused:
+            # Unprivileged and outside the disk group, only the re-open is
+            # refused: the type and the owner were read and passed.
+            self.assertIn("the device could not be re-opened", str(refused))
+        else:
+            self.assertEqual(identity, (st.st_dev, st.st_ino, st.st_rdev))
+
+    def test_an_owner_other_than_root_or_another_object_on_the_reopen_is_refused(self):
+        path, st = _a_block_device_under_dev()
+        if path is None:
+            self.skipTest("no block device node directly under /dev on this machine")
+        real_fstat, real_open = os.fstat, os.open
+
+        def fstat_owned_by_a_person(fd):
+            result = real_fstat(fd)
+            fields = list(result)
+            fields[stat.ST_UID] = 1000
+            return os.stat_result(fields)
+
+        with mock.patch.object(backend_service.os, "fstat", fstat_owned_by_a_person):
+            with self.assertRaises(backend_service.TargetDiskRefused) as refused:
+                backend_service.establish_target_disk(path)
+        self.assertIn("is not owned by root (uid 1000)", str(refused.exception))
+
+        def open_another_object_on_reopen(name, flags, *a, **kw):
+            if str(name).startswith("/proc/self/fd/"):
+                return real_open("/dev/null", os.O_RDONLY | os.O_CLOEXEC)
+            return real_open(name, flags, *a, **kw)
+
+        with mock.patch.object(backend_service.os, "open", open_another_object_on_reopen):
+            with self.assertRaises(backend_service.TargetDiskRefused) as refused:
+                backend_service.establish_target_disk(path)
+        self.assertIn("the re-opened object is not the one checked", str(refused.exception))
 
 
 class TheShippedActionAndTheMediumOnlyRule(unittest.TestCase):

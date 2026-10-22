@@ -31,7 +31,11 @@ Caller policy   : the bus policy admits root, the administrators' group and,
                   by default; the medium's own rule grants the live account
                   at its local, active session. GetStatus is a read. A dry
                   run is refused: it is a preview a client makes without
-                  this service.
+                  this service. The disk StartInstall names, the one path a
+                  caller hands this service, is established from the object
+                  itself before anything is written or started: a block
+                  device node owned by root directly under /dev
+                  (establish_target_disk).
 
 State model — at most ONE concurrent install ever. StartInstall returns
 an opaque install_id (UUID4 string); subsequent CancelInstall /
@@ -57,6 +61,7 @@ Cancel flow:
 import logging
 import os
 import queue
+import stat
 import sys
 import threading
 import time
@@ -100,6 +105,7 @@ ACTING_METHODS = frozenset(("StartInstall", "CancelInstall", "AckIntegrityOverri
 ERROR_NOT_ON_MEDIUM = "org.intergenos.ForgeInstaller1.Error.NotOnInstallMedium"
 ERROR_NOT_AUTHORIZED = "org.intergenos.ForgeInstaller1.Error.NotAuthorized"
 ERROR_DRY_RUN_REFUSED = "org.intergenos.ForgeInstaller1.Error.DryRunRefused"
+ERROR_INVALID_TARGET_DISK = "org.intergenos.ForgeInstaller1.Error.InvalidTargetDisk"
 
 INTROSPECTION_XML = """
 <node>
@@ -189,6 +195,67 @@ class _IntegrityAckBridge:
             return q.get(timeout=timeout_seconds)
         except queue.Empty:
             return False
+
+
+class TargetDiskRefused(Exception):
+    """The disk a caller named was not established as a block device node."""
+
+
+def _kind(mode):
+    for test, name in ((stat.S_ISREG, "a regular file"), (stat.S_ISDIR, "a directory"),
+                       (stat.S_ISLNK, "a symbolic link"), (stat.S_ISFIFO, "a FIFO"),
+                       (stat.S_ISCHR, "a character device"), (stat.S_ISSOCK, "a socket")):
+        if test(mode):
+            return name
+    return f"mode {mode:o}"
+
+
+def establish_target_disk(path, device_dir="/dev"):
+    """Establishes, from the object itself, that `path` names a block device
+    node before anything acts on it, and returns its identity (st_dev, st_ino,
+    st_rdev). Raises TargetDiskRefused naming the check that failed.
+
+    The name must be an entry directly under /dev, a directory only root
+    writes, so the name cannot be moved to another object by the caller
+    between this check and the disk phase's commands, which open the device by
+    name. It is opened with O_PATH | O_NOFOLLOW, which runs no open-time effect
+    of a device or a FIFO and does not follow a symlink; the type (a block
+    device) and the owner (root) are read from that descriptor's fstat; then
+    the object is re-opened through /proc/self/fd/<n>, read-only and
+    non-blocking, and must be the same object (st_dev, st_ino and st_rdev
+    equal). Never a stat by name followed by an open by name. `device_dir`
+    exists for tests that build their objects in a scratch directory."""
+    if not isinstance(path, str) or "\0" in path:
+        raise TargetDiskRefused("the disk is not given as a path")
+    if os.path.dirname(path) != device_dir or os.path.basename(path) in ("", ".", ".."):
+        raise TargetDiskRefused(
+            f"{path!r} is not a device node directly under {device_dir} "
+            "(for example /dev/sda or /dev/nvme0n1)")
+    try:
+        fd = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except OSError as exc:
+        raise TargetDiskRefused(f"{path}: {exc.strerror}") from None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISBLK(st.st_mode):
+            raise TargetDiskRefused(f"{path} is not a block device: it is {_kind(st.st_mode)}")
+        if st.st_uid != 0:
+            raise TargetDiskRefused(f"{path} is not owned by root (uid {st.st_uid})")
+        try:
+            again_fd = os.open(f"/proc/self/fd/{fd}",
+                               os.O_RDONLY | os.O_NONBLOCK | os.O_NOCTTY | os.O_CLOEXEC)
+        except OSError as exc:
+            raise TargetDiskRefused(f"{path}: the device could not be re-opened: {exc.strerror}") from None
+        try:
+            again = os.fstat(again_fd)
+        finally:
+            os.close(again_fd)
+        identity = (st.st_dev, st.st_ino, st.st_rdev)
+        if (again.st_dev, again.st_ino, again.st_rdev) != identity:
+            raise TargetDiskRefused(f"{path}: the re-opened object is not the one checked")
+        return identity
+    finally:
+        os.close(fd)
 
 
 class PolkitAuthority:
@@ -365,6 +432,15 @@ class ForgeInstallerService:
         try:
             if method == "StartInstall":
                 yaml_content, install_io_variant, dry_run = params.unpack()
+                # The disk is the one path the caller names: established from
+                # the object itself before anything is written or started.
+                try:
+                    establish_target_disk(install_io_variant.get("disk"))
+                except TargetDiskRefused as exc:
+                    LOG.warning("StartInstall from %s refused: %s", sender, exc)
+                    invocation.return_dbus_error(
+                        ERROR_INVALID_TARGET_DISK, f"the target disk is refused: {exc}")
+                    return
                 install_id = self._handle_start_install(
                     sender, yaml_content, install_io_variant, bool(dry_run),
                 )
