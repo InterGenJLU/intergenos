@@ -262,7 +262,11 @@ class WriteFileTool(BaseTool):
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "Absolute or relative path for the file.",
+                        "description": (
+                            "The file's full path, or one starting with ~/. "
+                            "A relative path is refused: it would resolve "
+                            "against a working directory no review card can "
+                            "show."),
                     },
                     "content": {
                         "type": "string",
@@ -278,6 +282,34 @@ class WriteFileTool(BaseTool):
             },
             safety_tier=SafetyTier.CONFIRM,
         )
+
+    def validate_arguments(self, arguments: dict[str, Any]) -> str | None:
+        """The structural checks, then this tool's own refusal of a relative
+        path, in every context.
+
+        A relative path resolves against the working directory of whichever
+        process opens it: the daemon's in the person's session, and under the
+        privileged runner root's own home, where pkexec starts the dispatcher.
+        No review card can show that directory, and the registry refuses such a
+        call before any card (tool_registry.describe_call); the privileged
+        dispatcher re-runs this validation, so the refusal holds on the root
+        side too instead of resting on the caller's."""
+        error = super().validate_arguments(arguments)
+        if error:
+            return error
+        path_text = arguments.get("path", "")
+        if not isinstance(path_text, str) or not path_text:
+            return None
+        try:
+            named = dispatch_token.expanduser_for_install_owner(path_text)
+        except dispatch_token.InstallOwnerUnresolved:
+            return None  # classify_safety and execute refuse this one
+        if named.is_absolute():
+            return None
+        return (f"the path {path_text!r} is relative, and a relative path is "
+                f"resolved against a working directory no card can show; "
+                f"nothing was proposed — name the file by its full path, or "
+                f"start it with ~/")
 
     def execute(self, arguments: dict[str, Any]) -> ToolResult:
         """Write the file and return a diff."""

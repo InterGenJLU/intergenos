@@ -37,7 +37,9 @@ from intergen.tools.run_command import RunCommandTool
 from intergen.tools.write_file import WriteFileTool
 
 
-class TheRouteIsReDerivedAtTheRootSide(_LifecycleTestCase):
+class _RootSideCase(_LifecycleTestCase):
+    """main() driven with a real tool, its execute and the service manager's
+    answer stood in."""
 
     def stand_in(self, tool):
         """The real tool, its execute and the service manager's answer about
@@ -69,6 +71,9 @@ class TheRouteIsReDerivedAtTheRootSide(_LifecycleTestCase):
             code, _ = self.dispatch(token, tool=name, args=args)
         said = " ".join(str(c.args[0]) for c in emitted.call_args_list)
         return code, said, self.states(nonce)
+
+
+class TheRouteIsReDerivedAtTheRootSide(_RootSideCase):
 
     def test_a_user_mode_service_act_is_refused_before_anything_runs(self):
         tool = ManageServicesTool()
@@ -132,3 +137,34 @@ class TheRouteIsReDerivedAtTheRootSide(_LifecycleTestCase):
                 self.assertEqual(code, 0, said)
                 self.assertEqual(ran, [args])
                 self.assertEqual(states[-1], pd.STATE_TERMINAL_OK)
+
+
+class ARelativeWritePathIsRefusedOnBothSides(_RootSideCase):
+    """write_file refuses a relative path in its own validation, which the
+    privileged dispatcher re-runs. Before, only the registry refused one
+    (describe_call), and under the runner write_file resolved it against the
+    dispatcher's working directory, root's own home, where pkexec starts it
+    (dispatch_token.resolved_for_a_write joins os.getcwd())."""
+
+    def test_the_tool_refuses_a_relative_path_and_its_schema_says_so(self):
+        tool = WriteFileTool()
+        reason = tool.validate_arguments({"path": "notes.txt", "content": "x"})
+        self.assertIsNotNone(reason)
+        self.assertIn("relative", reason)
+        self.assertIsNone(
+            tool.validate_arguments({"path": "/tmp/notes.txt", "content": "x"}))
+        described = tool.schema.parameters["properties"]["path"]["description"]
+        self.assertIn("A relative path is refused", described)
+        self.assertNotIn("Absolute or relative", described)
+
+    def test_the_root_side_refuses_a_relative_path_before_anything_runs(self):
+        tool = WriteFileTool()
+        ran, _asked = self.stand_in(tool)
+        args = {"path": "notes.txt", "content": "x"}
+
+        code, said, states = self.send("write_file", args)
+
+        self.assertNotEqual(code, 0)
+        self.assertEqual(ran, [], "a relative path was written as root")
+        self.assertIn("is relative", said)
+        self.assertEqual(states, [pd.STATE_CLAIMED, pd.STATE_TERMINAL_REFUSED])
