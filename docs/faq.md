@@ -54,7 +54,7 @@ No — system RAM is never an input to that decision. The tier is chosen from yo
 No. The AI's state caching and diagnostic tools are strictly confined locally. There is no cloud-syncing or background telemetry.
 
 **Can the AI break my system?**
-No. Every tool call InterGen makes runs through a provenance gate first; the default escalation mode is `ask`, so any action that would modify your system state stops and shows you an on-screen confirmation prompt before it proceeds — a Deny refuses the action outright. InterGen Sentinel scans the surrounding traffic for risk on top of that gate. Privileged operations that need root (installing packages, managing services) go through an additional PolicyKit authentication step.
+No. Every tool call InterGen makes runs through a provenance gate first, and an action that would modify your system state stops and shows you an on-screen confirmation prompt before it proceeds — a Deny refuses the action outright. InterGen Sentinel scans the surrounding traffic for risk on top of that gate. Privileged operations that need root (installing packages, managing services) go through an additional PolicyKit authentication step.
 
 **Can I connect the AI to a cloud provider like Claude-Anthropic or ChatGPT-OpenAI?**
 Yes. While the default is local-only, the InterGen Sentinel architecture supports opt-in "Phone a Friend" cloud escalation via standard API keys. You can configure providers like Claude-Anthropic or Gemini-Google, but these require your explicit API keys and opt-in configuration.
