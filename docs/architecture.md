@@ -89,7 +89,7 @@ The `Forge` installer (`installer/`) is the mechanism for deploying the compiled
 
 ## InterGen AI-Runtime Stack
 
-The distinguishing feature of InterGenOS is its deeply integrated AI assistant, designed to operate entirely locally.
+The distinguishing feature of InterGenOS is its deeply integrated AI assistant, designed so its model runs on the local machine and sends nothing in the background: a web search the person asks for or accepts, and a cloud provider the person sets up and approves each send to, are the only ways a question leaves it.
 
 *   **Hardware-Tier Model Catalog** (canonical catalog in `intergen/model_manager.py`): the system provisions a model from the detected graphics hardware. **Tier selection keys on discrete-GPU presence and VRAM only — system RAM is never an input**, and unreadable VRAM fails *down* to Tier 1 rather than up. Every tier is vision-capable, each with a paired projector pinned alongside its model in the signed manifest.
     *   Tier 1 (InternVL3.5-2B): no discrete GPU. The CPU-friendly floor, by construction rather than as a fallback.

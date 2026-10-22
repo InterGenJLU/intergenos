@@ -118,7 +118,7 @@ Pick your experience at login. Not a dropdown afterthought — a first-class fea
 
 ### 5. Tiered Local AI Assistant
 
-Hardware-detected, fully local, no cloud. You drive it by typing — the AI helps you learn Linux, it doesn't hide it from you — and it is vision-capable, able to see a screenshot or image you show it.
+Hardware-detected, and its model runs on your machine: it sends nothing in the background, a web search you ask for, or accept when it is offered, sends its search words and fetches the first result's page, and a question goes to a cloud provider only if you set one up and approve the send. You drive it by typing — the AI helps you learn Linux, it doesn't hide it from you — and it is vision-capable, able to see a screenshot or image you show it.
 
 **Tier selection is decided by discrete-GPU presence and VRAM alone. System RAM is
 never an input** — a large model served out of system memory is slow enough to be the
