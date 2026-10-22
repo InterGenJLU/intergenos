@@ -519,9 +519,17 @@ _PKG_TEACH_STOP = frozenset({
 _PKG_TEACH_CLOSES_RE = re.compile(
     r"\s*(?:$|[?!.,;:-]|(?:and|or|but|then|so|package|app|application|program)\b"
     r"|(?:on|to|onto|from)\s+(?:this|my|the)\s+"
-    r"(?:machine|computer|system|laptop|box)\b)",
+    r"(?:machine|computer|system|laptop|box)\s*(?:$|[?!.,;:]|(?:and|or|but|then|so)\b))",
     re.IGNORECASE,
 )
+# The machine closes the object only where the sentence ends after it: "how do I
+# add time to the system clock?" goes on past "system", and was offered `pkm
+# install time`. And after a bare article an ordinary noun is a thing, not a
+# package ("how do I remove the file from this machine?" was offered `pkm remove
+# file`), so a name there is taken only with the kind word after it ("install
+# the htop package").
+_PKG_TEACH_KIND_AFTER_RE = re.compile(
+    r"\s*(?:package|app|application|program)\b", re.IGNORECASE)
 # verb -> (pkm subcommand, human verb for the taught sentence)
 _PKG_VERB_TO_PKM = {
     "install": ("install", "install"), "add": ("install", "install"),
@@ -963,8 +971,9 @@ def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
     Returns None when the query is not a recognizable '<verb> <app>' package
     action, so the caller falls through unchanged. The target is filtered against
     a stoplist so non-package phrasings ("update my system") yield no false hit,
-    is taken only where it closes the verb's object (_PKG_TEACH_CLOSES_RE), and
-    only when `resolves` finds it in the package index: the word after the verb
+    is taken only where it closes the verb's object (_PKG_TEACH_CLOSES_RE), after
+    a bare article only with the kind word after it (_PKG_TEACH_KIND_AFTER_RE),
+    and only when `resolves` finds it in the package index: the word after the verb
     is not always a name ("how do I check install on this machine?" read "on"
     as the package and offered to run `pkm install on`). A full stop after the
     name ends the sentence; it is not part of the name.
@@ -986,6 +995,10 @@ def _package_action_teach(normalized: str, resolves: Callable[[str], bool]
     if not app or app in _PKG_TEACH_STOP:
         return None
     if not _PKG_TEACH_CLOSES_RE.match(normalized, m.start(2) + len(raw)):
+        return None
+    if (normalized[m.end(1):m.start(2)].lower().split() in (["the"], ["a"], ["an"])
+            and not _PKG_TEACH_KIND_AFTER_RE.match(normalized,
+                                                   m.start(2) + len(raw))):
         return None
     mapped = _PKG_VERB_TO_PKM.get(m.group(1).lower())
     if mapped is None:

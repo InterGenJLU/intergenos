@@ -31,8 +31,8 @@ EXPLANATION = "To see what is installed, run pkm list."
 # The stand-in index: the one name these cases resolve.
 INDEX = frozenset({"htop"})
 # A stand-in index holding ordinary words that are real packages (at, time,
-# less and file resolve in the package index of a released machine).
-WORD_INDEX = frozenset({"htop", "vim", "at", "time", "less", "file"})
+# less, file and patch resolve in the package index of a released machine).
+WORD_INDEX = frozenset({"htop", "vim", "at", "time", "less", "file", "patch"})
 
 
 def _stand_in(index):
@@ -105,6 +105,12 @@ NOT_THE_OBJECT = (
     ("how do I get less noise from my fan?", "pkm install less"),
     ("how do I add file sharing between two computers?", "pkm install file"),
     ("how do I install at a set time each night?", "pkm install at"),
+    # The machine closes the object only where the sentence ends after it.
+    ("how do I add time to the system clock?", "pkm install time"),
+    ("how do I get the time on my computer to sync?", "pkm install time"),
+    # After a bare article, an ordinary noun without the kind word after it.
+    ("how do I remove the file from this machine?", "pkm remove file"),
+    ("how do I remove the patch from my system?", "pkm remove patch"),
 )
 # Sentences whose name closes the verb's object, with the command offered.
 CLOSES_THE_OBJECT = (
