@@ -192,17 +192,21 @@ class RunCommandTool(BaseTool):
             )
 
         # The command runs as its own transient service, where the install's
-        # credential files cannot be opened (intergen/tool_process.py). The
-        # program is resolved here first, against this process's PATH as the
-        # direct start resolved it, so a name that is not installed reads as it
-        # always did.
+        # credential files cannot be opened, with an environment written for
+        # it and nothing inherited (intergen/tool_process.py). The program is
+        # resolved here first, on the fixed system PATH the command runs with,
+        # never this process's own: a directory the account can write, first
+        # in an inherited PATH, would decide which program a name starts. A
+        # name that is not installed there reads as it always did.
         program = argv[0]
-        resolved = os.path.abspath(program) if "/" in program else shutil.which(program)
+        resolved = (os.path.abspath(program) if "/" in program
+                    else shutil.which(program, path=tool_process.TOOL_PATH))
         unit = tool_process.new_unit_name()
         try:
             launch = tool_process.launch_argv(
-                [resolved or program] + argv[1:], unit=unit,
-                runtime_max_sec=max(1, int(timeout)))
+                [resolved] + argv[1:], unit=unit,
+                runtime_max_sec=max(1, int(timeout)),
+                write_environment=True) if resolved else None
         except tool_process.ToolProcessNotStarted as e:
             log.error("Command not started: %s — %s", command, e)
             return ToolResult(

@@ -41,6 +41,28 @@ test until it is added here). When the daemon itself runs as a service of the
 same manager, the tool's service joins its private /tmp, so a tool sees the
 /tmp it saw as the daemon's child.
 
+THE ENVIRONMENT IS WRITTEN HERE. A transient service inherits the user
+manager's environment block, which any process of the account can change
+without asking anyone, and the daemon's own environment came from the same
+block. A value there can name a program a command then runs (BASH_ENV,
+NODE_OPTIONS, RIPGREP_CONFIG_PATH, a PATH with the account's directory first,
+LD_PRELOAD) or a destination it contacts (CUPS_SERVER). So a command the
+executor runs gets an environment written here and nothing inherited
+(tool_environment): the service unsets glibc's unsafe variables
+(LOADER_UNSAFE_VARIABLES) for env itself, and env -i starts the command with
+the allowlist alone, its values read from the password database and the
+account's id, never from the environment, and the program resolved on the
+fixed TOOL_PATH. An MCP server keeps the environment it is configured with;
+see launch_argv.
+
+DROP-INS ARE REFUSED. A drop-in directory in the user manager's unit search
+path applies to every service whose name it matches (service.d to every
+service, intergen-.service.d and intergen-tool-.service.d to every tool's), and
+one in a directory the account can write is anyone's to fill. The launcher
+reads the search path the manager actually uses, at every launch, and refuses
+the start, naming the directory, when such a drop-in exists where the account
+can write (check_unit_dropins).
+
 IT FAILS CLOSED. A credential file that is absent cannot be masked, and systemd
 refuses to start a service whose mask it cannot make, so the launcher checks
 first and names the missing file; a credential path that cannot be read at all
@@ -63,8 +85,11 @@ start.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
+import pwd
+import re
 import secrets
 import subprocess
 from pathlib import Path
@@ -76,6 +101,50 @@ logger = logging.getLogger(__name__)
 
 SYSTEMD_RUN = "/usr/bin/systemd-run"
 SYSTEMCTL = "/usr/bin/systemctl"
+BUSCTL = "/usr/bin/busctl"
+ENV = "/usr/bin/env"
+
+#: The PATH a command is resolved on and runs with: systemd's own default for a
+#: service on a merged /usr, every directory of it root's. The daemon's
+#: inherited PATH is never read for a tool: a directory the account can write,
+#: placed first in it, would decide which program a name starts.
+TOOL_PATH = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin"
+
+#: glibc's own list of unsafe environment variables (UNSECURE_ENVVARS in
+#: sysdeps/generic/unsecvars.h at glibc 2.43, the 34 names its loader carries).
+#: env is dynamically linked, so a loader variable in the service's environment
+#: (LD_PRELOAD, LD_AUDIT) would run inside env before env -i cleared anything:
+#: the service unsets these first, and neither env nor the command sees them.
+LOADER_UNSAFE_VARIABLES = (
+    "GCONV_PATH", "GETCONF_DIR", "GLIBC_TUNABLES", "HOSTALIASES", "LD_AUDIT",
+    "LD_BIND_NOT", "LD_BIND_NOW", "LD_DEBUG", "LD_DEBUG_OUTPUT",
+    "LD_DYNAMIC_WEAK", "LD_LIBRARY_PATH", "LD_ORIGIN_PATH", "LD_PRELOAD",
+    "LD_PROFILE", "LD_PROFILE_OUTPUT", "LD_SHOW_AUXV", "LD_VERBOSE", "LD_WARN",
+    "LOCALDOMAIN", "LOCPATH", "MALLOC_ARENA_MAX", "MALLOC_ARENA_TEST",
+    "MALLOC_MMAP_MAX_", "MALLOC_MMAP_THRESHOLD_", "MALLOC_PERTURB_",
+    "MALLOC_TOP_PAD_", "MALLOC_TRACE", "MALLOC_TRIM_THRESHOLD_", "NIS_PATH",
+    "NLSPATH", "RESOLV_HOST_CONF", "RES_OPTIONS", "TMPDIR", "TZDIR",
+)
+
+#: Settings every command runs with, each closing a configuration read that
+#: would start a program or contact a destination no one asked for: npm list's
+#: update check contacts a registry the configuration may name; lpstat and lpq
+#: ask the local scheduler, never a ServerName from the home; python runs
+#: nothing from the user site (a .pth file, usercustomize).
+TOOL_PINS = (
+    ("npm_config_update_notifier", "false"),
+    ("CUPS_SERVER", "/run/cups/cups.sock"),
+    ("PYTHONNOUSERSITE", "1"),
+)
+
+#: A locale value carried into a command's environment: a name, never a path
+#: (glibc reads a locale whose name holds a slash from that file).
+_LOCALE_VALUE = re.compile(r"[A-Za-z0-9_.@-]+\Z")
+
+#: Drop-in directories the user manager applies to a tool's service: the
+#: top-level one for every service, and the prefix ones of the tool services'
+#: names (systemd reads a drop-in for each dash-ended prefix of a unit's name).
+TOOL_UNIT_DROPINS = ("service.d", "intergen-.service.d", "intergen-tool-.service.d")
 
 #: The daemon unit's hardening lines, verbatim and in order, from the [Service]
 #: section of intergen/data/intergen.service. A test holds the two equal.
@@ -133,9 +202,19 @@ def credential_paths() -> tuple[Path, ...]:
 
 def manager_socket_paths() -> tuple[Path, ...]:
     """The sockets through which a process could ask the owner's user manager,
-    or any service on the owner's session bus, to act for it."""
-    runtime = os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}"
-    paths = [Path(runtime, "systemd", "private"), Path(runtime, "bus")]
+    or any service on the owner's session bus, to act for it.
+
+    The account's own runtime directory always, since the environment a
+    command is written points there (tool_environment); then any other the
+    daemon's environment names.
+    """
+    paths: list[Path] = []
+    for runtime in (f"/run/user/{os.getuid()}", os.environ.get("XDG_RUNTIME_DIR")):
+        if not runtime:
+            continue
+        for path in (Path(runtime, "systemd", "private"), Path(runtime, "bus")):
+            if path not in paths:
+                paths.append(path)
     for address in os.environ.get("DBUS_SESSION_BUS_ADDRESS", "").split(";"):
         transport, _, params = address.partition(":")
         if transport != "unix":
@@ -218,16 +297,126 @@ def read_back_link_counts(paths: tuple[Path, ...] | None = None) -> list[str]:
     return warnings
 
 
+def tool_environment() -> dict[str, str]:
+    """The whole environment a command the executor runs starts with.
+
+    Written, never inherited: the account's name and home from the password
+    database, its runtime directory and session bus by its id, the fixed
+    TOOL_PATH, TERM=dumb (no terminal is ever attached), the daemon's LANG and
+    LC_* only when each is a locale name, and TOOL_PINS. Raises
+    ToolProcessNotStarted when the account has no entry to write it from.
+    """
+    uid = os.getuid()
+    try:
+        entry = pwd.getpwuid(uid)
+    except KeyError as exc:
+        raise ToolProcessNotStarted(
+            f"account {uid} has no entry in the password database, so the "
+            f"command's environment could not be written and the tool's "
+            f"process was not started") from exc
+    env = {
+        "PATH": TOOL_PATH,
+        "HOME": entry.pw_dir,
+        "USER": entry.pw_name,
+        "LOGNAME": entry.pw_name,
+        "XDG_RUNTIME_DIR": f"/run/user/{uid}",
+        "DBUS_SESSION_BUS_ADDRESS": f"unix:path=/run/user/{uid}/bus",
+        "TERM": "dumb",
+    }
+    for name, value in sorted(os.environ.items()):
+        if re.fullmatch(r"LANG|LC_[A-Z]+", name) and _LOCALE_VALUE.match(value):
+            env[name] = value
+    env.update(TOOL_PINS)
+    return env
+
+
+def unit_search_path() -> list[str]:
+    """The unit search path the user manager uses, asked of the manager itself.
+
+    Read at every launch from the manager's UnitPath, over the session bus at
+    the account's own runtime directory (never an address the environment
+    names), so a directory added to the path is read as the manager reads it.
+    Raises ToolProcessNotStarted when the manager does not answer.
+    """
+    command = [BUSCTL, f"--address=unix:path=/run/user/{os.getuid()}/bus",
+               "--json=short", "get-property", "org.freedesktop.systemd1",
+               "/org/freedesktop/systemd1", "org.freedesktop.systemd1.Manager",
+               "UnitPath"]
+    why = None
+    try:
+        done = subprocess.run(
+            command, capture_output=True, text=True, check=False,
+            timeout=CLIENT_GRACE_SECONDS, stdin=subprocess.DEVNULL,
+            env={"PATH": TOOL_PATH, "LANG": "C"})
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        why = str(exc)
+    else:
+        try:
+            reply = json.loads(done.stdout) if done.returncode == 0 else None
+        except ValueError:
+            reply = None
+        paths = reply.get("data") if isinstance(reply, dict) else None
+        if (isinstance(paths, list) and paths
+                and all(isinstance(p, str) and p.startswith("/") for p in paths)):
+            return paths
+        why = (done.stderr.strip() or f"exit {done.returncode}, no path list")
+    raise ToolProcessNotStarted(
+        f"the user manager's unit search path could not be read ({why}), so "
+        f"the drop-ins that would apply to the tool's service are unknown and "
+        f"the tool's process was not started")
+
+
+def check_unit_dropins(unit: str) -> None:
+    """Refuse a tool's service that a drop-in the account can write would change.
+
+    A drop-in directory named for every service (service.d), for the tool
+    services' name prefixes, or for this unit, applies to the service it
+    matches; one where the account can write is anyone's to fill. Such a
+    directory refuses the start and is named. One that only root can write is
+    the administrator's, and is logged.
+    """
+    for directory in unit_search_path():
+        for name in TOOL_UNIT_DROPINS + (f"{unit}.d",):
+            path = os.path.join(directory, name)
+            if not os.path.lexists(path):
+                continue
+            if os.access(directory, os.W_OK) or os.access(path, os.W_OK):
+                raise ToolProcessNotStarted(
+                    f"{path} is a drop-in directory in the user manager's unit "
+                    f"search path, where this account can write, and what it "
+                    f"sets would apply to the tool's service, so the tool's "
+                    f"process was not started. Remove it if you did not create "
+                    f"it.")
+            logger.warning(
+                "%s applies to every tool service; only root can write it, so "
+                "it is read as the administrator's", path)
+
+
 def launch_argv(argv: list[str], *, unit: str,
                 runtime_max_sec: int | None = None,
-                setenv_names: tuple[str, ...] = ()) -> list[str]:
+                setenv_names: tuple[str, ...] = (),
+                write_environment: bool = False) -> list[str]:
     """The command line that starts `argv` as a tool service behind the boundary.
 
+    With `write_environment` (every command the executor runs), the service
+    unsets LOADER_UNSAFE_VARIABLES and env -i starts the command with
+    tool_environment() and nothing else, so no value of the user manager's
+    block reaches it; `argv[0]` must then be a path (resolved on TOOL_PATH by
+    the caller) with no "=" in it, which env would read as an assignment. An
+    MCP server is started with the environment it is configured with, its
+    variables handed over by name (`setenv_names`).
+
     Raises ToolProcessNotStarted when a credential file is absent, cannot be
-    read or cannot be named, so nothing is started without its mask.
+    read or cannot be named, when the program cannot be named to env, or when
+    a drop-in the account can write would apply to the service
+    (check_unit_dropins), so nothing is started without its boundary.
     """
     if not argv:
         raise ToolProcessNotStarted("an empty command has no process to start")
+    if write_environment and (not argv[0].startswith("/") or "=" in argv[0]):
+        raise ToolProcessNotStarted(
+            f"{argv[0]!r} is not a path env can start as the program, so the "
+            f"tool's process was not started")
     try:
         credentials = credential_paths()
     except dispatch_token.InstallOwnerUnresolved as exc:
@@ -255,6 +444,8 @@ def launch_argv(argv: list[str], *, unit: str,
             f"absent cannot be masked, so the tool's process was not started; "
             f"running intergen setup creates it.")
     read_back_link_counts(credentials)
+    environment = tool_environment() if write_environment else None
+    check_unit_dropins(unit)
     run = [SYSTEMD_RUN, "--user", "--quiet", "--collect", "--wait", "--pipe",
            "--same-dir", "--expand-environment=no", f"--unit={unit}"]
     run += [f"--property={line}" for line in DAEMON_HARDENING]
@@ -269,7 +460,12 @@ def launch_argv(argv: list[str], *, unit: str,
     # A name alone: systemd-run takes the value from its own environment, so a
     # value never appears in a process listing.
     run += [f"--setenv={name}" for name in setenv_names]
-    return run + ["--"] + list(argv)
+    if environment is None:
+        return run + ["--"] + list(argv)
+    run.append("--property=UnsetEnvironment=" + " ".join(LOADER_UNSAFE_VARIABLES))
+    return (run + ["--", ENV, "-i"]
+            + [f"{name}={value}" for name, value in environment.items()]
+            + list(argv))
 
 
 def stop_unit(unit: str) -> None:

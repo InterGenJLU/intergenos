@@ -52,6 +52,9 @@ from intergen.interfaces.types import HardwareTierLevel
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter as R
 from intergen.semantic import SemanticMatcher
+from intergen.tests.tool_process_fixture import (
+    unit_search_path_is, written_environment_and_program,
+)
 from intergen.tool_registry import ToolRegistry
 from intergen.tools.run_command import _SHELL_CONSTRUCT_CHARS, RunCommandTool
 
@@ -211,7 +214,7 @@ class _Turn(_Selector):
 
         def _run(args, *a, **kw):
             argv = [str(x) for x in args] if not isinstance(args, str) else [args]
-            own = argv[argv.index("--") + 1:] if "--" in argv else argv
+            own = written_environment_and_program(argv)[1] if "--" in argv else argv
             self.ran.append(own)
             out = LSCPU + "\n" if own == ["/usr/bin/lscpu"] else ""
             return subprocess.CompletedProcess(argv, 0 if out else 1, out, "")
@@ -231,7 +234,8 @@ class _Turn(_Selector):
             with mock.patch("subprocess.run", _run), mock.patch("subprocess.Popen", _popen), \
                     mock.patch.object(socket.socket, "connect", _connect), \
                     mock.patch("intergen.tool_registry.write_record", lambda *a, **kw: None), \
-                    mock.patch("intergen.tool_process.credential_paths", return_value=paths):
+                    mock.patch("intergen.tool_process.credential_paths", return_value=paths), \
+                    unit_search_path_is(home):
                 return r.route(question)
 
 

@@ -29,13 +29,14 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from intergen import tool_process
 from intergen.interfaces.types import SafetyTier
 from intergen.state_cache import (
     StateCache, _DYNAMIC_COMMANDS, _STATIC_COMMANDS, _pipeline_display,
 )
 from intergen.tests.tool_process_fixture import (
-    NO_USER_MANAGER, install_lives_in, user_manager_answers, visible_directory,
-    write_fake_credentials,
+    NO_USER_MANAGER, install_lives_in, unit_search_path_is, user_manager_answers,
+    visible_directory, write_fake_credentials, written_environment_and_program,
 )
 from intergen.tools.run_command import RunCommandTool
 
@@ -83,8 +84,9 @@ class RunCommandShellFreeTest(unittest.TestCase):
 
         The command starts as its own service behind the credential boundary
         (intergen/tool_process.py), so the list handed to the executor is the
-        launcher's, with the command's own argv after its "--"; the boundary is
-        given fake credential paths so nothing here depends on this machine's.
+        launcher's, with env -i, the written environment and then the command's
+        own argv after its "--"; the boundary is given fake credential paths and
+        an empty unit search path so nothing here depends on this machine's.
         """
         with tempfile.TemporaryDirectory() as home:
             paths = tuple(Path(home, name) for name in ("dispatch-key", "web-token"))
@@ -92,6 +94,7 @@ class RunCommandShellFreeTest(unittest.TestCase):
                 path.write_text("fake\n", encoding="utf-8")
             with mock.patch("intergen.tool_process.credential_paths",
                             return_value=paths), \
+                 unit_search_path_is(home), \
                  mock.patch("intergen.tools.run_command.subprocess.run",
                             return_value=_FAKE_OK) as mrun:
                 res = self.tool.execute({"command": "df -h"})
@@ -99,8 +102,8 @@ class RunCommandShellFreeTest(unittest.TestCase):
         self.assertEqual(mrun.call_count, 1)
         args, kwargs = mrun.call_args
         self.assertIsInstance(args[0], list, "executor must receive an argv LIST")
-        launch = args[0]
-        self.assertEqual(launch[launch.index("--") + 1:], [shutil.which("df"), "-h"])
+        _, own = written_environment_and_program(args[0])
+        self.assertEqual(own, [shutil.which("df", path=tool_process.TOOL_PATH), "-h"])
         self.assertNotEqual(kwargs.get("shell"), True, "shell must never be True")
 
     def test_real_read_only_command_runs(self):

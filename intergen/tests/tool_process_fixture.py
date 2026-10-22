@@ -79,3 +79,33 @@ def install_lives_in(home: Path):
     fake.getpwuid.return_value.pw_dir = str(home)
     fake.getpwnam.return_value.pw_dir = str(home)
     return mock.patch.object(dt, "pwd", fake)
+
+
+def unit_search_path_is(*directories: Path | str):
+    """Answer the launcher's read of the user manager's unit search path.
+
+    For a cell that stands in for subprocess.run, which would otherwise answer
+    that read too (the launcher asks the manager over busctl before every
+    start): the drop-in gate then reads `directories` and nothing else.
+    """
+    from intergen import tool_process
+    return mock.patch.object(tool_process, "unit_search_path",
+                             return_value=[str(d) for d in directories])
+
+
+def written_environment_and_program(argv: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Split a launch's command after its "--" into env -i's assignments and the program's argv.
+
+    A command the executor runs starts as `env -i NAME=VALUE ... program args`;
+    the assignments are what the command's environment holds, all of it.
+    """
+    from intergen import tool_process
+    own = argv[argv.index("--") + 1:]
+    if own[:2] != [tool_process.ENV, "-i"]:
+        raise AssertionError(f"the command does not start through env -i: {own!r}")
+    rest = own[2:]
+    environment: dict[str, str] = {}
+    while rest and "=" in rest[0] and not rest[0].startswith("/"):
+        name, _, value = rest.pop(0).partition("=")
+        environment[name] = value
+    return environment, rest
