@@ -27,6 +27,7 @@ construction, because a router that is not shared is not multiplexed.
 
 from __future__ import annotations
 
+import shlex
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -39,9 +40,12 @@ __all__ = ["ConversationState", "ExecutedOutput", "command_line",
 @dataclass(frozen=True)
 class ExecutedOutput:
     """One run on the record of what ran: the registry tool that ran, the
-    command line it ran ("" for a tool that runs none, or a run recorded with
-    no call), and what it returned, its full content and the summary the
-    model was given when the tool made one."""
+    command line it ran ("" for a tool that runs none, a run recorded with no
+    call, or an output no command of the call can be shown to have printed),
+    and what it returned, its full content and the summary the model was given
+    when the tool made one. A call that runs a sequence of commands (the
+    package tool's update: the index refresh, then the upgrade) is one run per
+    command that ran, each holding its own output."""
 
     tool: str
     command: str
@@ -67,6 +71,93 @@ def command_line(call: Any) -> str:
         from intergen.tool_registry import handoff_command
         return handoff_command(call)
     return ""
+
+
+def _pkm_words(text: str) -> list[str] | None:
+    """The words of a pkm command line as the package tool's builder names
+    them, the program by its base name (execute runs pkm by its vendor path);
+    None for text that is no pkm command line."""
+    try:
+        words = shlex.split(text)
+    except ValueError:
+        return None
+    if not words or words[0].rsplit("/", 1)[-1] != "pkm":
+        return None
+    return ["pkm", *words[1:]]
+
+
+def _names_the_unrun(line: str, unrun: list[list[str]]) -> bool:
+    """Is `line` the package tool's note that the commands `unrun` were not
+    run? A failed privileged run's report (ToolRegistry._privileged_failure_
+    result) follows the content's last line on that same line, after " [", so
+    the note is read with and without it."""
+    from intergen.tools.manage_packages import SEQUENCE_NOT_RUN
+    if not line.startswith(SEQUENCE_NOT_RUN):
+        return False
+    named = line[len(SEQUENCE_NOT_RUN):]
+    for text in (named, named.split(" [", 1)[0]):
+        segments = text.split(" && ")
+        if len(segments) == len(unrun) and all(
+                _pkm_words(segment) == argv
+                for segment, argv in zip(segments, unrun)):
+            return True
+    return False
+
+
+def _package_sequence_runs(call: Any, content: Any) -> list[tuple[str, str]] | None:
+    """Each command of a package call's sequence that ran, as (its command
+    line, its own output), read from the content the package tool returned;
+    None for a call that runs one command or none.
+
+    One call of the package tool's update runs two commands under one approval,
+    the index refresh and then the upgrade, and execute writes each command's
+    output under a "$ <command>" line of its own, stops at the first command
+    that fails and names the ones it did not run. Kept as one run, the
+    refresh's own "Package index updated." and "All packages are up to date."
+    were read as the upgrade's report, and "Your system is now up to date."
+    after an update whose upgrade failed read as a result that was produced.
+
+    Every line is given to the command it came from or to none. A content
+    that does not open with the first command's line shows no command of the
+    sequence running (the privileged runner refused it, or the tool stopped
+    before it), so it is one run with no command line. A command named in the
+    note of commands not run did not run, wherever a line naming it appears,
+    and a command's output starts at the LAST line naming it: a line of an
+    earlier command's output that reads like the next command's own line is
+    still that earlier command's output."""
+    if call is None or getattr(call, "name", "") != "manage_packages":
+        return None
+    from intergen.tools.manage_packages import (
+        ManagePackagesTool, SEQUENCE_COMMAND_LINE,
+    )
+    args = call.arguments if isinstance(call.arguments, dict) else {}
+    commands = ManagePackagesTool().build_commands(args, pkm="pkm")
+    if not commands or len(commands) < 2 or not isinstance(content, str):
+        return None
+
+    def names(line: str, argv: list[str]) -> bool:
+        return (line.startswith(SEQUENCE_COMMAND_LINE)
+                and _pkm_words(line[len(SEQUENCE_COMMAND_LINE):]) == argv)
+
+    lines = content.split("\n")
+    if not names(lines[0], commands[0]):
+        return [("", content)]
+    ran = len(commands)
+    for index in range(1, len(commands)):
+        if any(_names_the_unrun(line, commands[index:]) for line in lines):
+            ran = index
+            break
+    starts = [0]
+    for argv in commands[1:ran]:
+        named_at = [at for at in range(starts[-1] + 1, len(lines))
+                    if names(lines[at], argv)]
+        if not named_at:
+            break
+        starts.append(named_at[-1])
+    ends = starts[1:] + [len(lines)]
+    return [(" ".join(commands[index]),
+             "\n".join(lines[start + 1:end]).strip("\n"))
+            for index, (start, end) in enumerate(zip(starts, ends))]
 
 
 @dataclass
@@ -200,21 +291,32 @@ class ConversationState:
     def record_execution(self, result: Any, call: Any = None) -> None:
         """Keep what a tool that RAN returned, failed or not: its full content,
         and the summary the model was given when the tool made one, beside the
-        tool and the command line of `call`, the call that produced it. A result
-        the gate refused, the person denied or the safety classifier blocked ran
+        tool and the command line of `call`, the call that produced it; a call
+        that ran a sequence of commands as one run per command that ran, each
+        beside its own output (_package_sequence_runs). A result the gate
+        refused, the person denied or the safety classifier blocked ran
         nothing, so nothing of it is kept."""
         if result is None or not getattr(result, "executed", False):
             return
         if getattr(result, "blocked", False):
             return
-        texts = tuple(text for text in (getattr(result, "content", None),
-                                        getattr(result, "model_summary", None))
-                      if isinstance(text, str) and text.strip())
-        if texts:
-            self.executed_outputs.append(ExecutedOutput(
-                tool=str(getattr(result, "name", "")
-                         or getattr(call, "name", "") or ""),
-                command=command_line(call), texts=texts))
+        tool = str(getattr(result, "name", "") or getattr(call, "name", "") or "")
+        content = getattr(result, "content", None)
+        summary = getattr(result, "model_summary", None)
+        runs = _package_sequence_runs(call, content)
+        split = runs is not None
+        if runs is None:
+            runs = [(command_line(call), content)]
+        for index, (command, output) in enumerate(runs):
+            # The summary is of the whole result, so the last run keeps it.
+            last = index == len(runs) - 1
+            texts = tuple(text for text in (output, summary if last else None)
+                          if isinstance(text, str) and text.strip())
+            # A command of a sequence that ran is on the record even when it
+            # printed nothing, so the latest run is the command that ran last.
+            if texts or (split and command):
+                self.executed_outputs.append(ExecutedOutput(
+                    tool=tool, command=command, texts=texts))
 
     def clear_offers(self) -> None:
         """Withdraw every offer awaiting a yes or no, and the grounding window

@@ -3896,6 +3896,13 @@ UPGRADED = _run(UPGRADE_ALL, PACKAGES_UPGRADED)
 INDEX_REFRESHED = _run(_command_call("pkm update"),
                        "Package index updated: 1342 packages, 3 can be "
                        "upgraded.")
+# The package tool's update, its refresh done and its upgrade failed: the
+# refresh's "updated" is no report of the upgrade.
+UPDATE_FAILED_AT_UPGRADE = _run(
+    _package_call(action="update"),
+    "$ pkm sync\nPackage index updated: 1342 packages, 3 can be upgraded.\n"
+    "$ pkm upgrade --all --yes\n[stderr] pkm: the transaction failed\n"
+    "[exit code: 1]", success=False)
 INDEX_SYNCED = _run(_command_call("pkm sync"),
                     "Package index updated. All packages are up to date.")
 WEB_PAGE = _run(ToolCall(name="web_search", arguments={"query": "htop review"},
@@ -3933,6 +3940,7 @@ class RecordAttributionTests(unittest.TestCase):
     def test_the_record_keeps_each_runs_command_line(self):
         record = _recorded(
             (PRINTER_CALL, PRINTER_FAILED), HTOP_INSTALL_RAN, INDEX_REFRESHED,
+            UPDATE_FAILED_AT_UPGRADE,
             _run(_package_call(action="list"), "htop 3.3.0-1"),
             _run(ToolCall(name="manage_services",
                           arguments={"action": "restart", "service": "cups"},
@@ -3940,14 +3948,173 @@ class RecordAttributionTests(unittest.TestCase):
             WEB_PAGE)
         self.assertEqual([(run.tool, run.command) for run in record], [
             ("run_command", "lpstat -p -d"),
-            # The package tool's own argument lists; pkm's refresh by its
-            # update alias is a command line run as written.
+            # The package tool's own argument lists: its update action runs
+            # the refresh and then the upgrade of every package, one run each.
             ("manage_packages", "pkm install --yes htop"),
             ("run_command", "pkm update"),
+            ("manage_packages", "pkm sync"),
+            ("manage_packages", "pkm upgrade --all --yes"),
             ("manage_packages", "pkm list"),
             ("manage_services", "systemctl restart cups"),
             ("web_search", "")])
         self.assertEqual(record[0].texts, (PRINTER_FAILED.content,))
+        # Each command of the update holds its own output and no other's.
+        self.assertEqual(record[3].texts, (
+            "Package index updated: 1342 packages, 3 can be upgraded.",))
+        self.assertEqual(record[4].texts, (
+            "[stderr] pkm: the transaction failed\n[exit code: 1]",))
+
+    def test_a_package_update_is_one_run_per_command_that_ran(self):
+        sync = "$ /usr/bin/pkm sync"
+        upgrade = "$ /usr/bin/pkm upgrade --all --yes"
+        not_run = ("Not run, because the command above failed: /usr/bin/pkm "
+                   "upgrade --all --yes")
+        refused = ("privileged_dispatch: the approval token has expired; "
+                   "refusing dispatch (fail closed).")
+        for name, content, success, runs, verdict in (
+                ("both ran, named by the vendor path",
+                 f"{sync}\nPackage index updated. All packages are up to "
+                 f"date.\n\n{upgrade}\n  Everything is up to date.\n",
+                 True,
+                 [("pkm sync",
+                   "Package index updated. All packages are up to date."),
+                  ("pkm upgrade --all --yes", "  Everything is up to date.")],
+                 ("clean", None)),
+                ("the refresh failed, so the upgrade did not run",
+                 f"{sync}\n[stderr] pkm: the index could not be read\n"
+                 f"[exit code: 1]\n{not_run}",
+                 False,
+                 [("pkm sync", "[stderr] pkm: the index could not be read\n"
+                               f"[exit code: 1]\n{not_run}")],
+                 ("violation", "is now up to date")),
+                # A line of the refresh's output that reads like the upgrade's
+                # own line is still the refresh's output.
+                ("the refresh printed the upgrade's line",
+                 f"{sync}\n{upgrade}\nUpgraded htop to 3.3.0-2\n\n{upgrade}\n"
+                 "[stderr] pkm: the transaction failed\n[exit code: 1]",
+                 False,
+                 [("pkm sync", f"{upgrade}\nUpgraded htop to 3.3.0-2"),
+                  ("pkm upgrade --all --yes",
+                   "[stderr] pkm: the transaction failed\n[exit code: 1]")],
+                 ("violation", "is now up to date")),
+                # ...and a failed refresh's never starts an upgrade: the note
+                # says it did not run, with the privileged runner's report
+                # after it on the same line.
+                ("the failed refresh printed the upgrade's line",
+                 f"{sync}\n{upgrade}\nUpgraded htop to 3.3.0-2\n[exit code: "
+                 f"1]\n{not_run} [exit code: 1; it said: pkm failed]",
+                 False,
+                 [("pkm sync", f"{upgrade}\nUpgraded htop to 3.3.0-2\n[exit "
+                               f"code: 1]\n{not_run} [exit code: 1; it said: "
+                               "pkm failed]")],
+                 ("violation", "is now up to date")),
+                ("nothing of the sequence ran", refused, False,
+                 [("", refused)], ("violation", "is now up to date"))):
+            with self.subTest(name):
+                record = _recorded(_run(_package_call(action="update"),
+                                        content, success=success))
+                self.assertEqual(
+                    [(run.tool, run.command, run.texts) for run in record],
+                    [("manage_packages", command, (output,))
+                     for command, output in runs])
+                self.assertEqual(
+                    self._screen("Your system is now up to date.",
+                                 _run(_package_call(action="update"), content,
+                                      success=success)), verdict)
+        # A package named: its refresh, then its own upgrade.
+        record = _recorded(_run(
+            _package_call(action="update", package="htop"),
+            "$ /usr/bin/pkm sync\nPackage index updated. 1 package can be "
+            "upgraded.\n$ /usr/bin/pkm upgrade --yes htop\nUpgraded htop to "
+            "3.3.0-2"))
+        self.assertEqual([(run.command, run.texts) for run in record], [
+            ("pkm sync", ("Package index updated. 1 package can be upgraded.",)),
+            ("pkm upgrade --yes htop", ("Upgraded htop to 3.3.0-2",))])
+
+    def test_the_refresh_and_the_upgrade_are_quoted_as_their_own(self):
+        for text, verdict in (
+                # The refresh's own state, on its own record.
+                ("The package index was refreshed, but the upgrade failed: "
+                 "pkm said the transaction failed.", ("clean", None)),
+                ("`pkm sync` printed: Package index updated: 1342 packages, 3 "
+                 "can be upgraded.", ("clean", None)),
+                ("`pkm upgrade --all` returned: pkm: the transaction failed",
+                 ("clean", None)),
+                ("It returned:\n```\n[stderr] pkm: the transaction failed\n"
+                 "[exit code: 1]\n```", ("clean", None)),
+                # The refresh's output is no result of the upgrade, and the
+                # latest run is the upgrade.
+                ("Here is what `pkm upgrade` returned: Package index updated: "
+                 "1342 packages, 3 can be upgraded.",
+                 ("violation", "here is what `pkm upgrade` returned")),
+                ("It returned:\n```\nPackage index updated: 1342 packages, 3 "
+                 "can be upgraded.\n```", ("violation", "it returned:"))):
+            with self.subTest(text=text):
+                self.assertEqual(self._screen(text, UPDATE_FAILED_AT_UPGRADE),
+                                 verdict)
+
+    def test_the_package_tools_own_update_output_is_read_per_command(self):
+        """The content the package tool's execute writes, the producer, read
+        by the record, the consumer: its refresh said every package is up to
+        date and its upgrade failed. Nothing runs: pkm's two processes are
+        stood in for, and so is the root the privileged runner gives it."""
+        from intergen.tools.manage_packages import ManagePackagesTool
+
+        def update(upgrade_exit, upgrade_stdout, upgrade_stderr):
+            answers = iter((
+                SimpleNamespace(returncode=0, stderr="", stdout=(
+                    "\nPackage index updated. All packages are up to date.\n")),
+                SimpleNamespace(returncode=upgrade_exit, stdout=upgrade_stdout,
+                                stderr=upgrade_stderr)))
+            ran = []
+
+            def run(cmd, **_):
+                ran.append(list(cmd))
+                return next(answers)
+            with mock.patch("intergen.tools.manage_packages.os.geteuid",
+                            return_value=0), \
+                    mock.patch("intergen.tools.manage_packages.os.path.isfile",
+                               return_value=True), \
+                    mock.patch("intergen.tools.manage_packages.os.access",
+                               return_value=True), \
+                    mock.patch("intergen.tools.manage_packages.subprocess.run",
+                               side_effect=run):
+                result = ManagePackagesTool().execute({"action": "update"})
+            self.assertEqual(ran, [["/usr/bin/pkm", "sync"],
+                                   ["/usr/bin/pkm", "upgrade", "--all",
+                                    "--yes"]])
+            return result
+
+        call = _package_call(action="update")
+        failed = update(1, "", "pkm: another transaction holds the lock\n")
+        upgraded = update(0, "Upgraded htop to 3.3.0-2\n", "")
+        # What the registry returns from the privileged runner: its stdout for
+        # a run that succeeded, and for one that failed that stdout with the
+        # runner's report on its last line.
+        with mock.patch.object(ToolRegistry, "_probe_user_manager",
+                               return_value={"state": "undetermined",
+                                             "answer": "",
+                                             "detail": "not asked here"}):
+            reported = ToolRegistry._privileged_failure_result(
+                call, "manage_packages", SimpleNamespace(
+                    returncode=1, stdout=failed.content + "\n", stderr=""))
+        for result, upgrade_texts, verdict in (
+                (failed, ("[stderr] pkm: another transaction holds the lock\n"
+                          "\n[exit code: 1]",),
+                 ("violation", "is now up to date")),
+                (reported, None, ("violation", "is now up to date")),
+                (upgraded, ("Upgraded htop to 3.3.0-2",), ("clean", None))):
+            with self.subTest(content=result.content):
+                record = _recorded((call, result))
+                self.assertEqual([run.command for run in record],
+                                 ["pkm sync", "pkm upgrade --all --yes"])
+                self.assertEqual(record[0].texts, (
+                    "Package index updated. All packages are up to date.",))
+                if upgrade_texts is not None:
+                    self.assertEqual(record[1].texts, upgrade_texts)
+                self.assertNotIn("up to date", record[1].texts[0])
+                self.assertEqual(self._screen(
+                    "Your system is now up to date.", (call, result)), verdict)
 
     def test_a_named_command_reads_only_its_own_output(self):
         for text, marker, runs in (
@@ -4007,6 +4174,7 @@ class RecordAttributionTests(unittest.TestCase):
     def test_a_completed_state_reads_only_its_acts_output(self):
         for name, runs in (
                 ("pkm's refresh by its update alias", [INDEX_REFRESHED]),
+                ("the update's upgrade failed", [UPDATE_FAILED_AT_UPGRADE]),
                 ("pkm sync, all up to date", [INDEX_SYNCED]),
                 ("a fetched page", [WEB_PAGE]),
                 ("another tool's counts line", [COUNTS_LINE]),
@@ -4055,6 +4223,8 @@ class RecordAttributionTests(unittest.TestCase):
         for text, marker, runs in (
                 ("Your system is now up to date.", "is now up to date",
                  [INDEX_REFRESHED]),
+                ("Your system is now up to date.", "is now up to date",
+                 [UPDATE_FAILED_AT_UPGRADE]),
                 ("The update is complete.", "update is complete", [WEB_PAGE]),
                 ("Upgrade complete!", "upgrade complete", [COUNTS_LINE]),
                 ("Done! It's now installed.", "'s now installed",
