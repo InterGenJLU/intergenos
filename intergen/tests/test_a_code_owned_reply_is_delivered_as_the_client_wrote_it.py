@@ -38,7 +38,8 @@ from pathlib import Path
 from unittest import mock
 
 from intergen import router as router_module
-from intergen.interfaces.types import HardwareTierLevel
+from intergen.interfaces.provenance import Provenance
+from intergen.interfaces.types import HardwareTierLevel, LLMResponse, ToolCall, ToolResult
 from intergen.llm import LLMRouter
 from intergen.tests.test_truth_screens import (
     OWN_ANSWER, TOOLCHAINS_PAGE, WHAT_LEAVES_INTRO_PAGE, _OneHit, _REFUSED, _router,
@@ -272,6 +273,106 @@ class ARegenerationIntoTheClientsTextIsDeliveredAsWritten(unittest.TestCase):
                                   result.answer_linkage.renderer),
                                  ("code", "model_server_down"))
                 self.assertIsNone(router._conv.pending_action_offer)
+
+
+# What the stood-in command printed for the dispatched turn below.
+DISK_USAGE = ("Filesystem      Size  Used Avail Use% Mounted on\n"
+              "/dev/nvme0n1p2  100G   20G   80G  20% /")
+
+
+def _dispatched_turn(user, draft):
+    """One turn on the native floor's tool route in which the model calls a
+    tool before it answers: the call is dispatched (the registry stood in, the
+    command ran and printed DISK_USAGE), the answer composed after it is
+    `draft`, and every request after that — a screen's regeneration, through
+    the REAL model client's chat() — finds the model server down. Returns (the
+    result, the router, the number of requests, the glass emit mock)."""
+    router = _router(tier=HardwareTierLevel.TIER_2, locked=False)
+    del router._llm.chat
+    router._wiki_retrieval = _OneHit(TOOLCHAINS_PAGE)
+    call = ToolCall(name="run_command", arguments={"command": "df -h"},
+                    call_id="c1", source_of_request=Provenance.USER_DIRECT)
+    router._llm.stream_with_tools = mock.Mock(return_value=iter([call]))
+    router._tools.execute = mock.Mock(return_value=ToolResult(
+        call_id="c1", name="run_command", content=DISK_USAGE))
+    router._llm.continue_after_tool_call = mock.Mock(return_value=LLMResponse(
+        text=draft, model="local", local=True, quality_passed=True))
+    asked = []
+
+    def urlopen(request, *_, **__):
+        asked.append(request)
+        raise urllib.error.URLError(ConnectionRefusedError(111, "Connection refused"))
+
+    with mock.patch.object(urllib.request, "urlopen", side_effect=urlopen), \
+            mock.patch("intergen.router.glass.emit") as emit:
+        result = router.route(user)
+    return result, router, len(asked), emit
+
+
+class TheToolRouteDeliversTheClientsTextAsWritten(unittest.TestCase):
+    """The second door on the native floor's tool route, where every
+    conversational turn is offered the tools. A screen flags the model's answer
+    and asks again, and the regeneration comes back as the client's own text.
+    It is delivered as the freeform route delivers it: linked to the client,
+    one code_owned_delivery row, no Source line, no save, and no later screen
+    reads it. Before, the route passed the screens no list: the text was linked
+    to the model or to the dispatch, no row was written, and the refusal screen
+    read the server-down text as a refusal and asked the model a third time."""
+
+    DRAFTS = ARegenerationIntoTheClientsTextIsDeliveredAsWritten.DRAFTS
+    REGENERATED = ARegenerationIntoTheClientsTextIsDeliveredAsWritten.REGENERATED
+
+    def _assert_delivered_as_written(self, screen, result, router, emit):
+        self.assertEqual(result.source, "llm_tools")
+        self.assertEqual(result.text, SERVER_DOWN)
+        self.assertEqual([d["verdict"] for d in _decisions(emit, screen)],
+                         [self.REGENERATED[screen]])
+        if screen != "refusal_screen":
+            self.assertEqual(_decisions(emit, "refusal_screen"), [])
+        self.assertEqual((result.answer_linkage.kind,
+                          result.answer_linkage.renderer),
+                         ("code", "model_server_down"))
+        self.assertEqual([d["name"] for d in _decisions(emit, "code_owned_delivery")],
+                         ["model_server_down"])
+        self.assertNotIn("Source:", result.text)
+        self.assertIsNone(router._conv.pending_action_offer)
+
+    def test_the_text_answer_delivers_the_server_down_text_as_written(self):
+        # The model answers in text without calling a tool (the first request,
+        # streamed back by the client), and the screen's regeneration is the
+        # second.
+        for screen, draft in self.DRAFTS.items():
+            with self.subTest(screen=screen):
+                result, router, asked, emit = _turn(
+                    GENERAL_ASK, draft, _REFUSED, locked=False, wiki=TOOLCHAINS_PAGE)
+                self._assert_delivered_as_written(screen, result, router, emit)
+                self.assertEqual(asked, 2)
+
+    def test_the_answer_after_a_dispatch_delivers_the_server_down_text_as_written(self):
+        # The stream and the synthesis are stood in, so the screen's
+        # regeneration is the only request the turn makes. The state-claim and
+        # offer screens pass an answer a dispatch stands behind
+        # (safety.screen_local_state_claim, screen_model_text_offer), so after
+        # a dispatch the capability and refusal screens are the ones that ask
+        # again.
+        for screen in ("capability_screen", "refusal_screen"):
+            draft = self.DRAFTS[screen]
+            with self.subTest(screen=screen):
+                result, router, asked, emit = _dispatched_turn(GENERAL_ASK, draft)
+                self._assert_delivered_as_written(screen, result, router, emit)
+                self.assertEqual(asked, 1)
+                self.assertEqual([r.name for r in result.tool_results], ["run_command"])
+
+    def test_the_models_answer_after_a_dispatch_is_still_linked_to_the_dispatch(self):
+        """CONTROL: an answer no screen replaced keeps the dispatch's linkage."""
+        poem = "Amber leaves descend in quiet spirals over the orchard."
+        result, _, asked, emit = _dispatched_turn(GENERAL_ASK, poem)
+        self.assertEqual(asked, 0)
+        self.assertEqual(result.text, poem)
+        self.assertEqual((result.answer_linkage.kind, result.answer_linkage.tool,
+                          result.answer_linkage.call_id, result.answer_linkage.renderer),
+                         ("dispatch", "run_command", "c1", "llm_synth"))
+        self.assertEqual(_decisions(emit, "code_owned_delivery"), [])
 
 
 # Every function of the router that asks the model client for a reply, with

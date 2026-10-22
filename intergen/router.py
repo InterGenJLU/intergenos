@@ -7755,9 +7755,18 @@ class ConversationRouter(RouterInterface):
             screen_messages = self._llm.build_system_messages(
                 query_type=getattr(self, "_current_query_type", "general"),
                 with_tools=False) + messages[1:]
+            # `fallbacks` names whoever wrote the text this turn delivers when
+            # it is not the model, as on the freeform route. The answer above
+            # is never the model client's own text (the stream hands over the
+            # model's words, and the synthesis gate refuses a reply whose ladder
+            # was spent), so the list starts empty; a screen's regeneration
+            # that comes back as the client's text adds its name, and from then
+            # on no screen reads it. Without the list that text was linked to
+            # the dispatch and read by the refusal screen as a refusal.
+            fallbacks: list[str] = []
             response_text, refused = self._screen_model_answer(
                 response_text, screen_messages, source="llm_tools",
-                dispatched=dispatched)
+                dispatched=dispatched, fallbacks=fallbacks)
 
             self._append_history(user_input, response_text)
 
@@ -7800,10 +7809,16 @@ class ConversationRouter(RouterInterface):
                 tool_calls=tool_calls,
                 tool_results=tool_results,
                 used_llm=True,
-                answer_linkage=AnswerLinkage(
-                    kind="dispatch", tool=tool_results[0].name,
-                    call_id=tool_results[0].call_id,
-                    renderer=_renderer),
+                # A text a screen or the model client wrote is code's: the
+                # linkage names the last writer the turn recorded, as the
+                # freeform route's does.
+                answer_linkage=(
+                    AnswerLinkage(kind="code", renderer=fallbacks[-1])
+                    if fallbacks else
+                    AnswerLinkage(
+                        kind="dispatch", tool=tool_results[0].name,
+                        call_id=tool_results[0].call_id,
+                        renderer=_renderer)),
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
                 escalation_offer=self._maybe_offer(
@@ -7883,10 +7898,15 @@ class ConversationRouter(RouterInterface):
             # command for you" and an unbacked offer to install were delivered
             # with no screen decision at all, while the locked floor screened
             # every one. The answer now meets the freeform sequence itself,
-            # asked again with the tool-less prompt above.
+            # asked again with the tool-less prompt above, with the freeform
+            # route's list of who wrote the text it delivers: the draft is the
+            # model's (the stream never hands over the client's own text), and
+            # a screen's regeneration that comes back as the client's text is
+            # delivered as the client wrote it.
+            fallbacks: list[str] = []
             text, refused = self._screen_model_answer(
                 self._llm._strip_filler(draft.text),
-                screen_messages, source="llm_tools")
+                screen_messages, source="llm_tools", fallbacks=fallbacks)
             # THE SAME OFFER AS A FREEFORM ANSWER. A refusal the screens could
             # not correct is a failure of the local answer: on the freeform
             # route it earns the phone-a-friend offer beside the steer in the
@@ -7902,9 +7922,13 @@ class ConversationRouter(RouterInterface):
                 handled=True,
                 used_llm=True,
                 # The model answered in text without calling a tool — free
-                # model text, no dispatch behind it.
-                answer_linkage=AnswerLinkage(
-                    kind="model", renderer="llm_tools_text"),
+                # model text, no dispatch behind it — unless a screen or the
+                # model client wrote the text delivered: then the linkage names
+                # that writer, as the freeform route's does.
+                answer_linkage=(
+                    AnswerLinkage(kind="code", renderer=fallbacks[-1])
+                    if fallbacks else
+                    AnswerLinkage(kind="model", renderer="llm_tools_text")),
                 tokens_prompt=tok_p,
                 tokens_completion=tok_c,
                 escalation_offer=self._maybe_offer(
