@@ -52,6 +52,7 @@ from intergen import tool_registry as tr
 from intergen.tests.escalation_posture import (
     escalation_allowed_for_a_stubbed_dispatch,
 )
+from intergen.tests.tool_process_fixture import unit_search_path_is
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall
 from intergen.interfaces.provenance import Provenance
@@ -64,6 +65,20 @@ class _Completed:
         self.returncode = returncode
         self.stdout = stdout
         self.stderr = stderr
+
+
+def _no_unit_directories(runtime) -> Path:
+    """An empty directory under `runtime` for the unit-directory gate to read.
+
+    The dispatch meets that gate before its systemd-run, and the gate asks the
+    user manager for its unit search path through subprocess.run, which every
+    harness here replaces. Answered with this directory (unit_search_path_is),
+    the stand-in sees the dispatch and the manager probe alone, and the gate
+    reads a real directory that holds nothing.
+    """
+    units = Path(runtime, "units")
+    units.mkdir(exist_ok=True)
+    return units
 
 
 # The three real-world conditions that share exit code 127. Only the last one is
@@ -155,6 +170,7 @@ def _dispatch(returncode, stdout, stderr, *, runner_present,
                         completed,
                         "running" if manager_present else "offline",
                     )), \
+                unit_search_path_is(_no_unit_directories(runtime)), \
                 escalation_allowed_for_a_stubbed_dispatch():
             # This helper exists to read what the ESCALATING branch reports, so
             # it takes the refusing posture back inside the stub above.
@@ -310,6 +326,7 @@ def _dispatch_with_real_runner_path(returncode, stderr, runner_path,
                 mock.patch.object(
                     tr.subprocess, "run",
                     side_effect=_manager_routing_run(completed, "running")), \
+                unit_search_path_is(_no_unit_directories(runtime)), \
                 escalation_allowed_for_a_stubbed_dispatch():
             result = ToolRegistry._dispatch_via_pkexec(
                 _call(), "manage_packages", {"action": "upgrade"},
@@ -502,6 +519,8 @@ def _dispatch_with_manager(manager_answer, *, socket_present, returncode=127,
             mock.patch.object(tr, "_PKEXEC_RUNNER_PATH", str(runner)))
         stack.enter_context(
             mock.patch.object(tr.subprocess, "run", side_effect=_run))
+        stack.enter_context(
+            unit_search_path_is(_no_unit_directories(runtime)))
         stack.enter_context(escalation_allowed_for_a_stubbed_dispatch())
         result = ToolRegistry._dispatch_via_pkexec(
             _call(), "manage_packages", {"action": "upgrade"},
@@ -587,6 +606,7 @@ class TheSystemdRunPathIsAbsoluteTests(unittest.TestCase):
             with mock.patch.dict(
                     os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
                     mock.patch.object(tr.subprocess, "run", side_effect=_run), \
+                    unit_search_path_is(_no_unit_directories(runtime)), \
                     escalation_allowed_for_a_stubbed_dispatch():
                 ToolRegistry._dispatch_via_pkexec(
                     _call(), "manage_packages", {"action": "upgrade"},

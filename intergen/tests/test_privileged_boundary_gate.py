@@ -550,11 +550,18 @@ class Leg3ProcCanaryTests(unittest.TestCase):
         from intergen.tests.escalation_posture import (
             escalation_allowed_for_a_stubbed_dispatch,
         )
+        from intergen.tests.tool_process_fixture import unit_search_path_is
 
         with tempfile.TemporaryDirectory(prefix="privboundary-canary-") as runtime:
+            # The unit-directory gate reads the user manager's unit search path
+            # through subprocess.run before the dispatch's own call; answered
+            # with an empty directory, the argv captured is the dispatch's.
+            units = os.path.join(runtime, "units")
+            os.mkdir(units)
             with mock.patch.dict(
                     os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
                     mock.patch.object(tr.subprocess, "run", side_effect=_capture), \
+                    unit_search_path_is(units), \
                     escalation_allowed_for_a_stubbed_dispatch():
                 ToolRegistry._dispatch_via_pkexec(
                     ToolCall(

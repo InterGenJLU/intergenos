@@ -296,10 +296,15 @@ tools.
   runtime directory and session bus, `TERM=dumb`, LANG and `LC_*` as locale
   names, and three settings (npm's update check off, the local print
   scheduler's socket, no Python user site). The program is resolved on that
-  PATH. A drop-in directory in the user manager's unit search path that would
-  apply to the service, where the account can write, refuses the start and is
-  named. `git` asks first in every form, since it reads configuration that
-  names programs it runs from the home and from the work tree it stands in.
+  PATH. A drop-in or dependency directory (.d, .wants, .requires, .upholds)
+  that systemd would apply to a tool's service or to the privileged dispatch's
+  unit, under any name it applies to it, refuses the start (the dispatch's
+  before any password is asked for) and is named with the reason, unless it,
+  every directory above it and everything within it are owned by root and
+  writable by no one else: ownership decides, never permission bits an owner
+  can change back. `git` asks first in every form, since it reads
+  configuration that names programs it runs from the home and from the work
+  tree it stands in.
 
 ---
 
@@ -315,3 +320,4 @@ tools.
 | 2026-10-22 | §8 "The root side holds a named object before it opens it": `intergen.held_open` holds a path a privileged helper is handed with `O_PATH` and checks the held object before any open for reading or writing, so a FIFO's or a device's open never runs as root; adopted by the model-storage provisioner's staging paths, the file tool's open of an existing name under the privileged runner and the runner's request file. |
 | 2026-10-22 | §8: AUTH-PROMPT is one administrator authentication per call. One PolicyKit action per privileged tool, `auth_admin` with no keep, chosen by pkexec from the tool's name so the prompt names the kind of action; the dispatch token and the request file are defense in depth, never the gate. |
 | 2026-10-22 | §8: a command `run_command` starts runs with an environment written for it (glibc's unsafe loader variables unset, `env -i` with a fixed allowlist, the program resolved on a fixed PATH); a drop-in that would apply to its service where the account can write refuses the start; every `git` form asks first. |
+| 2026-10-22 | §8: the drop-in gate reads every directory systemd applies to a tool's service and to the privileged dispatch's unit, dependency directories included, and takes one as the administrator's only when root owns it along its whole path. |

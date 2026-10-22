@@ -219,5 +219,57 @@ class EveryLaunchMeetsTheGate(unittest.TestCase):
         self.assertIn(str(self.entry), str(caught.exception))
 
 
+@unittest.skipIf(os.geteuid() == 0, _AS_ROOT)
+class ThePrivilegedDispatchMeetsTheGate(unittest.TestCase):
+    """The privileged dispatch's own unit, intergen-privileged-<hex>.service, meets the gate before its systemd-run.
+
+    A directory the account can change under any of its names could replace the
+    command the person's authentication approves. Every process is stubbed: no
+    unit is asked for and nothing reaches PolicyKit.
+    """
+
+    def _dispatch(self, *entries: str):
+        from intergen import privileged_request, tool_registry
+        from intergen.interfaces.types import Provenance, ToolCall
+        from intergen.tests.escalation_posture import escalation_allowed_for_a_stubbed_dispatch
+
+        with tempfile.TemporaryDirectory(prefix="intergen-unit-dirs-priv-") as runtime:
+            units = Path(runtime, "systemd", "user")
+            units.mkdir(parents=True)
+            for name in entries:
+                (units / name).mkdir()
+            run = mock.Mock(return_value=subprocess.CompletedProcess([], 0, "done\n", ""))
+            with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}), \
+                    mock.patch.object(tool_registry.subprocess, "run", run), \
+                    unit_search_path_is(units), escalation_allowed_for_a_stubbed_dispatch():
+                result = tool_registry.ToolRegistry._dispatch_via_pkexec(
+                    ToolCall(name="manage_packages", arguments={"action": "upgrade"},
+                             call_id="unit-directory-case",
+                             source_of_request=Provenance.USER_DIRECT),
+                    "manage_packages", {"action": "upgrade"}, "token-placeholder")
+                requests = Path(privileged_request.request_dir())
+                left = sorted(p.name for p in requests.iterdir()) if requests.is_dir() else []
+            started = [c.args[0] for c in run.call_args_list
+                       if c.args and os.path.basename(str(c.args[0][0])) == "systemd-run"]
+            return result, started, units, left
+
+    def test_each_kind_of_name_refuses_the_dispatch_before_systemd_run(self) -> None:
+        for name in ("intergen-privileged-.service.d", "intergen-.service.wants", "service.d"):
+            with self.subTest(name=name):
+                result, started, units, left = self._dispatch(name)
+                self.assertEqual(started, [], "systemd-run was asked to start the dispatch")
+                self.assertFalse(result.success)
+                self.assertFalse(result.executed)
+                self.assertIn(f"{units / name} is ", result.content)
+                self.assertIn("was not dispatched, and no password was asked for", result.content)
+                self.assertEqual(left, [], "the request holding the approval was left on disk")
+
+    def test_without_one_the_dispatch_is_started(self) -> None:
+        result, started, _, _ = self._dispatch()
+        self.assertEqual(len(started), 1, started)
+        self.assertIn("--unit=intergen-privileged-", " ".join(started[0]))
+        self.assertTrue(result.success, result.content)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -61,6 +61,7 @@ from intergen import privileged_request as pr
 from intergen.tests.escalation_posture import (
     escalation_allowed_for_a_stubbed_dispatch,
 )
+from intergen.tests.tool_process_fixture import unit_search_path_is
 from intergen import tool_registry as tr
 from intergen.tool_registry import ToolRegistry
 from intergen.interfaces.types import ToolCall
@@ -98,6 +99,16 @@ class _DispatchTestCase(unittest.TestCase):
         patcher = mock.patch.dict(
             os.environ, {"XDG_RUNTIME_DIR": self._tmp.name}, clear=False,
         )
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        # The dispatch meets the unit-directory gate before its systemd-run,
+        # and the gate asks the user manager for its unit search path through
+        # subprocess.run, which the recorder below replaces. Answered here with
+        # an empty directory, so the recorder sees the dispatch alone and the
+        # gate reads a real directory that holds nothing.
+        units = Path(self._tmp.name, "units")
+        units.mkdir()
+        patcher = unit_search_path_is(units)
         patcher.start()
         self.addCleanup(patcher.stop)
         self.recorded_argv: list[list[str]] = []

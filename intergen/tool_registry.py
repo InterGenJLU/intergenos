@@ -126,6 +126,7 @@ from intergen.dispatch_token import (
 from intergen.spotlighting import is_wrapped, wrap_ingress_content
 from intergen import glass
 from intergen import privileged_request
+from intergen import tool_process
 from intergen.interfaces.scanner import (
     ScanContext,
     ScanDirection,
@@ -2356,6 +2357,25 @@ class ToolRegistry:
 
         leave_request = False
         try:
+            # The unit meets the gate every tool's service meets: a drop-in or
+            # dependency directory the account can change would apply to it
+            # (intergen-privileged-.service.d, intergen-.service.d, service.d
+            # and the rest), and could replace the command the person's
+            # authentication approves. Refused before anything is started, and
+            # the request written above is discarded in the finally below.
+            try:
+                tool_process.check_unit_dropins(f"{unit_name}.service")
+            except tool_process.ToolProcessNotStarted as exc:
+                logger.error("privileged dispatch of %s not started: %s",
+                             tool_name, exc)
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=(f"{tool_name} was not dispatched, and no password "
+                             f"was asked for: {exc}"),
+                    success=False,
+                    executed=False,
+                )
             try:
                 completed = subprocess.run(
                     argv, capture_output=True, text=True, check=False,

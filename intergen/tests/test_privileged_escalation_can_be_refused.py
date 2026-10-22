@@ -138,6 +138,7 @@ class _NoEscalationPossible:
 
     def __enter__(self):
         import intergen.tool_registry as reg_mod
+        from intergen.tests.tool_process_fixture import unit_search_path_is
         self._patches = [
             mock.patch.object(reg_mod.subprocess, "run"),
             mock.patch.object(reg_mod.privileged_request, "write_request",
@@ -147,6 +148,11 @@ class _NoEscalationPossible:
             mock.patch.object(reg_mod.privileged_request,
                               "prune_stale_requests", return_value=[]),
             mock.patch.object(reg_mod.privileged_request, "discard_request"),
+            # The unit-directory gate's read of the user manager's unit search
+            # path would otherwise be answered by the subprocess.run stub
+            # above: it is answered with no directory, so the gate reads no
+            # file and the stub sees the dispatch alone.
+            unit_search_path_is(),
         ]
         started = [p.start() for p in self._patches]
         self.run = started[0]
