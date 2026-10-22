@@ -109,7 +109,10 @@ class AUserDataRestoreWritesTheBytesItVerified(unittest.TestCase):
 
     def test_a_stored_file_another_account_owns_is_refused(self):
         uid = os.geteuid()
-        with mock.patch.object(os, "geteuid", return_value=uid + 1):
+        # The store itself stays the engine's (its directories are uid's), so
+        # the case reaches the stored file's own owner check.
+        with mock.patch.object(_paths, "store_owners", return_value={0, uid}), \
+                mock.patch.object(os, "geteuid", return_value=uid + 1):
             result = self.restore()
         self.assertFalse(result["ok"], result)
         self.assertIn(f"owned by uid {uid}", result["reason"])

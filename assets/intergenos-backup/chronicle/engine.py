@@ -125,7 +125,12 @@ class Engine:
     def __init__(self, local_root=None, config=None, config_path=None,
                  now_fn=None):
         self.local_root = Path(local_root) if local_root else _paths.LOCAL_ROOT
-        _paths.ensure_store_skeleton(self.local_root)
+        try:
+            _paths.ensure_store_skeleton(self.local_root)
+        except _held.HeldOpenRefused as refused:
+            raise EngineError(
+                f"the local store {self.local_root} is refused: {refused}"
+            ) from refused
         self._transaction_lock = _store_transaction_lock(self.local_root)
         self._transaction_depth = 0
         self.config = config if config is not None else _config.load(config_path)
@@ -228,16 +233,33 @@ class Engine:
 
     def target_root(self):
         """The target store root when a target is adopted AND present, else
-        None. Directory-class targets root at <mount>/ChronicleBackups."""
+        None. Directory-class targets root at <mount>/ChronicleBackups.
+
+        Raises EngineError when the store root, or a directory above it, is
+        one another account could change (paths.require_trusted_root): every
+        verb that reads or writes the target refuses it, rather than capture
+        into, or restore as root from, a store whose manifests and files
+        another account could have replaced."""
         t = self.state.get("target")
         if not t:
             return None
         mount = t.get("mountpoint")
         if not mount or not os.path.ismount(mount) and not os.path.isdir(mount):
             return None
-        return _paths.target_store_root(
+        root = _paths.target_store_root(
             mount, directory_class=(t.get("class") == "directory")
         )
+        try:
+            # A store not made yet is made under its mount by the first write.
+            _paths.require_trusted_root(
+                root if os.path.lexists(root) else mount)
+        except FileNotFoundError:
+            return None
+        except _held.HeldOpenRefused as refused:
+            raise EngineError(
+                f"the backup target's store {root} is refused: {refused}"
+            ) from refused
+        return root
 
     def target_store(self):
         root = self.target_root()
@@ -262,10 +284,31 @@ class Engine:
         resolved root (directory-class => <mount>/ChronicleBackups)."""
         if target_class not in ("whole-volume", "directory"):
             raise EngineError(f"unknown target class: {target_class}")
+        mountpoint = os.path.normpath(os.fspath(mountpoint))
+        if not os.path.isabs(mountpoint):
+            raise EngineError(
+                f"a target is adopted by its absolute mountpoint, not "
+                f"{mountpoint!r}")
         root = _paths.target_store_root(
             mountpoint, directory_class=(target_class == "directory")
         )
-        _paths.ensure_store_skeleton(root)
+        # The mountpoint and every directory above it, then the store root
+        # made in it, must be ones no other account can change: the store
+        # holds what a restore writes as root (paths.require_trusted_root).
+        # A mountpoint not made yet is made only under a directory that
+        # passes the same check.
+        try:
+            existing = mountpoint
+            while not os.path.lexists(existing):
+                existing = os.path.dirname(existing)
+            _paths.require_trusted_root(existing)
+            os.makedirs(mountpoint, exist_ok=True)
+            _paths.require_trusted_root(mountpoint)
+            _paths.ensure_store_skeleton(root)
+        except (_held.HeldOpenRefused, FileNotFoundError) as refused:
+            raise EngineError(
+                f"{mountpoint} cannot hold a backup target: {refused}"
+            ) from refused
         self.state["target"] = {
             "class": target_class, "mountpoint": str(mountpoint),
             "device": device, "cap_bytes": cap_bytes,
@@ -1333,7 +1376,10 @@ class Engine:
 
     @_state_locked
     def status(self):
-        target_root = self.target_root()
+        try:
+            target_root, refused = self.target_root(), None
+        except EngineError as error:
+            target_root, refused = None, str(error)
         free = None
         if target_root and os.path.isdir(target_root):
             try:
@@ -1351,6 +1397,7 @@ class Engine:
             "clock_skew_events": self.state.get("clock_skew_events", []),
             "retention_events": self.state.get("retention_events", []),
             "pins": self.state.get("pins", []),
+            **({"target_refused": refused} if refused else {}),
         }
 
     def _newest_unreadable_by_layer(self):
@@ -1365,7 +1412,10 @@ class Engine:
         """
         out = {}
         for layer in _paths.LAYERS:
-            root = self._store_root_for(layer)
+            try:
+                root = self._store_root_for(layer)
+            except EngineError:
+                continue  # a refused target: status says so beside this
             if not root:
                 continue
             versions = _manifest.list_versions(root, layer)

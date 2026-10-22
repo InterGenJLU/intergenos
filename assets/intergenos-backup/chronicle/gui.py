@@ -371,7 +371,10 @@ class ChronicleWindow(Adw.ApplicationWindow):
 
     def _add_status_rows(self, st):
         t = st.get("target")
-        if t:
+        if t and st.get("target_refused"):
+            sub = (f"{t.get('mountpoint')} ({t.get('class')}) — refused: "
+                   f"{st['target_refused']}")
+        elif t:
             present = "attached" if st.get("target_present") else "not attached"
             sub = f"{t.get('mountpoint')} ({t.get('class')}) — {present}"
         else:

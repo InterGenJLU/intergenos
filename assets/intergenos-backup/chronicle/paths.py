@@ -29,6 +29,8 @@ module so the layout has exactly one source of truth.
 import os
 from pathlib import Path
 
+from . import held_open as _held
+
 # The always-on local store on the system disk.
 LOCAL_ROOT = Path("/var/lib/chronicle")
 
@@ -81,13 +83,40 @@ def blob_path(root, sha256):
     return cas_dir(root) / sha256[:2] / sha256[2:]
 
 
+def store_owners():
+    """The uids a store's directories may belong to: root, and the uid the
+    engine runs as (root in every shipped unit)."""
+    return {0, os.geteuid()}
+
+
+def require_trusted_root(root):
+    """Refuse a store another account could change.
+
+    A store holds the manifests a restore writes from, as root, wherever they
+    say, so a store root another account could change, or whose parent it
+    could change, would let that account choose what root writes and where.
+    The root and every directory above it are walked from / by descriptor
+    without following a link; each must be owned by root or by the engine's
+    own uid, the root must be writable by no one else, and a directory above
+    it may be writable by others only when its sticky bit keeps them from
+    replacing the directory walked through (chronicle.held_open
+    .require_owned_tree). Raises chronicle.held_open.HeldOpenRefused naming
+    the directory that fails, FileNotFoundError when a directory is missing."""
+    _held.require_owned_tree(os.path.abspath(os.fspath(root)), store_owners())
+
+
 def ensure_store_skeleton(root):
-    """Create the directory skeleton of a store root (idempotent). Returns the
-    resolved root Path."""
+    """Create the directory skeleton of a store root (idempotent) and refuse
+    a store another account could change (require_trusted_root), the root and
+    each skeleton directory alike. Returns the resolved root Path."""
     root = Path(root)
-    (root / "cas").mkdir(parents=True, exist_ok=True)
-    for layer in LAYERS:
-        (root / "versions" / layer).mkdir(parents=True, exist_ok=True)
+    root.mkdir(parents=True, exist_ok=True)
+    require_trusted_root(root)
+    skeleton = [root / "cas", root / "versions"]
+    skeleton += [root / "versions" / layer for layer in LAYERS]
+    for directory in skeleton:
+        directory.mkdir(exist_ok=True)
+        require_trusted_root(directory)
     return root
 
 

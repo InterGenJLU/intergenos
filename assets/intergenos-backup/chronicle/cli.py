@@ -105,7 +105,10 @@ def cmd_status(backend, args, rep):
         return _emit_json(st)
     t = st.get("target")
     rep.info("Chronicle status")
-    if t:
+    if t and st.get("target_refused"):
+        rep.warn(f"Target: {t.get('mountpoint')} ({t.get('class')}) — REFUSED: "
+                 f"{st['target_refused']}")
+    elif t:
         present = "attached" if st.get("target_present") else "NOT attached"
         rep.info(f"  Target: {t.get('mountpoint')} ({t.get('class')}) — {present}")
     else:
