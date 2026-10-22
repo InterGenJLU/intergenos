@@ -249,7 +249,14 @@ tools.
   it from the same descriptor into the store's temporary file, and hashes that
   file again before it replaces the store's entry. A staged file that is a
   link, is not a regular file, belongs to another account, or changes after its
-  hash is refused, and nothing is installed.
+  hash is refused, and nothing is installed. The other root readers of a path
+  an account controls follow the same rule: the greeter's monitor-layout sync
+  (`igos-greeter-monitors-sync`) and the backup engine's restore of user data
+  (`chronicle.engine._restore_one`) each open the source once, take its type,
+  owner and size from that descriptor, and check and copy the bytes they read
+  through a temporary file hashed in full before the rename. The greeter's copy
+  lands at 0600, and the seat config directory keeps the mode the display
+  manager gives it.
 - **Retire** the autonomy-tier-blocks-reads behavior. If an "autonomy tier"
   axis survives, it may only modulate how many AUTH-PROMPT actions InterGen
   *offers* — it must never block a read.
@@ -266,3 +273,4 @@ tools.
 | 2026-10-22 | §5 "What a consent surface shows": every surface renders one description derived from the argv the tool's own builder returns; the update is the refresh then the upgrade under one approval; flags that run are shown; a user-manager act runs as the person; a call that will be refused is refused before any card; no raw argument dump; the terminal handoff carries sudo on every root command and drops pkm's --yes; the OS prompt's text is static. |
 | 2026-10-22 | §8 "The root side re-derives the route": the privileged dispatcher runs only a call `_classify_risk_tier` sends across the boundary, refusing a read-only call and a change on the person's own service manager before the tool's own argument validation; `write_file` refuses a relative path in its own validation, which the dispatcher re-runs. |
 | 2026-10-22 | §8 "The root side installs the bytes it verified": the model-storage provisioner hashes and copies each staged file from one descriptor, opened without following a link and owned by the authenticated caller, and re-hashes the store's temporary copy before it replaces the entry. |
+| 2026-10-22 | §8 "The root side installs the bytes it verified" names the other root readers of a path an account controls: the greeter's monitor-layout sync and the backup engine's user-data restore read their source through one descriptor and hash their copy before the rename; the greeter's copy lands at 0600. |
