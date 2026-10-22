@@ -241,14 +241,28 @@ if [ "$GATE_F_VIOLATIONS" -eq 0 ]; then
     green "PASS — source_of_request enforced at dataclass + gate-logic layers"
 fi
 
-# Gate G: PolicyKit policy uses auth_admin_keep (per-action authentication;
-# composes with D-007's per-action password posture)
-header "Gate G — PolicyKit policy uses auth_admin_keep (D-007 composition)"
-if grep -qE "auth_admin_keep" intergen/data/org.intergenos.intergen.policy 2>/dev/null; then
-    green "PASS — PolicyKit policy uses auth_admin_keep (composes with D-007 per-action authentication)"
+# Gate G: one administrator authentication per privileged call (D-007
+# composition). Every action the policy binds to the privileged runner must be
+# auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its
+# own exec.argv1, and the argv1 set must equal the _PRIVILEGED_TOOLS allowlist.
+# The policy is parsed per action by scripts/lib/check-privileged-runner-policy.py,
+# the same checker the runtime gate runs against the assembled chroot.
+#
+# Until 2026-10-22 this gate passed when the string auth_admin_keep appeared
+# anywhere in the policy and called that per-action authentication. It is the
+# opposite: every runner is started by the person's systemd user manager, pkexec
+# asks PolicyKit about that parent, and a kept authorization covers any runner
+# the account asks the manager for in the next five minutes.
+header "Gate G — one administrator authentication per privileged call (no keep)"
+if GATE_G_OUT=$(python3 -I "$REPO_ROOT/scripts/lib/check-privileged-runner-policy.py" \
+        --policy intergen/data/org.intergenos.intergen.policy \
+        --registry intergen/tool_registry.py 2>&1); then
+    printf '%s\n' "$GATE_G_OUT" | sed 's/^/  /'
+    green "PASS — every action bound to the privileged runner is auth_admin with no keep, has its own exec.argv1, and the argv1 set equals _PRIVILEGED_TOOLS"
 else
-    violation "PolicyKit policy does not use auth_admin_keep" \
-              "D-008 v1.0 composes with D-007: privileged actions must require per-action user authentication."
+    printf '%s\n' "$GATE_G_OUT" | sed 's/^/  /'
+    violation "the PolicyKit policy does not require one administrator authentication per privileged call" \
+              "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal _PRIVILEGED_TOOLS."
 fi
 
 # Gate H: IngressTracker + ConversationTrustState present (per D-008

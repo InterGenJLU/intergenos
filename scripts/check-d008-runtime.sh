@@ -87,10 +87,26 @@ else
                   "Expected action id 'org.intergenos.intergen.privileged-tool'."
         GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
     fi
-    if ! grep -q "auth_admin_keep" "$POLICY_PATH"; then
-        violation "auth_admin_keep missing in deployed PolicyKit policy file" \
-                  "D-008 composes with D-007 — privileged actions must use auth_admin_keep per-action authentication."
+    # One administrator authentication per privileged call, read from the
+    # DEPLOYED policy and the DEPLOYED tool_registry.py by the checker the
+    # source gate runs (scripts/lib/check-privileged-runner-policy.py): every
+    # action bound to the runner is auth_admin in all three defaults (no keep)
+    # with its own exec.argv1, and the argv1 set equals _PRIVILEGED_TOOLS. Until
+    # 2026-10-22 this check required auth_admin_keep, which keeps one
+    # authentication for five minutes for the parent every runner shares.
+    POLICY_CHECK="$(cd "$(dirname "$0")" && pwd)/lib/check-privileged-runner-policy.py"
+    if [ ! -f "$POLICY_CHECK" ]; then
+        violation "cannot check the deployed policy: $POLICY_CHECK missing" \
+                  "The runtime gate runs from the build tree; the checker sits beside it in scripts/lib/."
         GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
+    elif ! GATE_A_OUT=$(python3 -I "$POLICY_CHECK" --policy "$POLICY_PATH" \
+            --registry "$INTERGEN_PYROOT/tool_registry.py" 2>&1); then
+        printf '%s\n' "$GATE_A_OUT" | sed 's/^/  /'
+        violation "deployed PolicyKit policy does not require one administrator authentication per privileged call" \
+                  "Every action bound to /usr/bin/intergen-privileged-runner must be auth_admin in allow_any, allow_inactive and allow_active (no keep), carry its own exec.argv1, and the argv1 set must equal the deployed _PRIVILEGED_TOOLS."
+        GATE_A_VIOLATIONS=$((GATE_A_VIOLATIONS + 1))
+    else
+        printf '%s\n' "$GATE_A_OUT" | sed 's/^/  /'
     fi
     if ! grep -q '/usr/bin/intergen-privileged-runner' "$POLICY_PATH"; then
         violation "exec.path annotation missing or wrong in deployed PolicyKit policy" \
