@@ -84,7 +84,12 @@ class FakeInstaller:
         self.calls = []
 
     def install(self, name, **kw):
-        self.calls.append({"name": name, **kw})
+        # The bytes install() is handed, read while the command still holds
+        # them: a named archive reaches it as pkm's private copy.
+        held = kw.get("archive_path")
+        self.calls.append({"name": name, **kw, "archive_sha256": (
+            hashlib.sha256(Path(held).read_bytes()).hexdigest()
+            if held and Path(held).is_file() else None)})
         return True, "installed"
 
     def refusal_before_replacing(self, name, archive_path, replacing):
@@ -255,7 +260,8 @@ class TheDecisionAtTheSameRelease(_Base):
         self.assertIn("is NOT the installed build", flat)
         self.assertIn("usr/bin/widget", flat)
         self.assertEqual(len(installer.calls), 1, out)
-        self.assertEqual(installer.calls[0]["archive_path"], str(other))
+        self.assertEqual(installer.calls[0]["archive_sha256"],
+                         hashlib.sha256(other.read_bytes()).hexdigest())
 
     def test_an_unrecorded_build_is_deployed_and_says_why(self):
         with PackageDB(self.tmp / "bare.db", root=str(self.root)) as bare:

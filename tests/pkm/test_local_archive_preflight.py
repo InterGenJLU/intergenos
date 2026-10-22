@@ -11,6 +11,7 @@ from unittest.mock import patch
 import pytest
 
 from pkm import cli, output, pretxn
+from pkm import installer as installer_module
 from pkm.database import PackageDB
 from pkm.installer import PackageInstaller
 from pkm.remover import PackageRemover
@@ -64,6 +65,20 @@ def invoke(local, verb="upgrade", trust="loose", archive=None, capture=None, rep
     return rc, " ".join(said.getvalue().split())
 
 
+def held_copy(unheld=None):
+    """The private copy pkm reads a named archive from once it has opened
+    it (pkm.installer.hold_named_archive): a change to the bytes pkm checks
+    and installs, after the first check, is made there. The file the person
+    named is never read again, so changing it changes nothing. With no
+    archive held (a repository archive from pkm's own cache), `unheld`."""
+    held = list(installer_module._HELD.values())
+    if not held:
+        assert unheld is not None, "no archive is held"
+        return unheld
+    (held,) = held
+    return held.path
+
+
 def assert_preserved(local):
     assert local.db.get_installed("widget") == local.before
     assert (local.root / "usr/bin/widget").read_bytes() == b"old\n"
@@ -98,7 +113,7 @@ def test_matching_archive_keeps_restore_point_before_removal(local):
 
 def test_changed_archive_is_rechecked_before_removal(local):
     def capture(*args, **kwargs):
-        local.new.write_bytes(b"changed after initial verification")
+        held_copy().write_bytes(b"changed after initial verification")
     rc, said = invoke(local, capture=capture)
     assert rc == 1, said
     assert_preserved(local)

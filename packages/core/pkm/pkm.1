@@ -28,7 +28,12 @@ until then the trust model is TLS + repository-URL pinning.
 .BR install " \fIPACKAGE\fR [\fIPACKAGE...\fR] [\fB\-\-archive\fR \fIPATH\fR]"
 Install one or more packages. If no local archive is supplied, packages
 are fetched from configured repositories and dependencies are resolved
-automatically.
+automatically. With
+.BR \-\-archive ,
+.I PATH
+must be a regular file (a symbolic link or a FIFO is refused); pkm reads it
+once into a private copy, and the trust check, the package checks and the
+install all read that copy, never the named file again.
 .TP
 .BR install-helper " \fIPACKAGE\fR"
 Install proprietary or third-party software via a named download helper
@@ -80,7 +85,9 @@ and the trust modes are those of
 (\fIstrict\fR, the default, requires the signed index to carry the exact
 archive; \fIloose\fR proceeds with a warning, which a build the mirror does
 not serve yet needs). The restore point, the rollback copy and the
-configuration-file protection of a repository upgrade apply to both.
+configuration-file protection of a repository upgrade apply to both, and the
+archive is read once into a private copy, as for
+.BR "install \-\-archive" .
 When
 .B \-\-all
 finds the package manager itself among the upgradable packages, pkm upgrades

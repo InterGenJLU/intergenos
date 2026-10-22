@@ -4,6 +4,7 @@
 
 import argparse
 import contextlib
+import functools
 import os
 import re
 import sqlite3
@@ -29,7 +30,8 @@ from .database import PackageDB, _sha256
 from .installer import (
     PackageInstaller, is_download_helper, payload_installed, APT_DOWNLOAD_HELPERS,
     acceptance_record_exists, deliberate_install_command, archive_preflight,
-    DB_FAILED_AFTER_DEPLOY,
+    DB_FAILED_AFTER_DEPLOY, NamedArchiveRefused, hold_named_archive,
+    release_held_archives,
 )
 from .remover import PackageRemover, ancestor_chain, prune_empty_unowned_dirs
 from .verifier import PackageVerifier
@@ -2290,6 +2292,20 @@ def _absent_after_upgrade(absent, capture, returned, installed):
                                       reverts=reverts))
 
 
+def _releases_held_archives(command):
+    """The private copy of an archive named with --archive
+    (hold_named_archive) lives as long as the command that made it, however
+    the command ends."""
+    @functools.wraps(command)
+    def run(db, args):
+        try:
+            return command(db, args)
+        finally:
+            release_held_archives()
+    return run
+
+
+@_releases_held_archives
 def cmd_install(db, args):
     installer = package_installer(db)
     repo = repo_manager()
@@ -2423,20 +2439,19 @@ def cmd_install(db, args):
                 continue
 
         # Try local archive first
+        held = None
         if archive:
             trust_mode = _archive_trust_mode(args)
 
-            # Compute SHA256 for all modes (used for display + matching)
-            import hashlib
+            # The file is opened ONCE and held (hold_named_archive): the hash
+            # the trust gate compares, every check below and install() itself
+            # read the private copy, never the path again.
             try:
-                sha = hashlib.sha256()
-                with open(archive, "rb") as f:
-                    for chunk in iter(lambda: f.read(8192), b""):
-                        sha.update(chunk)
-                archive_sha = sha.hexdigest()
-            except (IOError, OSError) as e:
-                reporter.error(f"cannot read archive: {e}")
+                held = hold_named_archive(archive)
+            except NamedArchiveRefused as e:
+                reporter.error(str(e))
                 sys.exit(1)
+            archive_sha = held.sha256
 
             reporter.step("Archive", str(archive))
             reporter.step("SHA256", archive_sha)
@@ -2541,7 +2556,7 @@ def cmd_install(db, args):
 
         if archive:
             _, refusal = archive_preflight(
-                pkg_name, archive, expected_sha256=archive_sha,
+                pkg_name, held.path, expected_sha256=archive_sha,
                 name_header_mismatch=_name_header_mode(args),
                 named_on_command_line=True, root=install_root(), check_payload=True)
             if refusal:
@@ -2594,7 +2609,7 @@ def cmd_install(db, args):
         # refusal offers the loose-trust command only to a person who named
         # the archive here with --archive, never for a cached archive.
         ok, msg = installer.install(
-            pkg_name, archive_path=archive,
+            pkg_name, archive_path=(str(held.path) if held else archive),
             expected_sha256=(archive_sha if archive else None),
             reporter=reporter,
             name_header_mismatch=_name_header_mode(args),
@@ -3456,6 +3471,7 @@ def _upgrade_named_helper_payloads(db, args, installer, repo, names):
     return True
 
 
+@_releases_held_archives
 def cmd_upgrade(db, args):
     # Q3 (O-027): refuse bare `pkm upgrade` invocations. Bare = no
     # positional packages AND no --all. Default-deny on destructive
@@ -6040,19 +6056,17 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         sys.exit(1)
 
     path = Path(archive)
-    import hashlib
+    # The file is opened ONCE and held (hold_named_archive): the hash, the
+    # header read here and every step of the transaction read the private
+    # copy, never the path again. The words name the file the person named.
     try:
-        h = hashlib.sha256()
-        with open(path, "rb") as f:
-            for chunk in iter(lambda: f.read(1 << 16), b""):
-                h.update(chunk)
-        archive_sha = h.hexdigest()
-        archive_size = path.stat().st_size
-    except OSError as e:
-        emit_error(f"cannot read archive {path}: {e}. Nothing was changed.")
+        held = hold_named_archive(path)
+    except NamedArchiveRefused as e:
+        emit_error(str(e))
         sys.exit(1)
+    archive_sha, archive_size = held.sha256, held.size
     try:
-        meta = _read_package_meta(path)
+        meta = _read_package_meta(held.path)
     except ArchiveReadError as e:
         emit_error(f"cannot read archive {path}: {e}. Nothing was changed.")
         sys.exit(1)
@@ -6084,7 +6098,8 @@ def _local_archive_upgrade_candidates(db, repo, args, archive):
         "sha256": archive_sha,
         "size": archive_size,
         "depends": [d for d in (meta.get("depends") or []) if isinstance(d, str)],
-        "local_archive": str(path),
+        "local_archive": str(held.path),
+        "local_archive_named": str(path),
     }
 
     emit_info(f"Archive: {path}")
@@ -6294,7 +6309,8 @@ def _print_upgrade_plan_summary(upgradable, held_excluded_names, db):
     for _, r in upgradable:
         if r.get("local_archive"):
             mb = int(r.get("size") or 0) / (1024 * 1024)
-            print(f"  Local archive: {r['local_archive']} (~{mb:.1f} MiB)")
+            shown = r.get("local_archive_named") or r["local_archive"]
+            print(f"  Local archive: {shown} (~{mb:.1f} MiB)")
 
     if held_excluded_names:
         emit_info(

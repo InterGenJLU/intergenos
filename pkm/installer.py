@@ -24,6 +24,8 @@ from the staged tree before deploy. Per RFC v2 §2g and the §8 OQ4 resolution
 generation, so the content-hash property has no NULL-checksum holes.
 """
 
+import errno
+import hashlib
 import json
 import os
 import re
@@ -1527,6 +1529,9 @@ def deliberate_install_command(name, archive_path, root="/"):
     person was working on. Each part is quoted for a POSIX shell, so a path
     with a space in it stays one argument.
     """
+    # A held copy (hold_named_archive) is pkm's own and is gone when the
+    # command ends; the command a person can run names the file they named.
+    archive_path = recorded_archive_path(archive_path)
     words = ["pkm"]
     if str(root) != "/":
         words += ["--root", str(root)]
@@ -1637,6 +1642,211 @@ def archive_preflight(name, archive_path, expected_sha256=None,
             if not ok:
                 return {}, error
     return meta, None
+
+
+# AN ARCHIVE A PERSON NAMED IS OPENED ONCE AND HELD. `pkm install NAME
+# --archive FILE` and `pkm upgrade NAME --archive FILE` take a file from
+# wherever the person keeps it, a directory their account (and anything
+# running as it) can change. Every check pkm made of it -- the hash the trust
+# gate compares with the signed index, the sealed header, the payload -- and
+# every use after them -- the EULA helper the package ships, the staging
+# extract, the deploy, the special-bit pass -- opened the PATH again, so what
+# landed was whatever the path named at that moment, not what was verified: a
+# link, another file renamed over it, the same file rewritten, or a parent
+# directory swapped after the last hash put other bytes on the machine as
+# root. The file is now opened once, without following a link, and must be a
+# regular file; its bytes are copied from that one descriptor into a new
+# directory only this account can write, hashed as they are read, and the
+# copy is hashed again before anything uses it. Every check and every use
+# after that reads the copy, through the descriptor pkm holds on that
+# directory (/proc/self/fd/N/<the file's name>), so no directory above it --
+# the temporary directory and its parents -- is ever walked again. The copy
+# is removed when the command ends.
+
+class NamedArchiveRefused(ValueError):
+    """An archive a person named that pkm does not hold, with the reason in
+    pkm's words. Nothing has been changed when it is raised."""
+
+
+# Each held copy by its path, while the command that made it runs.
+_HELD = {}
+
+
+class HeldArchive:
+    """A private copy of an archive a person named, made by
+    hold_named_archive: `path` is the copy every check and use reads,
+    `named` the path the person gave (for the words and the record only),
+    `sha256` and `size` what was read from the one descriptor."""
+
+    def __init__(self, path, named, sha256, size, directory, directory_fd):
+        self.path = Path(path)
+        self.named = str(named)
+        self.sha256 = sha256
+        self.size = size
+        self.directory = directory
+        self._directory_fd = directory_fd
+
+    def release(self):
+        """Remove the copy and its directory, and let the descriptor go."""
+        _HELD.pop(str(self.path), None)
+        _remove_private_copy(self.directory, self._directory_fd,
+                             self.path.name, self.named)
+
+
+def _remove_private_copy(directory, directory_fd, leaf, named):
+    """Remove a held copy and the directory pkm made for it, said on stderr
+    when that fails. The directory is removed by name only while that name
+    still reaches the directory the descriptor holds."""
+    try:
+        if directory_fd is None:
+            os.rmdir(directory)
+            return
+        try:
+            os.unlink(leaf, dir_fd=directory_fd)
+        except FileNotFoundError:
+            pass
+        held = os.fstat(directory_fd)
+        try:
+            now = os.lstat(directory)
+        except FileNotFoundError:
+            now = None
+        if now is not None and (now.st_dev, now.st_ino) == (held.st_dev, held.st_ino):
+            os.rmdir(directory)
+        else:
+            print(f"  WARNING: the directory pkm made for the private copy of "
+                  f"{named} was moved from {directory}; the copy in it is "
+                  f"removed, the empty directory is left.", file=sys.stderr)
+    except OSError as e:
+        print(f"  WARNING: the private copy of {named} could not be removed "
+              f"({e}); {directory} can be deleted.", file=sys.stderr)
+    finally:
+        if directory_fd is not None:
+            os.close(directory_fd)
+
+
+def release_held_archives():
+    """Release every copy hold_named_archive made in this command."""
+    for held in list(_HELD.values()):
+        held.release()
+
+
+def recorded_archive_path(archive_path):
+    """The archive path a row records and a person is shown: for a held copy,
+    the file the person named (the copy's /proc path means nothing outside
+    this process); otherwise the path as given."""
+    held = _HELD.get(str(archive_path))
+    return held.named if held is not None else str(archive_path)
+
+
+def _hash_held_copy(path):
+    """SHA-256 of the copy at `path`, opened without following a link and
+    read only when it is a regular file; None otherwise."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        sha = hashlib.sha256()
+        while True:
+            chunk = os.read(fd, 1 << 20)
+            if not chunk:
+                return sha.hexdigest()
+            sha.update(chunk)
+    finally:
+        os.close(fd)
+
+
+def hold_named_archive(named):
+    """Open the archive a person named ONCE and hold a private copy of it.
+
+    The path is opened without following a link and without waiting (a FIFO
+    is refused, not waited on), and only a regular file is accepted, judged
+    on the open descriptor. Its bytes are read from that descriptor, hashed
+    as they are read and written, mode 0600, under the same file name into a
+    new directory (mode 0700) whose descriptor pkm holds; the directory is
+    checked on that descriptor to be the one pkm made (this account's, mode
+    0700, empty). The copy's path is /proc/self/fd/<that descriptor>/<name>,
+    read back to reach the very file written, and the copy is hashed again
+    through it, so the hash returned is the hash of the bytes every later
+    check and use reads. Returns a HeldArchive; raises NamedArchiveRefused
+    with the reason, having removed anything it made.
+    """
+    named = str(named)
+    try:
+        fd = os.open(named, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK
+                     | os.O_CLOEXEC)
+    except OSError as e:
+        if e.errno == errno.ELOOP and os.path.islink(named):
+            raise NamedArchiveRefused(
+                f"{named} is a symbolic link. pkm installs only a file it "
+                f"opens itself, never the file a link names; name the file "
+                f"itself. Nothing was changed.") from e
+        raise NamedArchiveRefused(
+            f"cannot read archive {named}: {e.strerror or e}. Nothing was "
+            f"changed.") from e
+    directory = directory_fd = None
+    leaf = os.path.basename(named)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise NamedArchiveRefused(
+                f"{named} is not a regular file; an archive is installed only "
+                f"from one. Nothing was changed.")
+        directory = tempfile.mkdtemp(prefix="pkm-named-archive-")
+        directory_fd = os.open(directory, os.O_RDONLY | os.O_DIRECTORY
+                               | os.O_NOFOLLOW | os.O_CLOEXEC)
+        made = os.fstat(directory_fd)
+        if (made.st_uid != os.geteuid() or stat.S_IMODE(made.st_mode) != 0o700
+                or os.listdir(directory_fd)):
+            raise NamedArchiveRefused(
+                f"the directory pkm made for a private copy of {named} "
+                f"({directory}) is not the one it made. Nothing was changed.")
+        sha = hashlib.sha256()
+        size = 0
+        out = os.open(leaf, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW
+                      | os.O_CLOEXEC, 0o600, dir_fd=directory_fd)
+        try:
+            while True:
+                chunk = os.read(fd, 1 << 20)
+                if not chunk:
+                    break
+                sha.update(chunk)
+                size += len(chunk)
+                view = memoryview(chunk)
+                while view:
+                    view = view[os.write(out, view):]
+            written = os.fstat(out)
+        finally:
+            os.close(out)
+        digest = sha.hexdigest()
+        path = f"/proc/self/fd/{directory_fd}/{leaf}"
+        try:
+            reached = os.stat(path)
+        except OSError:
+            reached = None
+        if reached is None or ((reached.st_dev, reached.st_ino)
+                               != (written.st_dev, written.st_ino)):
+            raise NamedArchiveRefused(
+                f"pkm reads a private copy of {named} through /proc/self/fd, "
+                f"which does not reach it here (is /proc mounted?). Nothing "
+                f"was changed.")
+        if _hash_held_copy(path) != digest:
+            raise NamedArchiveRefused(
+                f"the private copy of {named} does not hold the bytes read "
+                f"from it. Nothing was changed.")
+    except NamedArchiveRefused:
+        if directory:
+            _remove_private_copy(directory, directory_fd, leaf, named)
+        raise
+    except OSError as e:
+        if directory:
+            _remove_private_copy(directory, directory_fd, leaf, named)
+        raise NamedArchiveRefused(
+            f"cannot copy archive {named} for checking: {e.strerror or e}. "
+            f"Nothing was changed.") from e
+    finally:
+        os.close(fd)
+    held = HeldArchive(path, named, digest, size, directory, directory_fd)
+    _HELD[str(held.path)] = held
+    return held
 
 
 class PackageInstaller:
@@ -2299,7 +2509,7 @@ class PackageInstaller:
                 pkg_id = self.db.add_installed(
                     name=name, version=version, release=_release,
                     install_method="archive",
-                    archive_path=str(archive_path),
+                    archive_path=recorded_archive_path(archive_path),
                     tier=pkginfo.get("tier"),
                     description=pkginfo.get("description"),
                     license_=pkginfo.get("license"),

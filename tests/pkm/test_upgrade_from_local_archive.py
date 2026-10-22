@@ -111,7 +111,13 @@ class FakeInstaller:
     def install(self, name, archive_path=None, expected_sha256=None,
                 install_reason="manual", reporter=None, sidecars_out=None,
                 queue=None):
+        # The bytes install() is handed, read while the command still holds
+        # them: a named archive reaches it as pkm's private copy.
         self.calls.append({"name": name, "archive_path": archive_path,
+                           "archive_sha256": (_sha(Path(archive_path))
+                                              if archive_path
+                                              and Path(archive_path).is_file()
+                                              else None),
                            "expected_sha256": expected_sha256,
                            "install_reason": install_reason})
         if not self.ok:
@@ -236,7 +242,11 @@ class TheInstalledPackageMovesForwardFromTheFile(_Base):
         self.assertEqual(FakeRemover.calls, [NAME])
         self.assertEqual(len(installer.calls), 1, out)
         call = installer.calls[0]
-        self.assertEqual(call["archive_path"], str(self.archive))
+        # The file's bytes, from pkm's private copy of it: the path the
+        # person named is opened once and never again.
+        self.assertEqual(call["archive_sha256"], _sha(self.archive))
+        self.assertNotEqual(call["archive_path"], str(self.archive))
+        self.assertEqual(Path(call["archive_path"]).name, self.archive.name)
         self.assertEqual(call["expected_sha256"], _sha(self.archive))
         self.assertEqual(repo.downloads, [], "a local archive is never downloaded")
         self.assertIn("Upgraded widget", out)
@@ -332,7 +342,7 @@ class TheDirectionIsChecked(_Base):
         rc, out, installer, _ = self._run(self._args(older, allow_downgrade=True))
         self.assertEqual(rc, 0, out)
         self.assertIn("DOWNGRADING widget 1.0-3 -> 1.0-2", _flat(out))
-        self.assertEqual(installer.calls[0]["archive_path"], str(older))
+        self.assertEqual(installer.calls[0]["archive_sha256"], _sha(older))
 
     def test_the_same_build_is_nothing_to_do(self):
         # The archive holds the same bytes the installed build recorded, so

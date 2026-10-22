@@ -18,7 +18,7 @@ from pkm.installer import PackageInstaller, SIGNING_REFUSED_EXIT
 from pkm.remover import PackageRemover
 from tests.pkm.test_install_refuses_a_kind_change_at_another_packages_path import (
     _archive as _kind_archive)
-from tests.pkm.test_local_archive_preflight import local, invoke
+from tests.pkm.test_local_archive_preflight import held_copy, local, invoke
 from tests.pkm.test_upgrade_from_local_archive import FakeRepo, _make_archive
 
 
@@ -42,7 +42,7 @@ def test_late_refusal_names_removal_and_restore_id(local, failure):
     remove = PackageRemover.remove
     def removing(self, *args, **kwargs):
         result = remove(self, *args, **kwargs)
-        local.new.write_bytes(b"changed after removal")
+        held_copy().write_bytes(b"changed after removal")
         return result
     install = local.installer.__class__.install
     def installing(self, *args, **kwargs):
@@ -114,7 +114,7 @@ def change_archive_after_removal(local, monkeypatch):
         result = remove(self, name, **kwargs)
         if name == "widget":
             assert result[0], result
-            local.new.write_bytes(b"changed after removal")
+            held_copy(local.new).write_bytes(b"changed after removal")
         return result
 
     monkeypatch.setattr(PackageRemover, "remove", removing)
@@ -416,7 +416,7 @@ def test_failed_rollback_install_leaves_one_recovery_sentence(local, monkeypatch
     def removing(self, name, **kwargs):
         result = remove(self, name, **kwargs)
         assert result[0], result
-        local.new.write_bytes(b"changed after removal")
+        held_copy().write_bytes(b"changed after removal")
         _make_archive(old, "widget", "1.0", 3, {"usr/bin/widget": b"other\n"})
         return result
 
