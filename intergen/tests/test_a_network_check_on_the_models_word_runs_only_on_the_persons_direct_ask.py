@@ -399,7 +399,10 @@ class TheNativeRouteHoldsTheModelsNetworkCheck(screened._Case, _AuditedCase):
         screened._Case.setUp(self)
         _AuditedCase.setUp(self)
 
-    def route(self, provenance: str, answer: str | None, *, ingress: bool = False):
+    def route(self, provenance: str, answer: str | None, *, ingress: bool = False,
+              command: str = f"dig {HOST}"):
+        self.ran.clear()
+        self.asked.clear()
         registry = self.registry()
         router = screened._tool_router(self.llm, registry)
         # The shared builder stands a Mock in for the tracker, which reads as
@@ -408,7 +411,7 @@ class TheNativeRouteHoldsTheModelsNetworkCheck(screened._Case, _AuditedCase):
         router._review_callback = None if answer is None else self.review(answer)
         if ingress:
             router._conv.ingress_tracker.record_tool_call("web_search")
-        with self.answering(screened._Response(_tool_call_chunks(f"dig {HOST}", provenance)),
+        with self.answering(screened._Response(_tool_call_chunks(command, provenance)),
                             screened._Response(screened._text("Done."))), \
                 glass.turn("turn-egress", "dbus"):
             return router._try_llm_tools(self.QUESTION)
@@ -436,6 +439,27 @@ class TheNativeRouteHoldsTheModelsNetworkCheck(screened._Case, _AuditedCase):
         self.route("user_direct", "deny")
         self.assertEqual(self.asked, [])
         self.assertEqual(self.ran, [("run_command", {"command": f"dig {HOST}"})])
+
+    def test_each_form_of_the_table_is_held_on_the_models_word(self):
+        for command in LEAVING:
+            with self.subTest(command=command):
+                self.route("user_implied", "deny", command=command)
+                self.assertEqual([c.arguments["command"] for c in self.asked], [command])
+                self.assertEqual(self.ran, [])
+
+    def test_each_form_runs_on_the_direct_ask_with_nothing_read(self):
+        for command in LEAVING:
+            with self.subTest(command=command):
+                self.route("user_direct", "deny", command=command)
+                self.assertEqual(self.asked, [])
+                self.assertEqual(self.ran, [("run_command", {"command": command})])
+
+    def test_the_network_time_switch_and_the_host_name_ask_even_on_the_direct_ask(self):
+        for command in ("timedatectl set-ntp true", "hostnamectl set-hostname x"):
+            with self.subTest(command=command):
+                self.route("user_direct", "deny", command=command)
+                self.assertEqual([c.arguments["command"] for c in self.asked], [command])
+                self.assertEqual(self.ran, [])
 
 
 class TheCodeOwnedNetworkCheckAsksFirstOnceAPageWasRead(_AuditedCase):
