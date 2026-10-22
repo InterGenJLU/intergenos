@@ -98,7 +98,7 @@ class Queue:
         return len(self.list())
 
     def status_summary(self, work_window_text=None, target_present=True,
-                       target_adopted=True):
+                       target_adopted=True, target_refused=None):
         """A human line for `chronicle status` / the GUI. Empty when idle.
 
         An intent for a layer that lives on the backup target cannot run in
@@ -109,17 +109,21 @@ class Queue:
         intents = self.list()
         if not intents:
             return ""
-        waiting = 0 if target_present else sum(
+        waiting = 0 if target_present and not target_refused else sum(
             1 for intent in intents
             if intent.get("layer") in _paths.TARGET_ONLY_LAYERS)
         rest = len(intents) - waiting
         parts = []
         if waiting:
             noun = "capture is" if waiting == 1 else "captures are"
-            until = ("once it is attached" if target_adopted
-                     else "once one is adopted and attached")
-            parts.append(f"{waiting} user-data {noun} waiting for the backup "
-                         f"target and will run {until}.")
+            if target_refused:
+                parts.append(f"{waiting} user-data {noun} waiting for a usable "
+                             f"backup target. Target refused: {target_refused}")
+            else:
+                until = ("once it is attached" if target_adopted
+                         else "once one is adopted and attached")
+                parts.append(f"{waiting} user-data {noun} waiting for the backup "
+                             f"target and will run {until}.")
         if rest:
             when = (f"will back up after {work_window_text}"
                     if work_window_text

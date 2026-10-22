@@ -92,8 +92,12 @@ def test_an_adopted_store_that_others_can_now_write_is_refused_at_use(scratch):
     eng.target_adopt(str(target), target_class="directory")
     os.chmod(target / paths.TARGET_DIR_NAME, 0o777)
     with pytest.raises(engine.EngineError, match="is refused"):
-        eng.capture(paths.LAYER_CONFIG_STATE, scope=[str(source)],
-                    reason="mirror")
+        eng.target_root()
+    captured = eng.capture(paths.LAYER_CONFIG_STATE, scope=[str(source)],
+                           reason="mirror")
+    assert captured["mirrored"] is False
+    assert "is refused" in captured["target_refused"]
+    assert eng.verify(paths.LAYER_CONFIG_STATE, captured["version_id"])["ok"]
     with pytest.raises(engine.EngineError, match="is refused"):
         eng.list_versions(paths.LAYER_USER_DATA)
     status = eng.status()

@@ -125,6 +125,8 @@ def capture_toast(layer, result):
     """
     short = len(result.get("unreadable") or ())
     warn = f" · {short} path(s) could not be read" if short else ""
+    if result.get("target_refused"):
+        warn += f" · Local version not mirrored: {result['target_refused']}"
     return f"Captured {layer} {result.get('version_id', '')}{warn}"
 
 

@@ -112,15 +112,16 @@ def drain_offpeak(engine, now_min=None):
 
     def _run(intent):
         layer = intent.get("layer")
-        if layer in _paths.TARGET_ONLY_LAYERS and engine.target_root() is None:
-            return False  # target still absent: leave queued (quiet catch-up)
         try:
+            if layer in _paths.TARGET_ONLY_LAYERS and engine.target_root() is None:
+                return False  # target still absent: leave queued (quiet catch-up)
             res = engine.capture(layer, scope=intent.get("scope"),
                                  reason=intent.get("reason", "off-peak drain"),
                                  sync=True)
             unreadable.extend(report_unreadable(res, "off-peak drain"))
             return True
-        except Exception:
+        except Exception as error:
+            _LOG.warning("Off-peak %s capture remains queued: %s", layer, error)
             return False
 
     drained, remaining = engine.queue.drain(_run)

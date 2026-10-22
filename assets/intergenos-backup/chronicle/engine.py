@@ -331,9 +331,14 @@ class Engine:
                       "estimate": int(estimate or 0)}
             result = {"queued": self.queue.enqueue(intent)}
             self._save_state()
+            result["queue_summary"] = self.queue_status()["summary"]
             return result
-        vid = self._capture_now(layer, scope, reason)
-        return {"version_id": vid, "unreadable": self._unreadable_of(layer, vid)}
+        vid, refused = self._capture_now(layer, scope, reason)
+        result = {"version_id": vid,
+                  "unreadable": self._unreadable_of(layer, vid)}
+        if refused:
+            result.update(mirrored=False, target_refused=refused)
+        return result
 
     def _unreadable_of(self, layer, version_id):
         """The paths the capture could not read, from the committed manifest.
@@ -351,6 +356,7 @@ class Engine:
     def _capture_now(self, layer, scope, reason):
         seq = self._next_sequence()
         wall = self._wall_clock()
+        mirror_refused = None
         if layer == _paths.LAYER_CONFIG_STATE:
             paths_set = scope or _configstate.DEFAULT_CONFIG_PATHS
             vid = _configstate.capture(
@@ -386,7 +392,7 @@ class Engine:
             raise EngineError(f"unhandled layer: {layer}")
         if layer in _paths.LOCAL_LAYERS:
             try:
-                self._mirror_to_target(layer, vid)
+                mirror_refused = self._mirror_to_target(layer, vid)
             except Exception as mirror_error:
                 try:
                     self._rollback_local_capture(layer, vid)
@@ -397,9 +403,13 @@ class Engine:
                         f"({type(rollback_error).__name__}: {rollback_error})"
                     ) from mirror_error
                 raise
+            if mirror_refused:
+                logging.getLogger("chronicle.capture").warning(
+                    "Local %s version %s kept, not mirrored: %s",
+                    layer, vid, mirror_refused)
         self.state.setdefault("last_capture", {})[layer] = wall
         self._save_state()
-        return vid
+        return vid, mirror_refused
 
     def _rollback_local_capture(self, layer, version_id):
         """Remove one local version whose required target mirror failed."""
@@ -479,7 +489,12 @@ class Engine:
         """Copy a local-layer version (manifest + its blobs) to the target when
         one is attached, so the target is a complete recovery source (spec §10:
         config-state + restore-points live local AND on target)."""
-        target_root = self.target_root()
+        try:
+            target_root = self.target_root()
+        except EngineError as refused:
+            # Refusing an unusable target does not invalidate the local layer.
+            # Other failures after mirroring begins still roll the capture back.
+            return str(refused)
         if not target_root:
             return
         m = _manifest.find_version(self.local_root, layer, version_id)
@@ -632,7 +647,12 @@ class Engine:
         report = {"corrupt": [], "clean": True}
         roots = []
         seen_roots = set()
-        for candidate in filter(None, [self.local_root, self.target_root()]):
+        try:
+            target_root = self.target_root()
+        except EngineError as refused:
+            target_root = None
+            report["target_refused"] = str(refused)
+        for candidate in filter(None, [self.local_root, target_root]):
             root = Path(candidate)
             key = os.path.realpath(root)
             if key not in seen_roots:
@@ -790,7 +810,12 @@ class Engine:
     def _directory_target_cap(self, root):
         target = self.state.get("target") or {}
         cap = target.get("cap_bytes")
-        active_root = self.target_root()
+        try:
+            active_root = self.target_root()
+        except EngineError:
+            if Path(root) == self.local_root:
+                return None  # A refused target's cap does not govern local history.
+            raise
         if (
             target.get("class") != "directory"
             or cap is None
@@ -1370,15 +1395,18 @@ class Engine:
     @_state_locked
     def queue_status(self):
         window = f"{self.config.work_start}–{self.config.work_end}"
+        refused = None
         try:
             present = self.target_root() is not None
-        except EngineError:
-            present = False  # a refused target runs nothing either
+        except EngineError as error:
+            present, refused = False, str(error)
         return {"count": self.queue.count(),
                 "summary": self.queue.status_summary(
                     window, target_present=present,
-                    target_adopted=bool(self.state.get("target"))),
-                "intents": self.queue.list()}
+                    target_adopted=bool(self.state.get("target")),
+                    target_refused=refused),
+                "intents": self.queue.list(),
+                **({"target_refused": refused} if refused else {})}
 
     @_state_locked
     def status(self):

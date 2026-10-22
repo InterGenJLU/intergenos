@@ -200,9 +200,15 @@ def cmd_capture(backend, args, rep):
         _emit_json(res)
         return 1 if missed else 0
     if "queued" in res:
-        rep.info(f"Queued for the off-peak window: {res['queued']}")
+        if res.get("queue_summary"):
+            rep.info(f"Queued capture: {res['queued']}")
+            rep.info(res["queue_summary"])
+        else:
+            rep.info(f"Queued for the off-peak window: {res['queued']}")
     else:
         rep.info(f"Captured {args.layer} version {res['version_id']}")
+        if res.get("target_refused"):
+            rep.warn(f"Local version kept, not mirrored: {res['target_refused']}")
         if missed:
             rep.error(f"{len(missed)} path(s) could not be read and are NOT in "
                       "this version:")
@@ -308,14 +314,20 @@ def cmd_verify(backend, args, rep):
             _emit_json(res)
         else:
             if res["clean"]:
-                rep.info("Scrub complete — every stored version verifies.")
+                if res.get("target_refused"):
+                    rep.info("Local store scrub complete — every local stored "
+                             "version verifies.")
+                else:
+                    rep.info("Scrub complete — every stored version verifies.")
             else:
                 rep.error(f"Scrub found {len(res['corrupt'])} corrupt item(s):")
                 for c in res["corrupt"]:
                     where = c.get("sha256") or c.get("path")
                     rep.error(f"  {where} — affects versions: "
                               f"{', '.join(c.get('versions', []))}")
-        return 0 if res["clean"] else 1
+            if res.get("target_refused"):
+                rep.warn(f"Backup target was not checked: {res['target_refused']}")
+        return 0 if res["clean"] and not res.get("target_refused") else 1
     if not (args.layer and args.version):
         rep.error("verify needs <layer> <version>, or --scrub")
         sys.exit(1)
