@@ -550,10 +550,50 @@ def _git_remote_changes(parts: list[str]) -> bool:
     return sub is not None and sub not in _GIT_REMOTE_READS | _GIT_REMOTE_LEAVES
 
 
-# env's OWN options. The value-taking ones consume the next token; --opt=val carries
-# its value inline. Everything after env + its options + NAME=VALUE assignments is the
+# env's OWN options, read as getopt_long reads them (env --help): -a/--argv0,
+# -C/--chdir, -S/--split-string and -u/--unset take a value, a short one from the
+# rest of its cluster (-uNAME, -iuNAME) or the next word, a long one after "=" or
+# from the next word, and a long option at any abbreviation (--un NAME). The -S
+# value is itself a command line: env splits it and runs it, ahead of the words
+# after it. Everything after env + its options + NAME=VALUE assignments is the
 # WRAPPED command, which carries the real tier.
-_ENV_VALUE_FLAGS = frozenset({"-u", "-C", "--unset", "--chdir"})
+_ENV_SHORT_VALUES = "aCSu"
+_ENV_LONG_VALUES = ("argv0", "chdir", "split-string", "unset")
+
+
+def _env_command_start(words: list[str]) -> tuple[int, str | None]:
+    """Walk env's own options and NAME=VALUE assignments in words (words[0] is
+    env) and return the index of the word the wrapped command starts at, with
+    the -S/--split-string value given in the same word, which starts the
+    command ahead of that word (None when there is none)."""
+    i, n = 1, len(words)
+    while i < n:
+        tok = words[i]
+        if tok == "--":
+            return i + 1, None
+        if tok.startswith("--"):
+            name, eq, value = tok[2:].partition("=")
+            opt = next((o for o in _ENV_LONG_VALUES if name and o.startswith(name)), None)
+            if opt == "split-string":
+                return i + 1, (value or None) if eq else None
+            i += 2 if opt and not eq else 1
+            continue
+        if tok.startswith("-") and tok != "-":
+            step = 1
+            for k, c in enumerate(tok[1:], start=2):
+                if c in _ENV_SHORT_VALUES:
+                    value = tok[k:]
+                    if c == "S":
+                        return i + 1, value or None
+                    step = 1 if value else 2
+                    break
+            i += step
+            continue
+        if "=" in tok:                              # NAME=VALUE assignment
+            i += 1
+            continue
+        break                                       # first real token = the command
+    return i, None
 
 
 def _dequote(s: str) -> str:
@@ -574,32 +614,14 @@ def _dequote(s: str) -> str:
 
 def _env_wrapped_command(parts: list[str]) -> str | None:
     """Return the command `env` wraps (after stripping env + its own options +
-    NAME=VALUE assignments), or None for a bare env that only prints/sets the
-    environment (no wrapped command). env is TRANSPARENT to the classifier: a
-    read-only wrapped command stays AUTO, a write confirms, a dangerous one is
-    refused. An unknown wrapped command falls to CONFIRM via the normal default —
-    fail-safe.
+    NAME=VALUE assignments; a -S value starts it), or None for a bare env that
+    only prints the environment (no wrapped command). env is TRANSPARENT to the
+    classifier: a read-only wrapped command stays AUTO, a write confirms, a
+    dangerous one is refused. An unknown wrapped command falls to CONFIRM via
+    the normal default — fail-safe.
     """
-    i, n = 1, len(parts)
-    while i < n:
-        tok = parts[i]
-        if tok == "--":
-            i += 1
-            break
-        if tok in _ENV_VALUE_FLAGS:
-            i += 2                                  # flag + its value token
-            continue
-        if tok.startswith("--") and "=" in tok:     # --unset=VAR / --chdir=DIR
-            i += 1
-            continue
-        if tok.startswith("-") and tok != "-":      # other env option (e.g. -i, -0)
-            i += 1
-            continue
-        if "=" in tok:                              # NAME=VALUE assignment
-            i += 1
-            continue
-        break                                       # first real token = the command
-    rest = parts[i:]
+    i, split = _env_command_start(parts)
+    rest = ([split] if split else []) + parts[i:]
     return _dequote(" ".join(rest)) if rest else None
 
 
@@ -773,26 +795,16 @@ _ENV_NAMES_KEPT_AUTO = frozenset({"LANG", "LANGUAGE", "TZ", "COLUMNS", "LINES", 
 
 
 def _env_acts(parts: list[str]) -> bool:
-    """True when env sets a name outside _ENV_NAMES_KEPT_AUTO, or starts the
+    """True when env sets a name outside _ENV_NAMES_KEPT_AUTO, starts the
     command in another directory (-C/--chdir), where a repository's own
-    configuration names programs git runs."""
+    configuration names programs git runs, or names the command's argument
+    zero (-a/--argv0), which makes bash a login shell (a leading -) and picks
+    the program a multi-call binary runs."""
     argv = _argv(parts)
     if argv is None:
         return True
-    i, n = 1, len(argv)
-    while i < n:                                          # env's own words, as _env_wrapped_command
-        tok = argv[i]
-        if tok == "--":
-            break
-        if tok in _ENV_VALUE_FLAGS:
-            i += 2
-            continue
-        if tok.startswith("-") and tok != "-" or "=" in tok:
-            i += 1
-            continue
-        break
-    own = argv[1:i]
-    if _long_given(own, ("chdir",)) or _short_given(own, "C", "auS"):
+    own = argv[1:_env_command_start(argv)[0]]             # env's own words
+    if _long_given(own, ("chdir", "argv0")) or _short_given(own, "aC", "Su"):
         return True
     return any("=" in t and not t.startswith("-")
                and not (t.split("=", 1)[0] in _ENV_NAMES_KEPT_AUTO or t.startswith("LC_"))

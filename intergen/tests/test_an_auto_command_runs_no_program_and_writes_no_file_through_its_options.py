@@ -8,7 +8,8 @@ to start another program, to write a file the caller names, or to change another
 process or the machine: `rg --pre=PROG` runs PROG on every file it searches,
 `sort --compress-program=PROG` pipes its temporaries through PROG, GNU `time -o`
 and `strace -o` write their report to a file, `env PATH=... ls` or
-`env LD_PRELOAD=... ls` sets what runs, `xargs -a FILE` takes the arguments from
+`env LD_PRELOAD=... ls` sets what runs, `env -SPROG` runs PROG, `env -a ls touch
+FILE` runs touch under the name ls, `xargs -a FILE` takes the arguments from
 a file the classifier never sees, `script` writes a typescript, a shell's
 --rcfile runs a file first, `git --no-pager log --output=FILE` writes and
 `git --no-pager branch NAME` creates a branch, `journalctl --no-pager --vacuum-*`
@@ -77,6 +78,12 @@ FOUND = {
             "env RIPGREP_CONFIG_PATH=/tmp/d/rgrc rg x /tmp/d/notes.txt",
             f"env DOCKER_HOST=tcp://{HOST}:2375 docker ps", "env -C /tmp/d/repo git --no-pager diff",
             "env --chdir=/tmp/d/repo git --no-pager log", 'env "PATH=/tmp/d/bin" ls'],
+    "env's option values": ["env -S/tmp/d/rec.sh /tmp/d/notes.txt", "env --split-string=/tmp/d/rec.sh /tmp/d/notes.txt",
+                            "env -vS/tmp/d/rec.sh", "env --s=/tmp/d/rec.sh", "env --split-string=PATH=/tmp/d/bin ls",
+                            "env -S'PATH=/tmp/d/bin ls'", "env -a ls touch /tmp/d/argv0.out",
+                            "env --argv0 ls touch /tmp/d/argv0.out", "env --arg ls touch /tmp/d/argv0.out",
+                            "env -a -bash bash -c true", "env --un ls touch /tmp/d/unset.out",
+                            "env -iu ls touch /tmp/d/cluster.out", "env -ia ls touch /tmp/d/cluster.out"],
     "pip": [f"pip list --outdated --index-url https://{HOST}/simple", f"pip list -o -i https://{HOST}/simple",
             "pip list --python /tmp/d/rec.sh", "pip list --log /tmp/d/pip.log",
             "pip freeze --cache-dir /tmp/d/cache", "pip show --keyring-provider subprocess pip"],
@@ -115,7 +122,8 @@ READS = [
     "file -m /tmp/d/magic /tmp/d/notes.txt", "ifconfig", "ifconfig -a", "ifconfig lo", "ifconfig -s", "env ls",
     "env LC_ALL=C sort /tmp/d/big.txt", "env TZ=UTC date", "env -u HOME ls", "env -i ls", "env", "env -S 'ls -l'",
     "bash -c 'ls'", "sh -c 'ls -l'", "bash -e -c ls", "xargs ls", "watch -n 1 date", "ionice -p 4242",
-    "env FOO=bar", "env PATH=/tmp/d/bin", "ionice -c 3 ls", "journalctl --no-pager -n 5",
+    "env FOO=bar", "env PATH=/tmp/d/bin", "env -iu HOME ls", "env --unset HOME ls", "env --split-string='ls -l'",
+    "ionice -c 3 ls", "journalctl --no-pager -n 5",
     "journalctl --no-pager --since=today",
     "journalctl --no-pager --system -n 1", "journalctl --no-pager --cursor=s=1", "git --no-pager log",
     "git --no-pager log -p", "git --no-pager log --oneline", "git --no-pager diff --stat", "git --no-pager diff --text",
