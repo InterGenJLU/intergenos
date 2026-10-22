@@ -1349,15 +1349,21 @@ _RESULT_NOT_ASSERTED = re.compile(
 # added.`, which means ...") gives an account of a recorded result; it claims
 # nothing ran now. The screen is given the conversation's record of what ran
 # (ConversationState.executed_outputs: what every tool that ran returned,
-# written where the result came back) and reads the output a result sentence
-# quotes: the fenced block that follows it, the spans it quotes in backquotes
-# or double quotes, the rest of its sentence after its colon, or, when its line
-# ends in a colon, the lines below it. When every line of that output is held,
-# as its own words, in the record, the sentence is not a claim. A line the
-# record does not hold, or a sentence that quotes nothing, is read as before.
-# Text is never the record: an earlier ANSWER can show an output nothing
-# produced (a how-to answer saying what a command prints), and so can the
-# prompt, the grounding or the person's own words.
+# beside the tool and the command line that produced it, written where the
+# result came back) and reads the output a result sentence quotes: the fenced
+# block that follows it, the spans it quotes in backquotes or double quotes,
+# the rest of its sentence after its colon, or, when its line ends in a colon,
+# the lines below it. When every line of that output is held, as its own
+# words, in what the sentence's subject returned, the sentence is not a claim:
+# a sentence naming a command or a program ("`pkm upgrade --all` printed",
+# "here is what pkm returned") is read against the runs of that command only,
+# and one naming none ("it returned:", "the command printed", "here is the
+# output:") against the latest run only. An output another command printed is
+# no result of the one named. A line the record does not hold there, or a
+# sentence that quotes nothing, is read as before. Text is never the record:
+# an earlier ANSWER can show an output nothing produced (a how-to answer saying
+# what a command prints), and so can the prompt, the grounding or the person's
+# own words.
 _QUOTED_SPAN_RE = re.compile(r"`([^`\n]+)`|\"([^\"\n]+)\"|“([^”\n]+)”")
 _OUTPUT_EDGE = " \t.,;:!?`'\"“”‘’"
 _LIST_MARKER_RE = re.compile(r"^(?:[-*•]|\d+[.)])\s+")
@@ -1415,17 +1421,85 @@ def _presented_output(low: str, end: int) -> list[str]:
     return []
 
 
-def _record_text(executed_outputs) -> str:
-    """Every output on the record, case and spacing folded as _output_line
-    folds a line."""
-    return "\n".join(" ".join(text.lower().split())
-                     for text in (executed_outputs or ())
-                     if isinstance(text, str))
+def _record_runs(executed_outputs) -> tuple[tuple[str, str], ...]:
+    """The record of what ran as (command line, output) per run, in order,
+    both case and spacing folded as _output_line folds a line, each text of a
+    run on a line of its own. A bare string is an output of no known command."""
+    runs = []
+    for item in executed_outputs or ():
+        texts = (item,) if isinstance(item, str) else getattr(item, "texts", ())
+        command = "" if isinstance(item, str) else getattr(item, "command", "")
+        runs.append((" ".join(str(command or "").lower().split()),
+                     "\n".join(" ".join(text.lower().split())
+                               for text in texts if isinstance(text, str))))
+    return tuple(runs)
+
+
+# A result sentence naming no command: "it returned:", "here is what it
+# returned", "here is the output:", "the output was:", "the command printed".
+_UNNAMED_RESULT_RE = re.compile(
+    r"(?:here(?:['’]s|\s+is|\s+are)\s+what\s+)?it\b"
+    r"|here(?:['’]s|\s+is)\s+the\s+(?:full\s+|raw\s+|complete\s+)?output\s*:"
+    r"|the\s+(?:command['’]s\s+|tool['’]s\s+)?output\s+(?:was|read)\b")
+_SEGMENT_SPLIT_RE = re.compile(r"&&|\|\||[;|]")
+
+
+def _command_segments(command: str) -> list[list[str]]:
+    """Each simple command of a command line as its words, the program first
+    by its base name, a leading sudo and its options dropped."""
+    segments = []
+    for part in _SEGMENT_SPLIT_RE.split(command):
+        words = part.strip(_OUTPUT_EDGE + "$").split()
+        if words and words[0] == "sudo":
+            words = words[1:]
+            while words and words[0].startswith("-"):
+                words = words[1:]
+        if words:
+            segments.append([words[0].rsplit("/", 1)[-1]] + words[1:])
+    return segments
+
+
+def _ran_the_named(named: str, command: str) -> bool:
+    """Did this run's command line run the command (or program) a sentence
+    names: every simple command of it a simple command of the run with the same
+    program, its words that are not options in the same order among the run's
+    (options are not compared)?"""
+    ran, wanted_segments = _command_segments(command), _command_segments(named)
+    if not ran or not wanted_segments:
+        return False
+    for words in wanted_segments:
+        wanted = [w for w in words[1:] if not w.startswith("-")]
+        for seg in ran:
+            if seg[0] != words[0]:
+                continue
+            have = iter(w for w in seg[1:] if not w.startswith("-"))
+            if all(w in have for w in wanted):
+                break
+        else:
+            return False
+    return True
+
+
+def _outputs_of_the_subject(phrase: str, record) -> str:
+    """What the subject of a result phrase returned, by the record of what ran:
+    every run of the command or program the phrase names, or the latest run
+    when it names none."""
+    if not record:
+        return ""
+    if _UNNAMED_RESULT_RE.match(phrase):
+        return record[-1][1]
+    span = re.search(r"`([^`\n]+)`", phrase)
+    word = re.search(r"\b(?:pkm|forge|intergen|igos-[a-z0-9][a-z0-9-]*)\b", phrase)
+    named = span.group(1) if span else word.group(0) if word else None
+    if named is None:
+        return record[-1][1]
+    return "\n".join(output for command, output in record
+                     if _ran_the_named(named, command))
 
 
 def _output_on_record(low: str, end: int, record: str) -> bool:
     """Is every line of the output this result sentence quotes held, as its own
-    words, in the record of what ran?"""
+    words, in `record`, the folded outputs of the runs its subject names?"""
     lines = _presented_output(low, end)
     return bool(lines) and all(
         re.search(r"(?<![0-9a-z])" + re.escape(line) + r"(?![0-9a-z])", record)
@@ -1487,7 +1561,7 @@ def _claim_is_live(low: str, start: int, end: int, match_start: int) -> bool:
     return True
 
 
-def _execution_claim_marker(text: str, record: str = "") -> str | None:
+def _execution_claim_marker(text: str, record=()) -> str | None:
     """Return the matched execution-claim phrase, or None.
 
     Every match is clause-guarded: a claim inside a negated or interrogative
@@ -1496,9 +1570,10 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
     installed"). An AFFIRMATIVE "successfully" also fires,
     negation-window-guarded, and so does a tool's output presented as its
     result ("Here is what pkm returned:"), unless the output it quotes is
-    held in `record`, the folded record of what ran in the conversation,
-    and so does a completed state ("Done! htop is now installed."),
-    unless an output in `record` reports it.
+    held in what its subject returned by `record`, the record of what ran in
+    the conversation as _record_runs folds it, and so does a completed state
+    ("Done! htop is now installed."), unless an output of the act it reports
+    in `record` reports it.
     """
     low = text.lower()
     for m in _EXEC_CLAIM_RE.finditer(low):
@@ -1539,7 +1614,8 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
         start, end = _clause_bounds(low, m.start())
         if _RESULT_NOT_ASSERTED.search(low, start, m.start()):
             continue
-        if record and _output_on_record(low, m.end(), record):
+        if record and _output_on_record(
+                low, m.end(), _outputs_of_the_subject(m.group(0), record)):
             continue
         if _claim_is_live(low, start, end, m.start()):
             return m.group(0).strip()
@@ -1569,13 +1645,20 @@ def _execution_claim_marker(text: str, record: str = "") -> str | None:
 # verb (the installed wiki's installer step reads "Installation finished.
 # Click Reboot now, ...").
 # Such a sentence gives an account of a result when the conversation's record
-# of what ran holds an output reporting that state: the state's report word
-# (pkm prints "Installed <name> <version> (<n> files)", "Upgraded <name> to
-# <version>" and "Everything is up to date."), not negated before it in its
-# output, and, when the sentence names what changed (the word before its
-# verb), that name beside the report word. A failed run, a listing that
-# names the package far from the word, and an earlier answer report no
-# completion. Inside a temporal or conditional clause ("When the installation
+# of what ran holds an output of the act the state reports reporting that
+# state: an install state the output of a pkm install naming the package
+# when the sentence names one, an update state the output of a pkm upgrade,
+# and a sentence naming nothing that changed (a general subject, or "I've
+# taken care of that") the latest run only, when that run was such an act.
+# The output reports it with the state's report word (pkm prints "Installed
+# <name> <version> (<n> files)", "Upgraded <name> to <version>" and
+# "Everything is up to date."), not negated before it in its output, and,
+# when the sentence names what changed (the word before its verb), that name
+# beside the report word. An index refresh (`pkm sync`, which pkm also takes
+# as `pkm update` and `pkm refresh`, and which prints "Package index updated.
+# ... can be upgraded"), a search, a fetched page, another tool's output, a
+# failed run, a listing that names the package far from the word, and an
+# earlier answer report no completion. Inside a temporal or conditional clause ("When the installation
 # is complete, click Continue.", "If htop is now installed, run it.") the
 # state is not asserted.
 _COMPLETION_STATE_RE = re.compile(
@@ -1612,11 +1695,33 @@ _COMPLETION_CONDITION_RE = re.compile(
     r"(?:[^\s,;:!?]+\s*)?$")
 
 
-def _completion_on_record(low: str, m: "re.Match[str]", record: str) -> bool:
-    """Does the record of what ran hold an output reporting the completed
-    state this match asserts: the state's report word, not negated before it
-    in its output, with the name of what changed within 40 characters of it
-    when the sentence names one?"""
+# The act each kind of state reports, and the pkm subcommands that are it.
+_COMPLETION_ACTS = {
+    "install": ("install",),
+    "update": ("upgrade",),
+    "act": ("install", "upgrade"),
+}
+_PKM_ACT_OF_SUBCOMMAND = {"install": "install", "reinstall": "install",
+                          "upgrade": "upgrade"}
+
+
+def _acts_of(command: str) -> list[tuple[str, list[str]]]:
+    """The package acts a run's command line performed, as (act, the names
+    after its subcommand) for each pkm install or upgrade in it."""
+    acts = []
+    for words in _command_segments(command):
+        operands = [w for w in words[1:] if not w.startswith("-")]
+        if words[0] == "pkm" and operands and operands[0] in _PKM_ACT_OF_SUBCOMMAND:
+            acts.append((_PKM_ACT_OF_SUBCOMMAND[operands[0]], operands[1:]))
+    return acts
+
+
+def _completion_on_record(low: str, m: "re.Match[str]", record) -> bool:
+    """Does the record of what ran hold an output of the act this match's
+    state reports, reporting it: the state's report word, not negated before
+    it in its output, with the name of what changed within 40 characters of
+    it when the sentence names one? A sentence naming nothing that changed
+    reads the latest run only."""
     kind = m.lastgroup
     subject = None
     if kind != "act" and re.match(r"(?:is|are|has|have)\b|['’]s\b", m.group(0)):
@@ -1624,19 +1729,26 @@ def _completion_on_record(low: str, m: "re.Match[str]", record: str) -> bool:
         word = words[-1].strip("`'\"“”‘’*_()[]") if words else ""
         if word and word not in _GENERAL_SUBJECTS:
             subject = word
-    for r in re.finditer(r"(?<![0-9a-z])" + _COMPLETION_REPORT[kind]
-                         + r"(?![0-9a-z])", record):
-        line_start = record.rfind("\n", 0, r.start()) + 1
-        if _negated_before(record, max(line_start, r.start() - 40), r.start()):
+    for command, output in (record if subject is not None else record[-1:]):
+        if not any(act in _COMPLETION_ACTS[kind]
+                   and (subject is None or act != "install" or subject in names)
+                   for act, names in _acts_of(command)):
             continue
-        if subject is None:
-            return True
-        line_end = record.find("\n", r.end())
-        line_end = len(record) if line_end < 0 else line_end
-        near = record[max(line_start, r.start() - 40):min(line_end, r.end() + 40)]
-        if re.search(r"(?<![0-9a-z])" + re.escape(subject) + r"(?![0-9a-z])",
-                     near):
-            return True
+        for r in re.finditer(r"(?<![0-9a-z])" + _COMPLETION_REPORT[kind]
+                             + r"(?![0-9a-z])", output):
+            line_start = output.rfind("\n", 0, r.start()) + 1
+            if _negated_before(output, max(line_start, r.start() - 40),
+                               r.start()):
+                continue
+            if subject is None:
+                return True
+            line_end = output.find("\n", r.end())
+            line_end = len(output) if line_end < 0 else line_end
+            near = output[max(line_start, r.start() - 40):
+                          min(line_end, r.end() + 40)]
+            if re.search(r"(?<![0-9a-z])" + re.escape(subject)
+                         + r"(?![0-9a-z])", near):
+                return True
     return False
 
 
@@ -1649,11 +1761,14 @@ def screen_execution_claim(draft: str, dispatched: bool, *,
     draft claims a first-person action AND nothing was dispatched this turn. The
     caller regenerates ONCE with a corrective note, then falls back to an honest
     line — it never ships a fabrication. `executed_outputs` is the conversation's
-    record of what its tools returned (ConversationState.executed_outputs): an
-    output a result sentence quotes that the record holds is not a claim."""
+    record of what its tools returned (ConversationState.executed_outputs), each
+    run beside its tool and command line: an output a result sentence quotes
+    that the record holds from the command it names, or from the latest run
+    when it names none, is not a claim, nor is a completed state an output of
+    its act reports."""
     if dispatched:
         return ("clean", None)
-    marker = _execution_claim_marker(draft or "", _record_text(executed_outputs))
+    marker = _execution_claim_marker(draft or "", _record_runs(executed_outputs))
     return ("violation", marker) if marker else ("clean", None)
 
 

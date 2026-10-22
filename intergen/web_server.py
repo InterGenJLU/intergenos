@@ -2392,7 +2392,7 @@ class WebServer:
                 "summary": f"{tool_name} failed: {exc}",
             })
             return
-        ctx.conversation.record_execution(tr)
+        ctx.conversation.record_execution(tr, call)
 
         summary = tr.model_summary or (tr.content or "")[:256]
         payload: dict[str, Any] = {
@@ -3550,7 +3550,7 @@ class WebServer:
                                     _args.get("service")),
                             })
                         tr = await exec_future
-                    ctx.conversation.record_execution(tr)
+                    ctx.conversation.record_execution(tr, item)
                 else:
                     tr = ToolResult(
                         call_id=item.call_id,

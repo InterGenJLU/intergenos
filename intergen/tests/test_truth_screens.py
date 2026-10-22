@@ -43,6 +43,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from intergen import capability_registry, cli, safety
+from intergen.conversation_state import ConversationState, ExecutedOutput
 from intergen.dbus_daemon import InterGenDaemon
 from intergen.escalation import EscalationManager
 from intergen.howto import HowtoCorpus
@@ -1039,10 +1040,11 @@ def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
     regeneration — is `regeneration`. `wiki`, when given, is the page the
     installed wiki returns for the turn; `escalation`, when given, is the
     phone-a-friend manager the turn's offer is decided by; `record`, when
-    given, is what tools of the conversation returned on earlier turns,
-    written to its record of what ran by record_execution, as every place a
-    result comes back writes it. Returns (the result, the screen decisions,
-    the regeneration requests, the tool-route requests)."""
+    given, is what tools of the conversation returned on earlier turns, each
+    a (call, output) pair, or a bare output of a package tool call that
+    names nothing, written to its record of what ran by record_execution, as
+    every place a result comes back writes it. Returns (the result, the
+    screen decisions, the regeneration requests, the tool-route requests)."""
     tier = HardwareTierLevel.TIER_1 if locked else HardwareTierLevel.TIER_2
     router = _router(tier=tier, locked=locked)
     if wiki is not None:
@@ -1051,9 +1053,11 @@ def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
         router._escalation = escalation
     for asked, answered in pairs:
         router._append_history(asked, answered)
-    for output in record:
+    for item in record:
+        call, output = item if isinstance(item, tuple) else (None, item)
         router._conv.record_execution(ToolResult(
-            call_id="", name="manage_packages", content=output))
+            call_id="", name=call.name if call else "manage_packages",
+            content=output), call)
     replies = ([draft] if locked else []) + [regeneration] * 5
     router._llm.chat, seen = _model(*replies)
     streamed = []
@@ -2392,7 +2396,18 @@ EARLIER_RESULT_HONEST = ("I haven't run anything on this turn. The earlier "
 HOWTO_PRINTERS = (
     "To see the printers, run `lpstat -p -d`. With no printer set up it "
     "prints `lpstat: No destinations added.`")
-RAN = (PRINTER_FAILED.content,)
+
+
+def _recorded(*runs):
+    """The record of what ran that the writer keeps for `runs`, (call, result)
+    pairs in order, as every place a result comes back writes it."""
+    state = ConversationState()
+    for call, result in runs:
+        state.record_execution(result, call)
+    return tuple(state.executed_outputs)
+
+
+RAN = _recorded((PRINTER_CALL, PRINTER_FAILED))
 
 
 def _after_the_printer_exchange(*replies, locked):
@@ -2482,20 +2497,23 @@ class ExecutedResultTests(unittest.TestCase):
 
     def test_the_record_keeps_what_ran_and_nothing_else(self):
         state = _router().new_conversation()
-        state.record_execution(PRINTER_FAILED)
+        state.record_execution(PRINTER_FAILED, PRINTER_CALL)
         state.record_execution(ToolResult(
             call_id="", name="system_info", content="full listing",
             model_summary="the summary the model was given"))
         state.record_execution(ToolResult(
             call_id="", name="run_command", success=False, executed=False,
-            content="Tool call denied by user via review modal."))
+            content="Tool call denied by user via review modal."),
+            PRINTER_CALL)
         state.record_execution(ToolResult(
             call_id="", name="run_command", success=False, blocked=True,
-            content="refused: destructive"))
+            content="refused: destructive"), PRINTER_CALL)
         state.record_execution(None)
         self.assertEqual(state.executed_outputs, [
-            PRINTER_FAILED.content, "full listing",
-            "the summary the model was given"])
+            ExecutedOutput("run_command", "lpstat -p -d",
+                           (PRINTER_FAILED.content,)),
+            ExecutedOutput("system_info", "", (
+                "full listing", "the summary the model was given"))])
         self.assertIsNot(state.executed_outputs,
                          _router().new_conversation().executed_outputs)
         state.clear()
@@ -2523,10 +2541,14 @@ class ExecutedResultTests(unittest.TestCase):
                        in ("_tools", "tools", "registry", "_registry",
                            "tool_registry")
                        for n in nodes):
+                    writes = [n for n in nodes if isinstance(n, ast.Call)
+                              and isinstance(n.func, ast.Attribute)
+                              and n.func.attr == "record_execution"]
+                    # Each write passes the call beside its result: the
+                    # result carries no command line.
                     sites.append((str(path.relative_to(package)), fn.name,
-                                  any(isinstance(n, ast.Attribute)
-                                      and n.attr == "record_execution"
-                                      for n in nodes)))
+                                  bool(writes) and all(
+                                      len(w.args) == 2 for w in writes)))
         self.assertEqual(sorted(site[:2] for site in sites), [
             ("router.py", "_execute_tool_for_intent"),
             ("router.py", "_run_fixed_command"),
@@ -3570,6 +3592,31 @@ COMPLETION_REPORTED = {
     "I've taken care of it.": PACKAGES_UPGRADED}
 
 
+def _package_call(**arguments):
+    return ToolCall(name="manage_packages", arguments=arguments,
+                    source_of_request=Provenance.USER_DIRECT)
+
+
+def _command_call(command):
+    return ToolCall(name="run_command", arguments={"command": command},
+                    source_of_request=Provenance.USER_DIRECT)
+
+
+# The act that printed each reported output: the package tool's install of
+# htop, an upgrade run as a command.
+INSTALL_HTOP = _package_call(action="install", package="htop")
+UPGRADE_ALL = _command_call("sudo pkm upgrade --all")
+COMPLETION_ACT = {HTOP_INSTALLED: INSTALL_HTOP, PACKAGES_UPGRADED: UPGRADE_ALL,
+                  NOTHING_TO_UPGRADE: UPGRADE_ALL}
+
+
+def _reported(text):
+    """The record of the act whose output reports `text`'s state."""
+    output = COMPLETION_REPORTED[text]
+    return _recorded((COMPLETION_ACT[output], ToolResult(
+        call_id="", name=COMPLETION_ACT[output].name, content=output)))
+
+
 class CompletionStateTests(unittest.TestCase):
     """A sentence reporting a completed state ("Done! htop is now
     installed.") on a turn that ran nothing is a claim unless an output on the
@@ -3589,7 +3636,7 @@ class CompletionStateTests(unittest.TestCase):
                 self.assertEqual(
                     safety.screen_execution_claim(
                         text, dispatched=False,
-                        executed_outputs=(COMPLETION_REPORTED[text],)),
+                        executed_outputs=_reported(text)),
                     ("clean", None))
                 # The turn that ran the tool is never screened for it.
                 self.assertEqual(
@@ -3597,40 +3644,45 @@ class CompletionStateTests(unittest.TestCase):
                     ("clean", None))
 
     def test_a_record_that_reports_no_such_completion_leaves_the_claim(self):
-        for name, output in (
-                ("a failed install",
+        for name, call, output in (
+                ("a failed install", INSTALL_HTOP,
                  "[stderr] error: no package named 'htop' in the index\n"
                  "[exit code: 1]"),
-                ("an action not attempted",
+                ("an action not attempted", INSTALL_HTOP,
                  "the package action 'install' changes the system and must "
                  "run as root, but this process is running as uid 1000 "
                  "(checked). It was not attempted."),
                 ("a package that is not installed",
+                 _package_call(action="info", package="htop"),
                  "  name                : htop\n"
                  "  status              : available, not installed"),
-                ("a disk reading",
+                ("a disk reading", _command_call("df -h"),
                  "Filesystem Size Used Avail Use% Mounted on\n"
                  "/dev/nvme0n1p2 468G 377G 91G 81% /")):
+            record = _recorded((call, ToolResult(
+                call_id="", name=call.name, content=output)))
             for text, marker in COMPLETION_STATES:
                 with self.subTest(record=name, text=text):
                     self.assertEqual(
                         safety.screen_execution_claim(
-                            text, dispatched=False, executed_outputs=(output,)),
+                            text, dispatched=False, executed_outputs=record),
                         ("violation", marker))
         # Another package's install reports no install of htop, and no update.
+        fzf = _recorded((_package_call(action="install", package="fzf"),
+                         ToolResult(call_id="", name="manage_packages",
+                                    content="Installed fzf 0.56.3-1 (4 files)")))
         for text, marker in (COMPLETION_STATES[:4] + COMPLETION_STATES[5:6]
                              + COMPLETION_STATES_SAME_CLASS[:2]):
             with self.subTest(record="another package", text=text):
                 self.assertEqual(
                     safety.screen_execution_claim(
-                        text, dispatched=False,
-                        executed_outputs=("Installed fzf 0.56.3-1 (4 files)",)),
+                        text, dispatched=False, executed_outputs=fzf),
                     ("violation", marker))
         # An upgrade reports no install.
         self.assertEqual(
             safety.screen_execution_claim(
                 "Installation complete.", dispatched=False,
-                executed_outputs=(PACKAGES_UPGRADED,)),
+                executed_outputs=_reported("The update is complete.")),
             ("violation", "installation complete"))
 
     def test_a_state_described_in_general_is_not_a_claim(self):
@@ -3677,9 +3729,10 @@ class CompletionStateTests(unittest.TestCase):
         for text, _ in COMPLETION_STATES:
             floors = {}
             for locked in (True, False):
+                output = COMPLETION_REPORTED[text]
                 result, decisions, regenerations, _ = _route_recorded(
                     text, NOTHING_INSTALLED, "is it done?", locked=locked,
-                    record=(COMPLETION_REPORTED[text],))
+                    record=((COMPLETION_ACT[output], output),))
                 floors[locked] = decisions
                 with self.subTest(text=text, locked=locked):
                     self.assertEqual(decisions[0],
@@ -3795,6 +3848,214 @@ class CapabilityNegatorSpellingTests(unittest.TestCase):
                 self.assertEqual(result.text, NO_SUCH_SUBCOMMAND)
                 self.assertEqual(regenerations, [])
         self.assertEqual(floors[True], floors[False])
+
+
+# ── an output is the result of the command that printed it ──────────────────
+# The record kept outputs without the command that produced them, so a result
+# sentence naming a command that never ran passed whenever its quoted text was
+# printed by another one: after the printer exchange ran `lpstat -p -d`,
+# "`pkm upgrade --all` printed `lpstat: No destinations added.`, so every
+# package is up to date." was served as written on both floors. The same
+# loosening let a completed state pass on any report word in any output: after
+# an index refresh, a fetched page or another tool's counts line, "Your system
+# is now up to date." and "Upgrade complete!" were served on a turn that ran
+# nothing. Each run is kept beside its command line now: a sentence naming a
+# command reads that command's outputs, one naming none the latest run's, and
+# a completed state the output of the act it reports.
+def _run(call, output, success=True):
+    return (call, ToolResult(call_id="", name=call.name, content=output,
+                             success=success))
+
+
+UPTIME = _run(_command_call("uptime"),
+              " 21:40:02 up 3 days,  2:11,  1 user,  load average: 0.20")
+UPGRADABLE_LISTING = _run(_command_call("pkm list upgradable"),
+                          "0 updates available")
+SERVICE_STATE = _run(_command_call("systemctl is-active htop"), "active")
+PROCESS_LISTING = _run(_command_call("ps aux"),
+                       "USER PID %CPU COMMAND\nroot 1 0.0 systemd\n"
+                       "christopher 2210 1.2 done")
+UPGRADED = _run(UPGRADE_ALL, PACKAGES_UPGRADED)
+INDEX_REFRESHED = _run(_package_call(action="update"),
+                       "Package index updated: 1342 packages, 3 can be "
+                       "upgraded.")
+INDEX_SYNCED = _run(_command_call("pkm sync"),
+                    "Package index updated. All packages are up to date.")
+WEB_PAGE = _run(ToolCall(name="web_search", arguments={"query": "htop review"},
+                         source_of_request=Provenance.USER_DIRECT),
+                "Source: https://example.org/htop-review\nPage excerpt: htop "
+                "review. Last updated March 2026. htop shows processes.")
+COUNTS_LINE = _run(ToolCall(name="system_info", arguments={},
+                            source_of_request=Provenance.USER_DIRECT),
+                   "Installed: 0 packages, Upgraded: 0 packages, Removed: 0 "
+                   "packages")
+CUPS_INSTALLED = _run(_package_call(action="install", package="cups"),
+                      "Installed cups 2.4.7 (312 files)")
+HTOP_INSTALL_RAN = _run(INSTALL_HTOP, HTOP_INSTALLED)
+MISATTRIBUTED_RESULT = ("`pkm upgrade --all` printed `lpstat: No destinations "
+                        "added.`, so every package is up to date.")
+LATEST_OUTPUT_QUOTED = ("It returned:\n```\nlpstat: No destinations added.\n"
+                        "[exit code: 1]\n```")
+UPDATE_STATES = (
+    ("Your system is now up to date.", "is now up to date"),
+    ("The update is complete.", "update is complete"),
+    ("Update complete.", "update complete"),
+    ("Upgrade complete!", "upgrade complete"))
+
+
+class RecordAttributionTests(unittest.TestCase):
+    """An output on the record of what ran is the result of the command that
+    printed it and of no other: a result sentence naming a command reads that
+    command's outputs only, one naming none the latest run's only, and a
+    completed state the output of the act it reports only."""
+
+    def _screen(self, text, *runs):
+        return safety.screen_execution_claim(
+            text, dispatched=False, executed_outputs=_recorded(*runs))
+
+    def test_the_record_keeps_each_runs_command_line(self):
+        record = _recorded(
+            (PRINTER_CALL, PRINTER_FAILED), HTOP_INSTALL_RAN, INDEX_REFRESHED,
+            _run(_package_call(action="list"), "htop 3.3.0-1"),
+            _run(ToolCall(name="manage_services",
+                          arguments={"action": "restart", "service": "cups"},
+                          source_of_request=Provenance.USER_DIRECT), "restarted"),
+            WEB_PAGE)
+        self.assertEqual([(run.tool, run.command) for run in record], [
+            ("run_command", "lpstat -p -d"),
+            # The package tool's own argument lists: its update action runs
+            # `pkm update`, which pkm reads as `pkm sync`.
+            ("manage_packages", "pkm install --yes htop"),
+            ("manage_packages", "pkm update"),
+            ("manage_packages", "pkm list"),
+            ("manage_services", "systemctl restart cups"),
+            ("web_search", "")])
+        self.assertEqual(record[0].texts, (PRINTER_FAILED.content,))
+
+    def test_a_named_command_reads_only_its_own_output(self):
+        for text, marker, runs in (
+                (MISATTRIBUTED_RESULT, "`pkm upgrade --all` printed",
+                 [(PRINTER_CALL, PRINTER_FAILED)]),
+                ("`pkm upgrade --all` returned: 0 updates available",
+                 "`pkm upgrade --all` returned", [UPGRADABLE_LISTING]),
+                ("`pkm install htop` returned: active",
+                 "`pkm install htop` returned", [SERVICE_STATE]),
+                ("Here is what `pkm upgrade` returned: done",
+                 "here is what `pkm upgrade` returned", [PROCESS_LISTING]),
+                ("Here is what pkm returned:\n```\nlpstat: No destinations "
+                 "added.\n```", "here is what pkm returned",
+                 [(PRINTER_CALL, PRINTER_FAILED)])):
+            with self.subTest(text=text):
+                self.assertEqual(self._screen(text, *runs),
+                                 ("violation", marker))
+        # The command's own output, by its name, its program or its words.
+        for text, runs in (
+                ("`lpstat -p` printed: lpstat: No destinations added.",
+                 [(PRINTER_CALL, PRINTER_FAILED)]),
+                ("`sudo pkm upgrade` printed: Upgraded pkm to 0.2.0-119",
+                 [UPGRADED]),
+                ("Here is what pkm returned:\n```\nhtop 3.3.0-1\n```",
+                 [_run(_package_call(action="list"), "htop 3.3.0-1")]),
+                ('`lpstat -p -d` printed "No destinations added", so no '
+                 "printer is set up yet.",
+                 [(PRINTER_CALL, PRINTER_FAILED), UPTIME])):
+            with self.subTest(text=text):
+                self.assertEqual(self._screen(text, *runs), ("clean", None))
+
+    def test_an_unnamed_result_reads_the_latest_run_only(self):
+        for text in (LATEST_OUTPUT_QUOTED, QUOTED_EARLIER_RESULT):
+            with self.subTest(text=text):
+                self.assertEqual(
+                    self._screen(text, (PRINTER_CALL, PRINTER_FAILED)),
+                    ("clean", None))
+                self.assertEqual(
+                    self._screen(text, (PRINTER_CALL, PRINTER_FAILED), UPTIME)[0],
+                    "violation")
+
+    def test_the_misattributed_result_is_regenerated_on_both_floors(self):
+        floors = {}
+        for locked in (True, False):
+            result, decisions, regenerations, router = _exchange_then(
+                MISATTRIBUTED_RESULT, EARLIER_RESULT_HONEST, locked=locked)
+            floors[locked] = decisions
+            with self.subTest(locked=locked):
+                self.assertEqual(router._conv.executed_outputs, list(RAN))
+                self.assertEqual(decisions[0], (
+                    "claim_screen", "violation_regenerated",
+                    "`pkm upgrade --all` printed"))
+                self.assertEqual(result.text, EARLIER_RESULT_HONEST)
+                self.assertEqual(len(regenerations), 1)
+        self.assertEqual(floors[True], floors[False])
+
+    def test_a_completed_state_reads_only_its_acts_output(self):
+        for name, runs in (
+                ("the package tool's refresh", [INDEX_REFRESHED]),
+                ("pkm sync, all up to date", [INDEX_SYNCED]),
+                ("a fetched page", [WEB_PAGE]),
+                ("another tool's counts line", [COUNTS_LINE]),
+                ("another package's install", [CUPS_INSTALLED]),
+                ("an install", [HTOP_INSTALL_RAN])):
+            for text, marker in UPDATE_STATES:
+                with self.subTest(record=name, text=text):
+                    self.assertEqual(self._screen(text, *runs),
+                                     ("violation", marker))
+        for name, runs in (
+                ("the package tool's refresh", [INDEX_REFRESHED]),
+                ("a fetched page", [WEB_PAGE]),
+                ("another tool's counts line", [COUNTS_LINE]),
+                ("an upgrade", [UPGRADED])):
+            for text, marker in (("Done! It's now installed.",
+                                  "'s now installed"),
+                                 ("I've taken care of that.",
+                                  "i've taken care of that")):
+                if name == "an upgrade" and marker.startswith("i've"):
+                    continue
+                with self.subTest(record=name, text=text):
+                    self.assertEqual(self._screen(text, *runs),
+                                     ("violation", marker))
+        # A named package reads its own install; a general subject the latest
+        # run only.
+        self.assertEqual(self._screen("Done! htop is now installed.",
+                                      CUPS_INSTALLED),
+                         ("violation", "is now installed"))
+        self.assertEqual(self._screen("Done! htop is now installed.",
+                                      HTOP_INSTALL_RAN, WEB_PAGE),
+                         ("clean", None))
+        self.assertEqual(self._screen("Done! It's now installed.",
+                                      HTOP_INSTALL_RAN, WEB_PAGE),
+                         ("violation", "'s now installed"))
+        # The acts' own outputs, the controls.
+        for text, _ in UPDATE_STATES:
+            with self.subTest(record="an upgrade", text=text):
+                self.assertEqual(self._screen(text, UPGRADED), ("clean", None))
+        for text in ("Done! It's now installed.", "Done! htop is now installed.",
+                     "I've taken care of that."):
+            with self.subTest(record="an install", text=text):
+                self.assertEqual(self._screen(text, HTOP_INSTALL_RAN),
+                                 ("clean", None))
+
+    def test_the_unrelated_records_are_regenerated_on_both_floors(self):
+        for text, marker, runs in (
+                ("Your system is now up to date.", "is now up to date",
+                 [INDEX_REFRESHED]),
+                ("The update is complete.", "update is complete", [WEB_PAGE]),
+                ("Upgrade complete!", "upgrade complete", [COUNTS_LINE]),
+                ("Done! It's now installed.", "'s now installed",
+                 [HTOP_INSTALL_RAN, WEB_PAGE])):
+            floors = {}
+            record = tuple((call, result.content) for call, result in runs)
+            for locked in (True, False):
+                result, decisions, regenerations, _ = _route_recorded(
+                    text, NOTHING_INSTALLED, TURN41_USER, locked=locked,
+                    record=record)
+                floors[locked] = decisions
+                with self.subTest(text=text, locked=locked):
+                    self.assertEqual(decisions[0], ("claim_screen",
+                                                    "violation_regenerated",
+                                                    marker))
+                    self.assertEqual(result.text, NOTHING_INSTALLED)
+                    self.assertEqual(len(regenerations), 1)
+            self.assertEqual(floors[True], floors[False])
 
 
 if __name__ == "__main__":

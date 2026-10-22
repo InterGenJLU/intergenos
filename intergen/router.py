@@ -5617,7 +5617,7 @@ class ConversationRouter(RouterInterface):
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
-            self._conv.record_execution(tool_result)
+            self._conv.record_execution(tool_result, call)
         except Exception as e:  # noqa: BLE001 — a dispatch error must not crash the turn
             logger.error("Staged action dispatch failed: %s", e)
             return RouteResult(text="Sorry — I couldn't do that.",
@@ -5733,7 +5733,7 @@ class ConversationRouter(RouterInterface):
             tr = self._tools.execute(
                 call, ingress_tracker=self._conv.ingress_tracker,
                 trust_state=self._conv.trust_state, review_callback=self._review_callback)
-            self._conv.record_execution(tr)
+            self._conv.record_execution(tr, call)
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
             return None
@@ -6453,7 +6453,7 @@ class ConversationRouter(RouterInterface):
                     trust_state=self._conv.trust_state,
                     review_callback=self._review_callback,
                 )
-                self._conv.record_execution(result)
+                self._conv.record_execution(result, chunk)
                 tool_results.append(result)
             else:
                 collected_text.append(chunk)
@@ -7747,7 +7747,7 @@ class ConversationRouter(RouterInterface):
                 trust_state=self._conv.trust_state,
                 review_callback=self._review_callback,
             )
-            self._conv.record_execution(result)
+            self._conv.record_execution(result, call)
             return call, result
         except Exception as e:
             logger.error("Tool %s execution failed: %s", tool_name, e)

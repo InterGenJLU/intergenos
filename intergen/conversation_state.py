@@ -32,7 +32,43 @@ from typing import Any
 
 from intergen.interfaces.types import Message
 
-__all__ = ["ConversationState", "new_conversation_state"]
+__all__ = ["ConversationState", "ExecutedOutput", "command_line",
+           "new_conversation_state"]
+
+
+@dataclass(frozen=True)
+class ExecutedOutput:
+    """One run on the record of what ran: the registry tool that ran, the
+    command line it ran ("" for a tool that runs none, or a run recorded with
+    no call), and what it returned, its full content and the summary the
+    model was given when the tool made one."""
+
+    tool: str
+    command: str
+    texts: tuple[str, ...]
+
+
+def command_line(call: Any) -> str:
+    """The command line a tool call runs, read from the code that runs it:
+    run_command's own command, the pkm argument list the package tool builds
+    (its update action runs `pkm update`, which pkm reads as `pkm sync`), the
+    systemctl line of a service action; "" for a tool that runs no command
+    line, or for no call."""
+    if call is None:
+        return ""
+    args = call.arguments if isinstance(call.arguments, dict) else {}
+    if call.name == "run_command":
+        return str(args.get("command", "") or "")
+    if call.name == "manage_packages":
+        from intergen.tools.manage_packages import ManagePackagesTool
+        argv = ManagePackagesTool()._build_command(
+            str(args.get("action", "") or ""), str(args.get("package", "") or ""),
+            str(args.get("query", "") or ""))
+        return " ".join(argv) if argv else ""
+    if call.name == "manage_services":
+        from intergen.tool_registry import handoff_command
+        return handoff_command(call)
+    return ""
 
 
 @dataclass
@@ -59,7 +95,8 @@ class ConversationState:
     ``transcript``            every exchange this conversation has had, in
                               order and verbatim, never trimmed
     ``executed_outputs``      the output of every tool that ran in this
-                              conversation, failed or not, in order
+                              conversation, failed or not, in order, each
+                              beside its tool and command line
     ``turn_index``            the relevance index over this conversation's turns
     ``first_interaction``     whether nothing has been said yet
     ``memory_session_id``     the long-term memory session this conversation
@@ -105,14 +142,16 @@ class ConversationState:
     # placed in a prompt, so it cannot grow the model's context.
     transcript: list[tuple[str, str]] = field(default_factory=list)
     # What every tool that RAN in this conversation returned, failed or not,
-    # verbatim and in order — the code-owned record of what this conversation
-    # actually executed. The claim screen reads it (safety.screen_execution_claim):
-    # an answer quoting an output held here gives an account of a result that
-    # was produced, and an output found only in an earlier ANSWER was not
-    # necessarily produced at all (a how-to answer can show what a command would
-    # print). Written by record_execution at every place a result comes back from
-    # the tool registry; never placed in a prompt.
-    executed_outputs: list[str] = field(default_factory=list)
+    # verbatim and in order, each run beside the tool and the command line that
+    # produced it — the code-owned record of what this conversation actually
+    # executed. The claim screen reads it (safety.screen_execution_claim): an
+    # answer quoting an output held here gives an account of a result that was
+    # produced, as long as it names the tool that produced it, and an output
+    # found only in an earlier ANSWER was not necessarily produced at all (a
+    # how-to answer can show what a command would print). Written by
+    # record_execution at every place a result comes back from the tool
+    # registry, with the call that produced it; never placed in a prompt.
+    executed_outputs: list[ExecutedOutput] = field(default_factory=list)
     turn_index: Any = None
     first_interaction: bool = True
     memory_session_id: str | None = None
@@ -158,19 +197,24 @@ class ConversationState:
         self.executed_outputs.clear()
         self.first_interaction = True
 
-    def record_execution(self, result: Any) -> None:
+    def record_execution(self, result: Any, call: Any = None) -> None:
         """Keep what a tool that RAN returned, failed or not: its full content,
-        and the summary the model was given when the tool made one. A result the
-        gate refused, the person denied or the safety classifier blocked ran
+        and the summary the model was given when the tool made one, beside the
+        tool and the command line of `call`, the call that produced it. A result
+        the gate refused, the person denied or the safety classifier blocked ran
         nothing, so nothing of it is kept."""
         if result is None or not getattr(result, "executed", False):
             return
         if getattr(result, "blocked", False):
             return
-        for text in (getattr(result, "content", None),
-                     getattr(result, "model_summary", None)):
-            if isinstance(text, str) and text.strip():
-                self.executed_outputs.append(text)
+        texts = tuple(text for text in (getattr(result, "content", None),
+                                        getattr(result, "model_summary", None))
+                      if isinstance(text, str) and text.strip())
+        if texts:
+            self.executed_outputs.append(ExecutedOutput(
+                tool=str(getattr(result, "name", "")
+                         or getattr(call, "name", "") or ""),
+                command=command_line(call), texts=texts))
 
     def clear_offers(self) -> None:
         """Withdraw every offer awaiting a yes or no, and the grounding window
