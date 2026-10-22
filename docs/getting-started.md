@@ -97,11 +97,15 @@ The value it prints must equal the checksum you verified in section 2.
 
 ## 5. First Boot
 
-After the installation completes, remove the USB drive and reboot.
+After the installation completes, reboot first, then remove the USB drive as the system restarts.
 
 If you set a MOK enrollment password, re-enter UEFI firmware setup on this reboot and turn Secure Boot back **on** before InterGenOS starts. MokManager runs on that boot and asks for the password you set; enter it, choose Reboot, and enrollment is done — once only.
 
-On your very first boot, you log in with the credentials you chose during the Forge install. There is no separate first-boot password prompt — Forge collected the username and password from you during install, root is locked (`sudo` from your user account is the only path to root), and SSH host keys are generated on first boot.
+On your very first boot, log in with the user credentials you chose during the
+Forge install. Forge sets both your user password and the root (administrator)
+password during installation, so there is no separate first-boot password prompt.
+Day-to-day `sudo` asks for your own user password; use the administrator password
+for administrative prompts and recovery. SSH host keys are generated on first boot.
 
 ## 6. Keeping Your System Secure and Up To Date
 
