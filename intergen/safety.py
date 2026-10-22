@@ -60,10 +60,7 @@ _NETLINK_COMMANDS = frozenset({
 # ── Tier 1: AUTO (read-only, safe to execute without confirmation) ──
 
 _AUTO_COMMANDS_TWO_WORD = frozenset({
-    # git status/remote/stash-list do not default-paginate, so they carry no
-    # pager shell-escape and stay AUTO. diff/branch/tag DO default-paginate and
-    # are handled by the paginating-git guard below (AUTO only non-interactive).
-    "git status", "git remote", "git stash list",
+    # No git form is here: every one is CONFIRM (see classify_command).
     "systemctl is-active", "systemctl is-enabled",
     "systemctl list-units", "systemctl list-timers",
     # systemd-analyze read-only subcommands (boot timing / diagnostics). The
@@ -134,14 +131,8 @@ _AUTO_COMMANDS_SINGLE = frozenset({
 _PAGER_COMMANDS = frozenset({"less", "more", "most", "top", "htop"})
 # Tools that paginate through $PAGER by default (same escape class): AUTO only
 # when non-interactive (piped, or explicit --no-pager/--no-paginate); bare
-# interactive form is CONFIRM. git diff/branch/tag default-paginate exactly like
-# log/show, so they are in the guard too (reviewer decision: close the twin -- a
-# paginating git subcommand left AUTO carries the same !cmd / v->$EDITOR escape).
-# blame/shortlog/config-list also paginate but are NOT auto today (unknown git
-# subcommands default to CONFIRM), so they stay conservative -- adding them here
-# would only widen AUTO, the opposite of this guard's tightening intent.
+# interactive form is CONFIRM.
 _PAGINATING_SINGLE = frozenset({"journalctl"})
-_PAGINATING_GIT_SUBCMDS = frozenset({"log", "show", "diff", "branch", "tag"})
 _PAGINATING_TWO_WORD = frozenset({"systemctl status"})
 
 # ── Tier 2: CONFIRM (write operations, require user approval) ──
@@ -714,10 +705,15 @@ def classify_command(command: str, _piped: bool = False) -> SafetyTier:
     _noninteractive = _piped or "--no-pager" in parts or "--no-paginate" in parts
     if base_cmd in _PAGINATING_SINGLE:
         return SafetyTier.AUTO if _noninteractive else SafetyTier.CONFIRM
+    # Every git form asks first. git reads configuration that names programs it
+    # then runs (core.fsmonitor, hooks, diff.external, textconv, filters,
+    # gpg.program, a submodule's own configuration) from the home, from any
+    # work tree it stands in and from the environment, and the command line
+    # shows none of it: status, diff, log, show, a diff of two files outside
+    # any repository, each started one on its own. The card is where the
+    # person sees the command before git reads any of it.
     if base_cmd == "git":
-        sub = next((p for p in parts[1:] if not p.startswith("-")), None)  # handles `git --no-pager log`
-        if sub in _PAGINATING_GIT_SUBCMDS:
-            return SafetyTier.AUTO if _noninteractive else SafetyTier.CONFIRM
+        return SafetyTier.CONFIRM
     if two_word in _PAGINATING_TWO_WORD:
         return SafetyTier.AUTO if _noninteractive else SafetyTier.CONFIRM
 

@@ -6,9 +6,12 @@
   user can `!cmd` (or less `v`->$EDITOR) to spawn a child shell classify_command
   never sees. So a BARE pager is a shell-escape vector -> CONFIRM, while a PIPED
   pager (`du | less`) is a pure data-sink -> AUTO.
-- journalctl / git log / git show / systemctl status paginate through $PAGER by
-  default -> same class: bare interactive form is CONFIRM, non-interactive
-  (piped, or explicit --no-pager/--no-paginate) is AUTO.
+- journalctl / systemctl status paginate through $PAGER by default -> same
+  class: bare interactive form is CONFIRM, non-interactive (piped, or explicit
+  --no-pager/--no-paginate) is AUTO.
+- git is CONFIRM in every form, piped or not: it reads configuration that names
+  programs it then runs (hooks, core.fsmonitor, diff.external, a pager) from the
+  home, the work tree and the environment, and the command line shows none of it.
 - watch is an exec wrapper like env: classified by its WRAPPED command, so
   `watch 'rm -rf x'` is BLOCKED and `watch free` is AUTO, never a flat pass.
 
@@ -47,9 +50,6 @@ class PipedOrNonInteractiveIsAuto(unittest.TestCase):
             "journalctl --no-pager",
             "journalctl -p err -n 5 --no-pager -o cat",
             "journalctl -p err | head",
-            "git log --no-pager",
-            "git --no-pager log",
-            "git log | head",
         ):
             self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
 
@@ -76,29 +76,53 @@ class WatchExecWrapper(unittest.TestCase):
 
 
 class PaginatingGitSubcommands(unittest.TestCase):
-    # git diff/branch/tag default-paginate exactly like log/show (the reviewer
-    # fold-in closing the twin): bare is escapable -> CONFIRM, non-interactive
-    # (piped or --no-pager/--no-paginate) is a data-sink -> AUTO. git status /
-    # remote / stash list do NOT paginate and stay AUTO regardless.
+    # A pager was one of the programs git starts from configuration; turning it
+    # off (piped, --no-pager) leaves the rest (hooks, core.fsmonitor,
+    # diff.external), so no git form is AUTO: paginating or not, piped or not.
     def test_bare_paginating_git_is_confirm(self):
         for cmd in ("git diff", "git diff --stat", "git branch", "git tag"):
             self.assertEqual(classify_command(cmd), SafetyTier.CONFIRM, cmd)
 
-    def test_noninteractive_paginating_git_is_auto(self):
+    def test_noninteractive_paginating_git_is_confirm(self):
         for cmd in (
             "git diff | cat", "git --no-pager diff", "git diff --no-pager",
             "git branch | head", "git --no-pager branch", "git tag | cat",
+            "git log --no-pager", "git --no-pager log", "git log | head",
         ):
-            self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
+            self.assertEqual(classify_command(cmd), SafetyTier.CONFIRM, cmd)
 
-    def test_nonpaginating_git_reads_stay_auto(self):
-        for cmd in ("git status", "git remote"):
-            self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
+    def test_nonpaginating_git_reads_are_confirm(self):
+        for cmd in ("git status", "git remote", "git stash list"):
+            self.assertEqual(classify_command(cmd), SafetyTier.CONFIRM, cmd)
+
+
+class EveryGitFormAsksFirst(unittest.TestCase):
+    # git starts programs its configuration names (hooks, core.fsmonitor,
+    # diff.external, textconv, gpg.program) from the home, the work tree and
+    # the environment, a diff of two files outside any repository included;
+    # no flag on the command line turns all of it off, so every form asks
+    # first, wrapped or not.
+    def test_the_forms_that_ran_with_no_review_ask_first(self):
+        for cmd in (
+            "git status", "git remote show origin", "git --no-pager diff",
+            "git --no-pager show HEAD", "git --no-pager log --format=%G?",
+            "git --no-pager log --format=%GS", "git --no-pager log --show-signature",
+            "git --no-pager diff --no-index /etc/hostname /etc/os-release",
+        ):
+            self.assertEqual(classify_command(cmd), SafetyTier.CONFIRM, cmd)
+
+    def test_a_wrapped_git_form_asks_first(self):
+        for cmd in (
+            "env git status", "nice git status", "timeout 5 git status",
+            "watch git status", "xargs git status", "bash -c 'git status'",
+            "sh -c 'git --no-pager diff'", "/usr/bin/git status",
+        ):
+            self.assertEqual(classify_command(cmd), SafetyTier.CONFIRM, cmd)
 
 
 class UnchangedReadsStayAuto(unittest.TestCase):
     def test_plain_reads_stay_auto(self):
-        for cmd in ("ps", "df -h", "free", "git status"):
+        for cmd in ("ps", "df -h", "free"):
             self.assertEqual(classify_command(cmd), SafetyTier.AUTO, cmd)
 
 
