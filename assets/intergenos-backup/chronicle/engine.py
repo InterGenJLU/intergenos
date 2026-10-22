@@ -541,9 +541,24 @@ class Engine:
         if entry is None:
             raise EngineError(f"{path} is not in version {version_id}")
         stored = entry.get("sha256")
-        live = _cas.sha256_file(path) if os.path.isfile(path) else None
-        return {"path": path, "stored_sha256": stored, "live_sha256": live,
-                "changed": stored != live, "live_exists": live is not None}
+        # The live path is in a directory its account may control: it is
+        # walked to by descriptor and held before it is opened, so a link
+        # there is never followed and a FIFO or a device is never opened.
+        live = refused = None
+        try:
+            fd, _info = _held.open_held(path, os.O_RDONLY)
+        except FileNotFoundError:
+            pass
+        except _held.HeldOpenRefused as error:
+            refused = str(error)
+        else:
+            with os.fdopen(fd, "rb") as f:
+                live = _sha256_stream(f)
+        result = {"path": path, "stored_sha256": stored, "live_sha256": live,
+                  "changed": stored != live, "live_exists": live is not None}
+        if refused is not None:
+            result["live_refused"] = refused
+        return result
 
     # -- verify / scrub -------------------------------------------------
 

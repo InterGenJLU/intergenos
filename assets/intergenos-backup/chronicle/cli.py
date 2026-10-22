@@ -216,7 +216,10 @@ def cmd_diff(backend, args, rep):
     state = "CHANGED" if d["changed"] else "unchanged"
     rep.info(f"{args.path}: {state}")
     rep.info(f"  stored : {d['stored_sha256']}")
-    rep.info(f"  live   : {d['live_sha256'] or '(absent)'}")
+    if d.get("live_refused"):
+        rep.info(f"  live   : not read — {d['live_refused']}")
+    else:
+        rep.info(f"  live   : {d['live_sha256'] or '(absent)'}")
 
 
 def cmd_contents(backend, args, rep):
