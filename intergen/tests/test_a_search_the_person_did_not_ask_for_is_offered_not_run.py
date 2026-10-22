@@ -329,10 +329,15 @@ class TheConsoleOffersWhatItHeldTests(unittest.TestCase):
 
     def _model_answers(self, sentence):
         """route() an ask with the code's own dispatch declined, so the model's
-        call is the one that reaches the registry."""
+        call is the one that reaches the registry. The code dispatches an
+        explicit ask two ways: its intent's tool, and the explicit-search
+        route that runs ahead of the model (_try_explicit_web_search); both
+        are declined."""
         router, search, model = _router(False, emits=_model_search)
         with mock.patch.object(type(router), "_execute_tool_for_intent",
-                               lambda self, *a, **k: (None, None)):
+                               lambda self, *a, **k: (None, None)), \
+                mock.patch.object(type(router), "_try_explicit_web_search",
+                                  lambda self, *a, **k: None):
             router.route(sentence)
         return router, search, model
 

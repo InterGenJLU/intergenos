@@ -1066,9 +1066,20 @@ def _route_recorded(draft, regeneration, user, *pairs, locked, wiki=None,
             streamed.append(list(messages))
             yield draft
         router._llm.stream_with_tools = stream_with_tools
-    with mock.patch("intergen.router.glass.emit") as emit:
+    with mock.patch("intergen.router.glass.emit") as emit, _model_answers_it():
         result = router.route(user)
     return result, _screen_decisions(emit), seen[1:] if locked else seen, streamed
+
+
+def _model_answers_it():
+    """The recorded turns are the model's to answer, as they were when they
+    were recorded. A recorded user line that names a package command or
+    follows up on an act ("run the `sudo pkm install steam` command FOR me")
+    is acted on by the code before the model is reached
+    (_act_on_resolved); these cases are about what the screens do with the
+    model's answer, so the code's act on the turn is declined here."""
+    return mock.patch.object(ConversationRouter, "_act_on_resolved",
+                             lambda self, *a, **k: None)
 
 
 class ToolRouteTextAnswerTests(unittest.TestCase):
@@ -1868,7 +1879,7 @@ def _route_dispatch(call, result, synthesis, regeneration, user, *pairs):
     router._tools.execute = mock.Mock(return_value=result)
     router._llm.continue_after_tool_call = mock.Mock(
         return_value=LLMResponse(text=synthesis, model="local"))
-    with mock.patch("intergen.router.glass.emit") as emit:
+    with mock.patch("intergen.router.glass.emit") as emit, _model_answers_it():
         routed = router.route(user)
     dispatched = [(name, row["dispatched"])
                   for name in ("claim_screen", "state_claim_screen")
