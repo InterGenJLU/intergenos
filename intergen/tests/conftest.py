@@ -110,8 +110,9 @@ import pytest
 # config file), which no per-case fixture can move afterwards. A base counts as
 # elsewhere only when it is set and outside the account's home as the password
 # database names it, because that is where Path.home() falls back to when HOME
-# is unset. With the root conftest loaded every base is already elsewhere and
-# nothing here changes for the rest of the run.
+# is unset. With the root conftest loaded and the run's temporary directory
+# outside the home, every base is already elsewhere and nothing here changes
+# for the rest of the run; with it inside the home this floor is made as well.
 #
 # FOR EACH CASE, every base and HOME point at a fresh directory of that case's
 # own (_per_user_bases_of_the_case below), so a writer that resolves its path

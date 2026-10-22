@@ -25,12 +25,27 @@ import pytest
 BASES = ("XDG_STATE_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "XDG_CONFIG_HOME",
          "HOME")
 ACCOUNT_HOME = Path(os.path.realpath(pwd.getpwuid(os.getuid()).pw_dir))
+# The account's own per-user state: the four trees the product's writers land
+# in when the bases are left at their defaults under the home the password
+# database names. These, and not the whole home, are what no case may reach: a
+# run whose temporary directory lies inside the home (a machine that keeps test
+# runs off /tmp) has every base and every floor inside it, and none in these.
+ACCOUNT_TREES = tuple(ACCOUNT_HOME / base / "intergen"
+                      for base in (".local/state", ".local/share", ".cache",
+                                   ".config"))
 
 
 def _inside(path, directory) -> bool:
     path = Path(os.path.realpath(path))
     directory = Path(os.path.realpath(directory))
     return path == directory or directory in path.parents
+
+
+def _reaches_the_accounts_trees(path) -> bool:
+    """True when ``path`` lies in one of the account's own per-user trees or
+    holds one: a base that holds a tree resolves the product's files into it."""
+    return any(_inside(path, tree) or _inside(tree, path)
+               for tree in ACCOUNT_TREES)
 
 
 def _the_cases_own(tmp_path_factory) -> Path:
@@ -51,7 +66,7 @@ def test_every_base_is_a_directory_of_the_cases_own(tmp_path_factory):
         assert value, f"{variable} is not set"
         assert Path(value).parent == root, (variable, value)
         assert Path(value).is_dir(), (variable, value)
-        assert not _inside(value, ACCOUNT_HOME), (variable, value)
+        assert not _reaches_the_accounts_trees(value), (variable, value)
 
 
 def test_the_writers_resolve_into_the_cases_directory(tmp_path_factory):
@@ -103,8 +118,42 @@ FIXED_AT_IMPORT = [
     ("intergen.setup.SESSIONS_DIR", _setup.SESSIONS_DIR),
 ]
 
+# The bases as the import-time layer left them, read at the same moment: the
+# floor the paths above were fixed under. Which conftest made it depends on the
+# run (this directory's, or the project root's when that one already moved
+# every base out of the home), so the cases read it rather than name one.
+BASES_AT_COLLECTION = {variable: os.environ.get(variable) for variable in BASES}
+
 
 @pytest.mark.parametrize("name, value", FIXED_AT_IMPORT,
                          ids=[name for name, _ in FIXED_AT_IMPORT])
 def test_a_path_fixed_at_import_is_not_the_accounts(name, value):
-    assert not _inside(value, ACCOUNT_HOME), f"{name} = {value}"
+    assert not _reaches_the_accounts_trees(value), f"{name} = {value}"
+    assert any(_inside(value, base) for base in BASES_AT_COLLECTION.values()
+               if base), f"{name} = {value}, the floor {BASES_AT_COLLECTION}"
+
+
+def test_the_floor_at_import_is_not_the_accounts():
+    for variable, value in BASES_AT_COLLECTION.items():
+        assert value, f"{variable} is not set"
+        assert not _reaches_the_accounts_trees(value), (variable, value)
+
+
+@pytest.mark.parametrize("path", [
+    ACCOUNT_HOME,
+    ACCOUNT_HOME / ".local" / "state",
+    ACCOUNT_HOME / ".local" / "state" / "intergen" / "tool-dispatch.jsonl",
+    ACCOUNT_HOME / ".local" / "share" / "intergen" / "sessions",
+    ACCOUNT_HOME / ".cache" / "intergen",
+    ACCOUNT_HOME / ".config" / "intergen" / "web-token",
+], ids=["the home", "the state base", "the audit log", "the sessions",
+        "the cache tree", "the token"])
+def test_the_account_s_own_trees_are_recognised(path):
+    # The positive control: the test the cases above apply detects every way
+    # into the account's own state, so their passing says something.
+    assert _reaches_the_accounts_trees(path), path
+
+
+def test_a_floor_inside_the_home_is_not_the_account_s_state():
+    assert not _reaches_the_accounts_trees(
+        ACCOUNT_HOME / "tmp" / "pytest-of-a" / "per-user0" / "state")
