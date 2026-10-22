@@ -341,5 +341,82 @@ class AnUnreadableModeIsRefusedAndNamed(unittest.TestCase):
                               "phone-a-friend)\n", out.getvalue())
 
 
+# The escalation section itself written as a value: the mode the daemon's
+# manager reads it as, and the words a value that is none of the four is named by.
+SECTION_ROWS = [
+    ("off", "never", "false (YAML reads off, no and false as false)"),
+    ("false", "never", "false (YAML reads off, no and false as false)"),
+    ("no", "never", "false (YAML reads off, no and false as false)"),
+    ("0", "never", "0"),
+    ("never", "never", None),
+    ("disabled", "never", "'disabled'"),
+    ("on", "never", "true (YAML reads on, yes and true as true)"),
+    ("", "ask", None),
+    ("[]", "never", "[]"),
+]
+
+
+def _section_manager(directory, written):
+    """The manager the daemon builds at its start from a config.yml whose
+    escalation section is written as this value (Config, the same YAML reader),
+    one provider set up, the adapter recording instead of reaching a network."""
+    from intergen.config import Config
+    from intergen.escalation import EscalationManager
+    path = f"{directory}/config.yml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"escalation: {written}\n")
+    adapter = _RecordingAdapter()
+    manager = EscalationManager.from_config(
+        Config(config_path=path).get("escalation"),
+        [{"name": "acme", "adapter": "openai", "model": "acme-1",
+          "api_key_keyring_id": "intergen-acme"}],
+        adapter_factory=lambda config: adapter)
+    return manager, adapter
+
+
+class TheSectionWrittenAsAValueIsReadByTheDaemon(unittest.TestCase):
+    """The escalation section written as a value: the daemon builds its manager
+    (never, disabled and on raised and left it without one), a value that is
+    none of the four is refused before the dialog and named, and the status
+    carries the reading and `intergen status` prints it, per value."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    def test_each_value_is_read_refused_and_printed(self):
+        import contextlib
+        import io
+
+        from intergen.cli import print_status
+        for written, mode, words in SECTION_ROWS:
+            with self.subTest(written=written):
+                manager, adapter = _section_manager(self._dir.name, written)
+                status = json.loads(_status_daemon(escalation=manager).status())
+                self.assertEqual(status["phone_a_friend"],
+                                 {"mode": mode, "unreadable_mode": words})
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    print_status(status)
+                if words is not None:
+                    self.assertIn(f"  Escalation: never: escalation.mode is "
+                                  f"{words}, which is\n              not one of "
+                                  "never, fallback, ask or auto, so "
+                                  "phone-a-friend is off\n", out.getvalue())
+                else:
+                    self.assertIn(f"  Escalation: {mode} (escalation.mode, "
+                                  "phone-a-friend)\n", out.getvalue())
+                if mode != "never":
+                    continue
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    answer = json.loads(_daemon(manager).escalate(
+                        "please help with X"))
+                consent.assert_not_called()
+                self.assertFalse(answer["sent"])
+                self.assertEqual(adapter.sent, [])
+
+
 if __name__ == "__main__":
     unittest.main()

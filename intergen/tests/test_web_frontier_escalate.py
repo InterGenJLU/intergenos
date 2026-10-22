@@ -243,5 +243,68 @@ class AnUnreadableModeIsRefusedAndNamed(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual(ctx.session_history, [])
 
 
+# The escalation section itself written as a value: the mode the web server's
+# manager reads it as, and the words a value that is none of the four is named by.
+SECTION_ROWS = [
+    ("off", "never", "false (YAML reads off, no and false as false)"),
+    ("false", "never", "false (YAML reads off, no and false as false)"),
+    ("no", "never", "false (YAML reads off, no and false as false)"),
+    ("0", "never", "0"),
+    ("never", "never", None),
+    ("disabled", "never", "'disabled'"),
+    ("on", "never", "true (YAML reads on, yes and true as true)"),
+    ("", "ask", None),
+    ("[]", "never", "[]"),
+]
+
+
+class TheSectionWrittenAsAValueIsReadByThePanel(unittest.IsolatedAsyncioTestCase):
+    """The escalation section written as a value: the panel's "Ask my frontier
+    model" is refused before the dialog for every value that reads as never,
+    the answer naming it; a section written empty keeps the default."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    def _manager(self, written):
+        from intergen.config import Config
+        from intergen.escalation import EscalationManager
+        path = f"{self._dir.name}/config.yml"
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"escalation: {written}\n")
+        adapter = _RecordingAdapter()
+        manager = EscalationManager.from_config(
+            Config(config_path=path).get("escalation"),
+            [{"name": "acme", "adapter": "openai", "model": "acme-1",
+              "api_key_keyring_id": "intergen-acme"}],
+            adapter_factory=lambda config: adapter)
+        return manager, adapter
+
+    async def test_each_value(self):
+        for written, mode, words in SECTION_ROWS:
+            with self.subTest(written=written):
+                manager, adapter = self._manager(written)
+                self.assertEqual(manager.get_mode().value, mode)
+                if mode != "never":
+                    self.assertIsNone(manager.refusal())
+                    continue
+                s = _server(manager)
+                ctx = _FakeCtx()
+                with mock.patch("intergen.consent_modal.prompt_send_consent",
+                                return_value=True) as consent:
+                    await s._handle_frontier_escalate(ctx, {"content": "help me"})
+                consent.assert_not_called()
+                out = ctx.ws.sent[-1]
+                self.assertEqual(out["type"], "frontier_response")
+                self.assertFalse(out["sent"])
+                if words is not None:
+                    self.assertIn(f"escalation.mode setting is {words}, ",
+                                  out["content"])
+                self.assertEqual(adapter.sent, [])
+                self.assertEqual(ctx.session_history, [])
+
+
 if __name__ == "__main__":
     unittest.main()

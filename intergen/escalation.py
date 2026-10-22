@@ -173,7 +173,7 @@ class EscalationManager(EscalationManagerInterface):
     @classmethod
     def from_config(
         cls,
-        escalation_cfg: dict | None,
+        escalation_cfg: object,
         providers_cfg: list | None,
         *,
         scanner=None,
@@ -191,9 +191,18 @@ class EscalationManager(EscalationManagerInterface):
 
         Degrade-don't-crash: a malformed provider entry is skipped rather than
         crashing daemon startup. A mode that is none of the four fails CLOSED:
-        it reads as NEVER, and the refusal names the value written.
+        it reads as NEVER, and the refusal names the value written. A section
+        written as a value rather than a mapping ("escalation: off") is read
+        as its mode, so the same rule names it; only a section written empty
+        is the default.
         """
-        escalation_cfg = escalation_cfg or {}
+        if escalation_cfg is None:
+            escalation_cfg = {}
+        elif not isinstance(escalation_cfg, dict):
+            # Read as no section, off, false, no, 0 and [] kept the offer and
+            # every send open behind the dialog; never, disabled and on raised
+            # here, and the daemon built no manager at all.
+            escalation_cfg = {"mode": escalation_cfg}
         written = escalation_cfg.get("mode", "ask")
         unreadable = None
         try:

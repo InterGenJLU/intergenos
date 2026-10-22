@@ -518,5 +518,124 @@ class AnUnreadableModeReadsAsNever(unittest.TestCase):
         self.assertIsNone(m.refusal())
 
 
+# The escalation.mode values as written, each with the mode it reads as and the
+# words it is named by when it is none of the four (None: read as itself).
+MODE_ROWS = [
+    ("off", "never", "false (YAML reads off, no and false as false)"),
+    ("no", "never", "false (YAML reads off, no and false as false)"),
+    ("false", "never", "false (YAML reads off, no and false as false)"),
+    ("on", "never", "true (YAML reads on, yes and true as true)"),
+    ("yes", "never", "true (YAML reads on, yes and true as true)"),
+    ("true", "never", "true (YAML reads on, yes and true as true)"),
+    ("none", "never", "'none'"),
+    ("disabled", "never", "'disabled'"),
+    ("0", "never", "0"),
+    ("'never '", "never", "'never '"),
+    ("", "never", "empty"),
+    (None, "ask", None),
+    ("never", "never", None),
+    ("Never", "never", None),
+    ("NEVER", "never", None),
+    ("fallback", "fallback", None),
+    ("ask", "ask", None),
+    ("Ask", "ask", None),
+    ("auto", "auto", None),
+    ("AUTO", "auto", None),
+]
+
+# The escalation section itself written as a value, as config.yml holds it:
+# the mode it reads as and its words, as a mode written the same way reads.
+SECTION_ROWS = [
+    ("off", "never", "false (YAML reads off, no and false as false)"),
+    ("false", "never", "false (YAML reads off, no and false as false)"),
+    ("no", "never", "false (YAML reads off, no and false as false)"),
+    ("0", "never", "0"),
+    ("never", "never", None),
+    ("disabled", "never", "'disabled'"),
+    ("on", "never", "true (YAML reads on, yes and true as true)"),
+    ("", "ask", None),
+    ("[]", "never", "[]"),
+]
+
+
+def _config_holding(directory, text):
+    """The escalation section as the daemon reads it from a config.yml holding
+    this text (Config, the same YAML reader)."""
+    from intergen.config import Config
+    path = f"{directory}/config.yml"
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(text)
+    return Config(config_path=path).get("escalation")
+
+
+class EveryModeRowReadsAsItsMode(unittest.TestCase):
+    """The twenty mode rows: each value of escalation.mode as written reads as
+    its mode, or as never with its words when it is none of the four; a section
+    with no mode key is the default."""
+
+    def test_each_mode_row(self):
+        import tempfile
+        for written, mode, words in MODE_ROWS:
+            with self.subTest(written=written):
+                with tempfile.TemporaryDirectory() as d:
+                    text = ("escalation:\n  primary_provider: acme\n"
+                            if written is None else
+                            f"escalation:\n  mode: {written}\n")
+                    m = EscalationManager.from_config(
+                        _config_holding(d, text), [])
+                self.assertIs(m.get_mode(), EscalationMode(mode))
+                self.assertEqual(m.unreadable_mode(), words)
+
+
+class TheSectionWrittenAsAValueReadsAsItsMode(unittest.TestCase):
+    """The escalation section written as a value ("escalation: off") was read
+    as no section: off, false, no, 0 and [] kept the offer and every send open
+    behind the dialog, and never, disabled and on raised in from_config, so the
+    daemon built no manager. It is read as its mode now: every value that is
+    none of the four reads as never, named as a mode written the same way is
+    named; never reads as never; only a section written empty is the default."""
+
+    def setUp(self):
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+
+    def _manager(self, written, built):
+        def factory(config):
+            adapter = _FakeAdapter(config.name)
+            built.append(adapter)
+            return adapter
+        return EscalationManager.from_config(
+            _config_holding(self._dir.name, f"escalation: {written}\n"),
+            [{"name": "acme", "adapter": "openai", "model": "acme-1",
+              "api_key_keyring_id": "intergen-acme"}],
+            adapter_factory=factory)
+
+    def test_each_section_row(self):
+        for written, mode, words in SECTION_ROWS:
+            with self.subTest(written=written):
+                built = []
+                m = self._manager(written, built)
+                self.assertIs(m.get_mode(), EscalationMode(mode))
+                self.assertEqual(m.unreadable_mode(), words)
+                if mode == "ask":
+                    self.assertIsNone(m.refusal())
+                    continue
+                refused = m.refusal()
+                self.assertTrue(refused.startswith("Nothing was sent"), refused)
+                if words is not None:
+                    self.assertIn(f"escalation.mode setting is {words}, ",
+                                  refused)
+                    self.assertIn("not one of never, fallback, ask or auto",
+                                  refused)
+                resp = m.escalate(_msgs("please send this"), user_consented=True)
+                self.assertIsInstance(resp, EscalationNotSent)
+                self.assertEqual(resp.text, refused)
+                self.assertEqual(built, [])
+                self.assertFalse(m.should_escalate(
+                    "ask my frontier model about this", "", "failed",
+                    0.0).should_escalate)
+
+
 if __name__ == "__main__":
     unittest.main()
