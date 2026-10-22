@@ -27,6 +27,7 @@ import json
 import logging
 import os
 import secrets
+import shlex
 import shutil
 import stat as stat_module
 import subprocess
@@ -148,6 +149,14 @@ _PRIVILEGED_TOOLS: frozenset[str] = frozenset({
 })
 
 
+def _on_the_users_own_manager(arguments: dict[str, Any]) -> bool:
+    """manage_services' own answer to whether a call acts on the person's own
+    service manager — the same one its builder adds --user on."""
+    from intergen.tools.manage_services import runs_on_the_users_own_manager
+    return runs_on_the_users_own_manager(
+        arguments if isinstance(arguments, dict) else {})
+
+
 def _classify_risk_tier(
     tool: BaseTool | None,
     arguments: dict[str, Any],
@@ -182,6 +191,13 @@ def _classify_risk_tier(
     safety = tool.classify_safety(arguments)
     if safety == SafetyTier.AUTO:
         return ToolRiskTier.READ_ONLY
+    if tool_name == "manage_services" and _on_the_users_own_manager(arguments):
+        # A change on the person's own service manager (systemctl --user) is a
+        # change within their own account. It must not cross the privileged
+        # boundary: run as root, --user reaches root's manager, not theirs.
+        # The registry still reviews it like every held act of this tool
+        # (_execute_impl, held_in_person).
+        return ToolRiskTier.USER_SCOPE_STATE_CHANGING
     if tool_name in _PRIVILEGED_TOOLS:
         return ToolRiskTier.PRIVILEGED_STATE_CHANGING
     if safety == SafetyTier.CONFIRM:
@@ -241,9 +257,12 @@ def honest_handoff_message(what: str, command: str, needs_admin: bool) -> str:
         why = ("This needs administrator approval, which I can't collect from "
                "here.")
         # Prefix sudo only when there is a real command — an empty command must
-        # never render a bare "`sudo`".
-        run_cmd = "" if not command else (
-            command if command.startswith("sudo ") else f"sudo {command}")
+        # never render a bare "`sudo`" — and on EVERY command of a sequence:
+        # "sudo pkm sync && pkm upgrade" would run the upgrade without root.
+        segments = [part.strip() for part in command.split("&&")]
+        run_cmd = "" if not command else " && ".join(
+            part if part.startswith("sudo ") else f"sudo {part}"
+            for part in segments if part)
     else:
         why = "I'm not able to make that change from here."
         run_cmd = command
@@ -320,62 +339,323 @@ def privileged_escalation_posture() -> EscalationPosture:
     return EscalationPosture(raw == ESCALATION_ALLOWED, raw, "environment")
 
 
+# ── THE ONE DESCRIPTION OF A HELD ACT (every consent surface renders it) ─────
+#
+# A consent surface asks a person to approve an act, so it must describe the
+# act that runs and nothing else. Each surface used to compose its own text
+# from the call's raw arguments: the web card's "what" and command line, the
+# honest handoff, the desktop headline, the zenity body, the console line and
+# the router's offer. Measured over every call shape a review card can be
+# raised for, every row that showed a surface described something other than
+# what the tool's own builder runs — an "update" card promising installed
+# updates over a refresh, a --yes and a --user that ran unshown, "ssh" on a
+# card for sshd, a handoff whose sudo reached only its first command, and raw
+# argument dicts.
+#
+# describe_call derives ONE description from the argv the tool's own builder
+# returns for the call (manage_packages.build_commands,
+# manage_services.build_command, run_command's split and resolution), and every
+# surface renders that one result. A tool with no command line gets a fixed
+# sentence naming its argument as the tool resolves it; an external handler is
+# described by its name and the exact payload it is sent. A call that will be
+# refused is refused BEFORE any card, with the reason (refusal).
+
+#: The PATH the privileged runner gives every root-side command
+#: (intergen/data/intergen-privileged-runner, "export PATH=..."): a command a
+#: held call runs as root is resolved against this, not the daemon's PATH.
+_RUNNER_PATH = "/usr/sbin:/usr/bin:/sbin:/bin"
+
+
+class ActDescription(NamedTuple):
+    """One held act, described from the argv its tool's builder returns.
+
+    `what` is the act in plain words; `commands` the argv lists in run order
+    (empty for a tool with no command line); `root` whether the act runs through
+    the privileged runner as root; `refusal` the reason the call is refused
+    before any card ("" when it is not); `blocked` whether that refusal is the
+    safety tier's or the shell-free executor's hard refusal, which is never
+    handed to a person as a command to run."""
+    what: str
+    commands: tuple[tuple[str, ...], ...]
+    root: bool
+    refusal: str = ""
+    blocked: bool = False
+
+    @property
+    def command_line(self) -> str:
+        """The shell-joined argv, one per command, joined with &&; "" for a
+        tool with no command line."""
+        return " && ".join(shlex.join(argv) for argv in self.commands)
+
+    @property
+    def shown(self) -> str:
+        """What a surface shows in its command slot: the command line, or for
+        a tool with no command line the sentence naming its act."""
+        return self.command_line or self.what
+
+
+def _pkm_act(argv: tuple[str, ...]) -> str:
+    """One pkm command line, in words, read from its own argv."""
+    verb = argv[1] if len(argv) > 1 else ""
+    rest = argv[2:]
+    names = [w for w in rest if not w.startswith("-")]
+    package = names[0] if names else ""
+    if verb == "list":
+        return "list the installed packages"
+    if verb == "search":
+        return f"search the package index for {package!r}"
+    if verb == "info":
+        return f"show the details of the package {package!r}"
+    if verb == "verify":
+        return f"verify the installed files of the package {package!r}"
+    if verb == "install":
+        return f"install the package {package!r} and the packages it needs"
+    if verb == "remove":
+        return f"remove the package {package!r}"
+    if verb == "sync":
+        return "refresh the package index"
+    if verb == "upgrade" and "--all" in rest:
+        return ("upgrade every installed package that has a newer signed "
+                "build, leaving held packages and the kernel (linux-kernel) as "
+                "they are")
+    if verb == "upgrade":
+        return f"upgrade the package {package!r}"
+    return f"run pkm {shlex.join(argv[1:])}"
+
+
+def _pkm_sentence(commands: tuple[tuple[str, ...], ...]) -> str:
+    acts = [_pkm_act(argv) for argv in commands]
+    sentence = ", then ".join(acts)
+    sentence = sentence[:1].upper() + sentence[1:] + "."
+    if any("--yes" in argv for argv in commands):
+        sentence += (" Approving this answers pkm's own confirmation pause "
+                     "(--yes).")
+    return sentence
+
+
+_SYSTEMCTL_CHANGES = {
+    "start": "Start", "stop": "Stop", "restart": "Restart", "reload": "Reload",
+    "enable": "Enable", "disable": "Disable", "mask": "Mask",
+    "unmask": "Unmask",
+}
+_SYSTEMCTL_READS = {
+    "status": "Show the status of {unit}",
+    "is-active": "Check whether {unit} is running",
+    "is-enabled": "Check whether {unit} is enabled",
+    "is-failed": "Check whether {unit} has failed",
+    "show": "Show the properties of {unit}",
+    "cat": "Show the unit file of {unit}",
+    "list-dependencies": "List the dependencies of {unit}",
+}
+_SYSTEMCTL_LISTINGS = {
+    "list-units": "List the units",
+    "list-unit-files": "List the unit files",
+    "list-timers": "List the timers",
+    "list-sockets": "List the sockets",
+}
+
+
+def _systemctl_sentence(argv: tuple[str, ...]) -> str:
+    """One systemctl command line, in words, read from its own argv."""
+    words = [w for w in argv[1:] if w != "--user"]
+    verb = words[0] if words else ""
+    unit = words[1] if len(words) > 1 else ""
+    manager = ("your own (user) service manager" if "--user" in argv
+               else "the system service manager")
+    if verb == "daemon-reload":
+        return (f"Reload the configuration of {manager}: it re-reads every unit "
+                f"file, and no unit is started or stopped.")
+    if verb in _SYSTEMCTL_CHANGES:
+        return f"{_SYSTEMCTL_CHANGES[verb]} {unit} on {manager}."
+    if verb in _SYSTEMCTL_READS:
+        return _SYSTEMCTL_READS[verb].format(unit=unit) + f" on {manager}."
+    if verb in _SYSTEMCTL_LISTINGS:
+        matching = f" matching {unit}" if unit else ""
+        return f"{_SYSTEMCTL_LISTINGS[verb]}{matching} on {manager}."
+    return f"Run systemctl {shlex.join(words)} on {manager}."
+
+
+def _no_argv_sentence(name: str, args: dict[str, Any]) -> str | None:
+    """The fixed sentence for a tool with no command line, naming its one
+    argument; None for a tool this table does not know."""
+    if name == "read_file":
+        return f"Read the file {args.get('path', '')}."
+    if name == "analyze_file":
+        return f"Analyze the file {args.get('path', '')}."
+    if name == "web_search":
+        return f"Search the web for {str(args.get('query', ''))!r}."
+    if name == "take_screenshot":
+        source = str(args.get("source", "") or "")
+        return "Take a screenshot" + (f" ({source})." if source else ".")
+    if name == "open_application":
+        if args.get("list_apps"):
+            return "List the applications that can be opened."
+        return f"Open the application {str(args.get('name', ''))!r}."
+    return None
+
+
+def describe_call(tool_call: "ToolCall",
+                  tool: "BaseTool | None" = None) -> ActDescription:
+    """THE description of a call's act, derived from the argv the tool's own
+    builder returns for it. Every consent surface renders this one result."""
+    name = tool_call.name
+    args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
+    tier = _classify_risk_tier(tool, args, name) if tool is not None else (
+        _classify_risk_tier(_builtin_tool(name), args, name))
+    root = tier is ToolRiskTier.PRIVILEGED_STATE_CHANGING
+    if name == "manage_packages":
+        from intergen.tools.manage_packages import ManagePackagesTool
+        pkg_tool = (tool if isinstance(tool, ManagePackagesTool)
+                    else ManagePackagesTool())
+        commands = pkg_tool.build_commands(args)
+        if commands is None:
+            reason = (pkg_tool.validate_arguments(args)
+                      or "the package tool builds no command for these "
+                         "arguments")
+            return ActDescription("", (), root, reason)
+        built = tuple(tuple(argv) for argv in commands)
+        return ActDescription(_pkm_sentence(built), built, root)
+    if name == "manage_services":
+        from intergen.tools.manage_services import (
+            ManageServicesTool, daemon_reload_naming_a_unit)
+        svc_tool = (tool if isinstance(tool, ManageServicesTool)
+                    else ManageServicesTool())
+        refusal = daemon_reload_naming_a_unit(args)
+        if refusal:
+            return ActDescription("", (), root, refusal)
+        argv = svc_tool.build_command(args)
+        if argv is None:
+            return ActDescription(
+                "", (), root,
+                f"'{args.get('action', '')}' needs a service name; nothing "
+                f"was proposed")
+        return ActDescription(_systemctl_sentence(tuple(argv)), (tuple(argv),),
+                              root)
+    if name == "run_command":
+        from intergen.tools.run_command import _SHELL_CONSTRUCT_CHARS
+        command = str(args.get("command", "") or "").strip()
+        if not command:
+            return ActDescription("", (), root, "Error: empty command", True)
+        offending = sorted({c for c in command if c in _SHELL_CONSTRUCT_CHARS})
+        if offending:
+            shown = ", ".join(repr(c) for c in offending)
+            # run_command's own words for the same refusal (its execute()),
+            # given here, before any card, instead of after an approval.
+            return ActDescription(
+                "", (), root,
+                "This tool runs a single command with no shell, so shell "
+                "constructs are not supported (found: " + shown + "). Pipes, "
+                "redirection, ; && & , command substitution $(), subshells, "
+                "and newlines can't be used here — ask for one plain command "
+                "at a time.", True)
+        try:
+            words = shlex.split(command)
+        except ValueError as exc:
+            return ActDescription(
+                "", (), root,
+                f"Could not parse the command (unbalanced quotes?): {exc}", True)
+        program = words[0]
+        if "/" in program:
+            resolved = os.path.abspath(program)
+        else:
+            resolved = shutil.which(program, path=_RUNNER_PATH if root else None)
+        argv = (resolved or program, *words[1:])
+        return ActDescription(
+            f"Run {shlex.join(argv)} as its own short-lived process.",
+            (argv,), root)
+    if name == "write_file":
+        from intergen import dispatch_token
+        path_text = str(args.get("path", "") or "")
+        if not path_text:
+            return ActDescription("", (), root, "Error: no path provided")
+        try:
+            named = dispatch_token.expanduser_for_install_owner(path_text)
+            if not named.is_absolute():
+                return ActDescription(
+                    "", (), root,
+                    f"the path {path_text!r} is relative, and a relative path "
+                    f"is resolved against a working directory no card can "
+                    f"show; nothing was proposed — name the file by its full "
+                    f"path, or start it with ~/")
+            target = dispatch_token.resolved_for_a_write(named)
+        except Exception as exc:  # noqa: BLE001 — the tool's own refusal path
+            return ActDescription("", (), root, f"{type(exc).__name__}: {exc}")
+        size = len(str(args.get("content", "") or ""))
+        sentence = (f"Write {size} character{'' if size == 1 else 's'} to "
+                    f"{target}, replacing its content if it exists")
+        if args.get("create_dirs"):
+            sentence += "; missing parent directories are created"
+        return ActDescription(sentence + ".", (), root)
+    sentence = _no_argv_sentence(name, args)
+    if sentence is not None:
+        return ActDescription(sentence, (), root)
+    payload = json.dumps(args, sort_keys=True)
+    return ActDescription(
+        f"Send this to the external tool {name}: {payload} — what it does with "
+        f"it is decided outside this machine's own tools.", (), root)
+
+
+def _builtin_tool(name: str) -> "BaseTool | None":
+    """A fresh instance of a built-in tool by name, for a caller that has none
+    to hand (the risk tier reads the tool's own classification)."""
+    from intergen.tools.manage_packages import ManagePackagesTool
+    from intergen.tools.manage_services import ManageServicesTool
+    from intergen.tools.run_command import RunCommandTool
+    from intergen.tools.write_file import WriteFileTool
+    return {"manage_packages": ManagePackagesTool,
+            "manage_services": ManageServicesTool,
+            "run_command": RunCommandTool,
+            "write_file": WriteFileTool}.get(name, lambda: None)()
+
+
 def card_action_description(tool_call: "ToolCall") -> tuple[str, str]:
     """(what, command) for a state-changing action: the plain-language sentence
-    and the concrete command line.
-
-    `what` = the action in plain user language, derived from the extracted
-    intent — NEVER the raw command string or the raw user sentence. `command` =
-    the concrete command shown for transparency. A trust surface must describe
-    the real action, so the fallback names the tool + args rather than guessing.
+    and the concrete command line, both from describe_call — so the card shows
+    the shell-joined argv the tool's own builder returns, and for a tool with no
+    command line the sentence naming its act.
 
     Lives here, beside honest_handoff_message, because more than one surface
     needs it: the web review card renders it, and the router renders it when a
     dispatch it drove was denied at the gate. Two copies would drift, and the
     drift would be invisible — each surface would look right on its own.
     """
-    name = tool_call.name
-    args = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
-    if name == "manage_packages":
-        action = str(args.get("action", ""))
-        pkg = str(args.get("package") or args.get("name") or "")
-        if action in ("update", "upgrade"):
-            from intergen.capability_registry import PKM_UPDATE_COMMAND
-            return ("Refresh the package index and install available updates.",
-                    PKM_UPDATE_COMMAND)
-        if action == "install":
-            return (f"Install the package '{pkg}'." if pkg else "Install a package.",
-                    f"pkm install {pkg}".strip())
-        if action in ("remove", "uninstall"):
-            return (f"Remove the package '{pkg}'." if pkg else "Remove a package.",
-                    f"pkm remove {pkg}".strip())
-        return (f"Manage packages ({action}).", f"pkm {action} {pkg}".strip())
-    if name == "manage_services":
-        action = str(args.get("action", ""))
-        svc = str(args.get("service") or args.get("unit") or "")
-        verb = action.capitalize() or "Change"
-        return (f"{verb} the {svc} service." if svc else f"{verb} a service.",
-                f"systemctl {action} {svc}".strip())
-    if name == "run_command":
-        return ("Run a system command.", str(args.get("command", "")))
-    if name == "write_file":
-        path = str(args.get("path", ""))
-        return (f"Write to the file {path}." if path else "Write to a file.",
-                f"write {path}".strip())
-    return (f"Perform a {name} action.", f"{name} {args}".strip())
+    act = describe_call(tool_call)
+    return act.what, act.shown
+
+
+def _terminal_line(act: ActDescription) -> str:
+    """The act's command line as a person types it at a terminal: pkm's --yes
+    dropped (a person there answers pkm's own pause), and sudo on every command
+    when the act runs as root, on none when it runs on the person's own
+    manager."""
+    lines = []
+    for argv in act.commands:
+        words = [w for w in argv
+                 if not (os.path.basename(argv[0]) == "pkm" and w == "--yes")]
+        line = shlex.join(words)
+        lines.append(f"sudo {line}" if act.root else line)
+    return " && ".join(lines)
 
 
 def handoff_command(tool_call: "ToolCall") -> str:
     """The concrete command to hand a person for an action they can run
     themselves — ONLY for tools whose action maps to a real command line
-    (manage_packages / manage_services / run_command). Empty for tools where no
-    such line exists (write_file / take_screenshot / analyze_file / …), so the
-    honest handoff omits a bogus command rather than inventing one."""
-    if tool_call.name in ("manage_packages", "manage_services", "run_command"):
-        _what, command = card_action_description(tool_call)
-        return command
-    return ""
+    (manage_packages / manage_services / run_command), and only for a call that
+    is not refused. Empty for tools where no such line exists (write_file /
+    take_screenshot / analyze_file / …), so the honest handoff omits a bogus
+    command rather than inventing one."""
+    if tool_call.name not in ("manage_packages", "manage_services", "run_command"):
+        return ""
+    act = describe_call(tool_call)
+    if act.refusal or not act.commands:
+        return ""
+    return _terminal_line(act)
 
+
+#: How the registry's result opens when a tool's own argument validation
+#: refused a call, before the gate and before any card; the refusal message
+#: reads the reason after it.
+VALIDATION_REFUSED = "Validation error: "
 
 # The plain refusal, for a held action with no command worth handing over and
 # for one the safety tier hard-refuses.
@@ -393,9 +673,10 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
     A BLOCKED action (a destructive command the safety tier hard-refuses) NEVER
     gets a "run it yourself" command — that would hand the person the very thing
     the block exists to prevent (fail-closed, security-first); it gets the plain
-    refusal. A normal state-changing action that was denied, or that had no
-    consent surface, gets the 3-part honest handoff, so the person is honestly
-    advised of the real path forward rather than dead-ended.
+    refusal. A call refused before any card gets its reason. A normal
+    state-changing action that was denied, or that had no consent surface, gets
+    the 3-part honest handoff, so the person is honestly advised of the real
+    path forward rather than dead-ended.
 
     THE SINGLE SOURCE for every surface. The web panel's tool-call loop renders
     its refusal here, and so does the router when a dispatch it drove was denied
@@ -405,12 +686,19 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
     """
     if getattr(tool_result, "blocked", False):
         return GATE_REFUSAL_PLAIN
+    act = describe_call(tool_call, tool_obj)
+    if act.blocked:
+        return GATE_REFUSAL_PLAIN
+    content = str(getattr(tool_result, "content", "") or "")
+    reason = act.refusal or (content[len(VALIDATION_REFUSED):]
+                             if content.startswith(VALIDATION_REFUSED) else "")
+    if reason:
+        # Refused before any card: the reason, never a command to run.
+        return f"Nothing was run: {reason.rstrip('.')}."
     command = handoff_command(tool_call)
     if not command:
         return GATE_REFUSAL_PLAIN
-    risk_tier = _classify_risk_tier(tool_obj, tool_call.arguments, tool_call.name)
-    what, _cmd = card_action_description(tool_call)
-    return honest_handoff_message(what, command, tier_needs_admin(risk_tier))
+    return honest_handoff_message(act.what, command, act.root)
 
 
 # The answers a review callback gives the registry. Only an approval runs the
@@ -917,7 +1205,7 @@ class ToolRegistry:
         if tool is not None:
             validation_error = tool.validate_arguments(arguments)
             if validation_error:
-                content = f"Validation error: {validation_error}"
+                content = f"{VALIDATION_REFUSED}{validation_error}"
                 self._audit_log_refusal(
                     call, ingress_tracker, content,
                     source_attribution=source_attribution,
@@ -952,6 +1240,37 @@ class ToolRegistry:
                     # Safety block — surface it like run_command's so the router
                     # synth-skips it (deterministic refusal, never narrated).
                     blocked=True,
+                    executed=False,
+                )
+
+            # A CALL THAT WILL BE REFUSED IS REFUSED BEFORE ANY CARD. Every
+            # surface describes the act from the argv the tool's own builder
+            # returns (describe_call). When there is no act to describe — a
+            # shell construct the shell-free executor would refuse after an
+            # approval, a relative path no card can resolve — the call is
+            # refused here, with its reason, and no person is asked to approve
+            # an act that will not happen. A description that cannot be
+            # computed refuses too (fail closed).
+            try:
+                act = describe_call(call, tool)
+            except Exception as exc:  # noqa: BLE001 — fail closed
+                act = ActDescription(
+                    "", (), False,
+                    f"the act could not be described ({type(exc).__name__}: "
+                    f"{exc}), so it was not proposed", True)
+            if act.refusal:
+                self._audit_log_refusal(
+                    call, ingress_tracker,
+                    f"Refused before review: {act.refusal}",
+                    source_attribution=source_attribution,
+                    excerpt=excerpt,
+                )
+                return ToolResult(
+                    call_id=call.call_id,
+                    name=tool_name,
+                    content=act.refusal,
+                    success=False,
+                    blocked=act.blocked,
                     executed=False,
                 )
 
@@ -1158,8 +1477,19 @@ class ToolRegistry:
         user_outcome = "executed"
         dispatch_token_value: str | None = None
         privileged = decision.needs_pkexec
+        # A held act of a tool on the privileged list that runs in the person's
+        # own process — a change on their own service manager, which must not
+        # cross the privileged boundary (_classify_risk_tier) — is reviewed
+        # exactly as the privileged ones are: a card every time, and an
+        # approval for the conversation honoured once and never remembered.
+        held_in_person = (
+            not privileged
+            and tool_name in _PRIVILEGED_TOOLS
+            and risk_tier is ToolRiskTier.USER_SCOPE_STATE_CHANGING
+        )
         must_review = (
             privileged
+            or held_in_person
             or decision.action == "hold_for_review"
             or egress_flag_reason is not None
         )
@@ -1308,6 +1638,9 @@ class ToolRegistry:
                         success=False,
                         executed=False,
                     )
+            elif held_in_person:
+                # Honoured once and never recorded, as for the privileged tier.
+                user_outcome = "allowed_once"
             elif user_choice == "allow_conversation":
                 record_user_decision(
                     UserDecision.now_utc(user_choice),

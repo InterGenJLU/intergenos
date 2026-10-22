@@ -65,7 +65,8 @@ from intergen import consent_dialog
 from intergen.consent_dialog_sanitize import tier_effect_sentence
 from intergen.interfaces.provenance import DispatchDecision
 from intergen.interfaces.types import ToolCall
-from intergen.tool_registry import REVIEW_FAILED, REVIEW_TIMED_OUT
+from intergen.tool_registry import (REVIEW_FAILED, REVIEW_TIMED_OUT,
+                                    describe_call)
 
 logger = logging.getLogger(__name__)
 
@@ -202,15 +203,27 @@ def _format_modal_body(
 ) -> str:
     """Render the RFC §7 modal body text.
 
+    The act is the registry's ONE description of it
+    (tool_registry.describe_call): its sentence, and the command line the
+    tool's own builder returns, never the raw argument dict, which named
+    "ssh" for sshd and hid a --yes or a --user that ran. A tool with no command
+    line shows its sentence only.
+
     Truncates excerpt + reasoning at 400 chars so the modal stays a
     reasonable size regardless of ingress content length; full source
     + full reasoning live in the audit log per RFC §9.
     """
-    lines = [
-        f"Tool:        {call.name}",
-        f"Arguments:   {call.arguments}",
-        f"Provenance:  {decision.effective_provenance.value}",
-    ]
+    act = describe_call(call)
+    lines = [f"Tool:        {call.name}"]
+    if act.what:
+        lines.append(f"Action:      {act.what}")
+    if act.command_line:
+        lines.append(f"Command:     {act.command_line}")
+    if not act.what and not act.command_line:
+        # No act to describe (refused before any card in the registry): say
+        # so rather than show the arguments as if they were the act.
+        lines.append(f"Action:      nothing — {act.refusal or 'no act'}")
+    lines.append(f"Provenance:  {decision.effective_provenance.value}")
     if decision.needs_pkexec:
         lines.append(
             "Privilege:   this action runs as administrator — after you "

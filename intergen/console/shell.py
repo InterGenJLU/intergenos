@@ -779,19 +779,29 @@ class ConsoleShell:
             self._streaming_buffer = ""
 
         elif msg_type == "gate_prompt":
-            action = msg.get("action", "")
             tool = msg.get("tool_name", "?")
             blocked = msg.get("blocked_by", "")
             governance = msg.get("governance_check")
             self._gate_pending = msg
             self._is_streaming = False
+            # The act as the card states it: the registry's one description
+            # (its sentence and the command line the tool's own builder
+            # returns), never the raw argument JSON, which named "ssh" for
+            # sshd and hid a --yes or a --user that ran. A frame without a card
+            # shows that it has no description rather than the arguments.
+            card = msg.get("card") or {}
+            what = str(card.get("what") or "").strip()
+            command = str(card.get("command") or "").strip()
+            action = what or command or "(the card carries no description)"
 
             # Rendered from the same table the input path decides from, so the
             # card can only ever name keys the console acts on.
             offered = ", ".join(
                 f"'{key}' to {spoken}" for key, (_d, spoken) in self._GATE_KEYS.items())
-            gate_text = (
-                f"⚠️  Gate: {tool} wants to: {action}\n"
+            gate_text = f"⚠️  Gate: {tool} wants to: {action}\n"
+            if command and command != what:
+                gate_text += f"    Command: {command}\n"
+            gate_text += (
                 f"    Blocked by: {blocked}\n"
                 f"    Press {offered}, then Enter"
             )

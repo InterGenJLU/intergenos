@@ -45,12 +45,25 @@ there.
 
 from __future__ import annotations
 
-# ── Package-manager command facts (single source; the pkm sync change made `sync` canonical) ──
-# Consumed by the system-prompt guard AND the web review card, so the command the
-# model describes and the command the card shows are byte-identical.
-PKM_INDEX_REFRESH_CMD = "pkm sync"
-PKM_UPGRADE_CMD = "pkm upgrade"
-# The one command line a package-update review card / handoff shows.
+# ── Package-manager command facts, read from the package tool's own builder ──
+# The model is told what the package tool's update action RUNS, so the guard,
+# the review card and the handoff describe one act: they are the command lines
+# manage_packages.build_commands returns for an update, with pkm named as a
+# person types it. (These were hand-written: "pkm sync && pkm upgrade", a pair
+# the tool never ran — it built `pkm update`, a refresh only — and whose bare
+# `pkm upgrade` pkm itself refuses.)
+def _update_commands(package: str = "") -> list[str]:
+    from intergen.tools.manage_packages import ManagePackagesTool
+    arguments = {"action": "update", "package": package} if package else {
+        "action": "update"}
+    commands = ManagePackagesTool().build_commands(arguments, pkm="pkm")
+    return [" ".join(argv) for argv in commands or ()]
+
+
+PKM_INDEX_REFRESH_CMD, PKM_UPGRADE_CMD = _update_commands()
+# The upgrade of one named package, the placeholder standing for its name.
+_PKM_REFRESH_ONE_CMD, PKM_UPGRADE_ONE_CMD = _update_commands("<package>")
+# The update's command lines, in run order, as one line.
 PKM_UPDATE_COMMAND = f"{PKM_INDEX_REFRESH_CMD} && {PKM_UPGRADE_CMD}"
 
 # ── The canonical user-language phrase for each user-facing capability ──
@@ -109,9 +122,13 @@ def build_system_capability_guard(interface: str | None = None) -> str:
         "service changes, installs). They are dispatched through the system's "
         "own authorization prompt — NEVER tell the user to use `sudo`, and "
         "NEVER say you cannot run commands or act on the system directly.\n"
-        f"- The package manager is pkm: `{PKM_INDEX_REFRESH_CMD}` refreshes the "
-        f"package index and `{PKM_UPGRADE_CMD}` applies available updates. Do "
-        "not invent other commands or mechanisms.\n"
+        f"- The package manager is pkm. Updating the system runs "
+        f"`{PKM_INDEX_REFRESH_CMD}`, which refreshes the package index, and then "
+        f"`{PKM_UPGRADE_CMD}`, which upgrades every installed package that has "
+        "a newer signed build and leaves held packages and the kernel "
+        "(linux-kernel) as they are; updating one named package runs "
+        f"`{_PKM_REFRESH_ONE_CMD}` and then `{PKM_UPGRADE_ONE_CMD}`. Do not "
+        "invent other commands or mechanisms.\n"
         "- A 'privileged' or 'state-changing' notice is the confirmation and "
         "authorization step that runs BEFORE such an action — it is NOT a "
         "refusal, an error, or an inability, and it does not mean the system "

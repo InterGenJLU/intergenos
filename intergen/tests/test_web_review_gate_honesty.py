@@ -17,27 +17,62 @@ capability work that are provable without a live model or a real box:
     fresh, and its deny renders the honest handoff, not the raw "denied";
   * the ONE interface-aware capability registry — the router phrase table and
     the model's system-prompt guard both read from it (no drift).
+
+The handoff, refusal and guard cells used to pin the command line they showed
+("pkm sync && pkm upgrade") against itself, so they passed while that line was
+not what the package tool ran (it built `pkm update`, a refresh only) and the
+handoff's sudo reached the first command only. Each now checks a surface
+against the argv the tool's own builder returns (BuilderAgainstSurfaceTests:
+every shown row).
 """
 
 from __future__ import annotations
 
 import asyncio
+import shlex
+import subprocess
 import unittest
+from unittest import mock
 
 from intergen.interfaces.types import ToolCall, ToolResult
 from intergen.interfaces.provenance import Provenance, ToolRiskTier
 from intergen import tool_registry
 from intergen import capability_registry
+from intergen.tools.manage_packages import ManagePackagesTool
+from intergen.tools.manage_services import ManageServicesTool
+
+
+def _update_commands(package: str = "", pkm: str | None = None):
+    """The package tool's own builder's commands for an update."""
+    arguments = {"action": "update", "package": package} if package else {
+        "action": "update"}
+    return ManagePackagesTool().build_commands(arguments, pkm=pkm)
+
+
+def _terminal(commands, root: bool) -> str:
+    """The builder's commands as a person types them: --yes dropped, sudo on
+    every command that runs as root."""
+    lines = []
+    for argv in commands:
+        line = shlex.join([w for w in argv if w != "--yes"])
+        lines.append(f"sudo {line}" if root else line)
+    return " && ".join(lines)
 
 
 # ── The honest handoff + classification translator (user-language classification / the honest-handoff design) ──────────
 class HonestHandoffTests(unittest.TestCase):
     def test_admin_handoff_has_sudo_command_and_no_jargon(self):
+        # The builder's update, two commands: sudo reaches both, so the
+        # upgrade does not run without root.
+        line = " && ".join(" ".join(argv) for argv in _update_commands(pkm="pkm"))
         msg = tool_registry.honest_handoff_message(
-            "Refresh the package index and install available updates.",
-            "pkm sync && pkm upgrade", needs_admin=True)
+            "Refresh the package index, then upgrade every package.", line,
+            needs_admin=True)
         self.assertIn("administrator approval", msg)
-        self.assertIn("`sudo pkm sync && pkm upgrade`", msg)
+        self.assertIn(
+            "`" + " && ".join("sudo " + " ".join(argv)
+                              for argv in _update_commands(pkm="pkm")) + "`",
+            msg)
         # No internal jargon anywhere in a user-facing handoff.
         low = msg.lower()
         for banned in ("blocked", "safety layer", "gate", "provenance",
@@ -193,7 +228,8 @@ class GateRefusalMessageTests(unittest.TestCase):
         tr = ToolResult(call_id="", name="manage_packages", content="denied",
                         success=False, executed=False)
         msg = server._gate_refusal_message(call, tr)
-        self.assertIn("pkm sync && pkm upgrade", msg)
+        # The handoff is the builder's own commands as a person types them.
+        self.assertIn("`" + _terminal(_update_commands(), root=True) + "`", msg)
         self.assertNotIn("blocked", msg.lower())
 
     def test_blocked_destructive_never_hands_over_the_command(self):
@@ -293,14 +329,268 @@ class CapabilityRegistrySingleSourceTests(unittest.TestCase):
                          capability_registry.build_system_capability_guard())
 
     def test_pkm_update_command_is_the_shared_constant(self):
-        self.assertEqual(capability_registry.PKM_UPDATE_COMMAND,
-                         "pkm sync && pkm upgrade")
+        # The constant the guard names is the package tool's own update, both
+        # commands, as a person types pkm.
+        self.assertEqual(
+            capability_registry.PKM_UPDATE_COMMAND,
+            " && ".join(" ".join(argv) for argv in _update_commands(pkm="pkm")))
+        guard = capability_registry.build_system_capability_guard()
+        for argv in (_update_commands(pkm="pkm")
+                     + _update_commands("<package>", pkm="pkm")):
+            self.assertIn("`" + " ".join(argv) + "`", guard)
 
     def test_confirmation_tail_is_interface_aware(self):
         web = capability_registry.confirmation_tail("web")
         console = capability_registry.confirmation_tail("console")
         self.assertIn("card", web)
         self.assertIn("prompt", console)
+
+
+# ── Every shown row: each surface against the tool's own builder ─────────────
+def _class_rows():
+    """The call shapes the consent-surface class was enumerated over: every
+    package and service action with and without its argument (user mode too),
+    the alias and the wrong key, command lines, writes, the tools with no
+    command line, and an external handler."""
+    from intergen.tools.manage_services import (ACTION_ALIASES, AUTO_ACTIONS,
+                                                CONFIRM_ACTIONS)
+    rows = []
+    for action in ("list", "search", "info", "verify", "install", "remove",
+                   "uninstall", "update", "upgrade"):
+        rows.append(("manage_packages", {"action": action}))
+        rows.append(("manage_packages", {"action": action, "package": "htop"}))
+    rows.append(("manage_packages", {"action": "search", "query": "htop"}))
+    rows.append(("manage_packages", {"action": "install", "name": "htop"}))
+    for action in sorted(AUTO_ACTIONS | CONFIRM_ACTIONS | set(ACTION_ALIASES)):
+        for unit in (None, "sshd"):
+            for user_mode in (False, True):
+                args = {"action": action}
+                if unit:
+                    args["service"] = unit
+                if user_mode:
+                    args["user_mode"] = True
+                rows.append(("manage_services", args))
+    rows.append(("manage_services", {"action": "restart", "service": "ssh"}))
+    rows.append(("manage_services", {"action": "restart", "unit": "sshd"}))
+    for command in ("ls -la /tmp", "systemctl restart sshd",
+                    "pkm sync && pkm upgrade", 'echo "a  b"',
+                    "sudo pkm upgrade --all", "rm -rf /", "  touch /tmp/x  "):
+        rows.append(("run_command", {"command": command}))
+    rows.append(("run_command", {"command": "sleep 5", "timeout": 200}))
+    for write in ({"path": "~/notes.txt", "content": "hello\n"},
+                  {"path": "notes.txt", "content": "x"},
+                  {"path": "/etc/hosts", "content": "x"},
+                  {"path": "~/newdir/a.txt", "content": "x", "create_dirs": True},
+                  {"path": "", "content": "x"}):
+        rows.append(("write_file", write))
+    rows += [("analyze_file", {"path": "sample"}), ("open_application", {}),
+             ("read_file", {"path": "sample"}), ("take_screenshot", {}),
+             ("web_search", {"query": "sample"}),
+             ("an_external_handler", {"arg": "value"})]
+    return rows
+
+
+class _FlagScanner:
+    """A scanner that flags every result coming back, so the tools whose card
+    comes after their run (an ingress tool, an external handler) show it."""
+
+    def scan(self, text, context):
+        from intergen.interfaces.scanner import ScanDisposition, ScanVerdict
+        if getattr(context, "direction", None) is not None and \
+                context.direction.value == "ingress":
+            return ScanVerdict(disposition=ScanDisposition.FLAG, reason="test")
+        return ScanVerdict(disposition=ScanDisposition.ALLOW)
+
+
+class BuilderAgainstSurfaceTests(unittest.TestCase):
+    """Every row the registry shows a card for: the card, the handoff, the
+    desktop headline, the zenity body, the console line and the model's guard
+    each say what the tool's own builder returns for that call, and the call
+    runs where its card says. Every row it refuses is refused before any card,
+    with its reason. Nothing runs: a process start fails the case."""
+
+    def setUp(self):
+        from intergen.interfaces.types import ToolSchema
+        self.registry = tool_registry.ToolRegistry()
+        self.registry.discover_tools()
+        self.registry.register_external(
+            "an_external_handler",
+            ToolSchema(name="an_external_handler", description="external",
+                       parameters={"type": "object"}),
+            lambda arguments: "(sent nowhere)", "")
+        self.registry._scanner = _FlagScanner()
+        services = self.registry.get_tool("manage_services")
+        services._read_service_unit = (
+            lambda name, user_mode=False: ("known", name, ""))
+        self.started = []
+        self.paths = []
+
+        def _refuse(args, *a, **kw):
+            # Refused, so nothing runs. The never-list's signature check that
+            # write_file's classification makes (gpgv) is a read, not the act;
+            # refused, it leaves that classification on its interim floor.
+            if list(args)[:1] != ["gpgv"]:
+                self.started.append(args)
+            raise OSError(f"a process start, refused by this case: {args!r}")
+
+        def _runner(call, tool_name, arguments, dispatch_token=None):
+            self.paths.append("root")
+            return ToolResult(call_id=call.call_id, name=tool_name,
+                              content="(stood in)", success=False,
+                              executed=False)
+
+        # write_file's signed never-list is loaded once per process and kept
+        # (write_file._policy_cache). It is pinned here to the state this case
+        # reads, the manifest not loaded and the interim floor in force, so a
+        # test before this one that loaded the real manifest cannot change which
+        # write rows show a card: with it loaded, the write to /etc/hosts is
+        # refused before any card instead.
+        from intergen.tools import write_file
+        for patcher in (
+                mock.patch("subprocess.run", _refuse),
+                mock.patch("intergen.tool_registry.write_record",
+                           lambda *a, **kw: None),
+                mock.patch("intergen.tool_registry.mint_token",
+                           lambda *a, **kw: "token"),
+                mock.patch.object(self.registry, "_dispatch_via_pkexec",
+                                  _runner),
+                mock.patch.object(write_file, "_policy_cache", None),
+                mock.patch.object(write_file, "_policy_loaded", True),
+                mock.patch.object(write_file, "_policy_untrusted", False)):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def _built_line(self, name, arguments):
+        """The command line from the tool's own builder, or None for a tool
+        with no command line; run_command's from its own execute(), the
+        process start captured and refused."""
+        if name == "manage_packages":
+            commands = ManagePackagesTool().build_commands(arguments)
+            return commands, " && ".join(shlex.join(c) for c in commands)
+        if name == "manage_services":
+            argv = ManageServicesTool().build_command(arguments)
+            return [argv], shlex.join(argv)
+        if name == "run_command":
+            from intergen.tools.run_command import RunCommandTool
+            captured = []
+
+            def _capture(args, *a, **kw):
+                captured.append(list(args))
+                return subprocess.CompletedProcess(args, 0, "", "")
+            with mock.patch("subprocess.run", _capture):
+                RunCommandTool().execute(dict(arguments))
+            launch = captured[0]
+            inner = launch[launch.index("--") + 1:]
+            return [inner], shlex.join(inner)
+        return None, None
+
+    def _console(self, card, name):
+        from intergen.console.shell import ConsoleShell
+        shell = object.__new__(ConsoleShell)
+        got = []
+        shell._add_message = lambda role, content, *a, **kw: got.append(content)
+        shell._gate_pending = None
+        shell._is_streaming = False
+        frame = {"type": "gate_prompt", "tool_name": name, "card": card,
+                 "action": "{}", "blocked_by": "provenance_gate"}
+        asyncio.run(ConsoleShell._process_server_message(shell, frame))
+        return "\n".join(got)
+
+    def test_every_shown_row_says_what_the_builder_runs(self):
+        from intergen import review_modal
+        from intergen.consent_dialog_sanitize import describe_gate_action
+        shown = refused = 0
+        refused_rows = []
+        for name, arguments in _class_rows():
+            with self.subTest(name=name, arguments=arguments):
+                self.paths.clear()
+                cards = []
+                tool = self.registry.get_tool(name)
+                in_person = []
+                if tool is not None:
+                    def _in_person(args, _name=name):
+                        in_person.append(_name)
+                        # A result that came back, so an ingress tool's
+                        # result is scanned and its after-the-run card shown.
+                        return ToolResult(call_id="", name=_name,
+                                          content="(stood in)", success=True)
+                    tool.execute = _in_person
+                call = ToolCall(name=name, arguments=dict(arguments),
+                                source_of_request=Provenance.USER_IMPLIED)
+                try:
+                    result = self.registry.execute(
+                        call, review_callback=lambda c, d: cards.append(d)
+                        or "allow_once")
+                finally:
+                    if tool is not None:
+                        del tool.execute
+                if not cards:
+                    if not result.executed and not result.success \
+                            and not in_person and not self.paths:
+                        # Refused before any card, with its reason.
+                        refused += 1
+                        refused_rows.append((name, arguments))
+                        self.assertTrue(result.content.strip())
+                    continue
+                shown += 1
+                decision = cards[0]
+                what, command = tool_registry.card_action_description(call)
+                commands, line = self._built_line(name, arguments)
+                act = tool_registry.describe_call(call, tool)
+                if line is not None:
+                    self.assertEqual(command, line)
+                    body = review_modal._format_modal_body(
+                        call, decision, "", "", "")
+                    self.assertIn(f"Command:     {line}", body)
+                    self.assertNotIn("Arguments:", body)
+                    console = self._console({"what": what, "command": command},
+                                            name)
+                    self.assertIn(f"Command: {line}", console)
+                    handoff = tool_registry.gate_refusal_message(
+                        call, ToolResult(call_id="", name=name, content="",
+                                         success=False, executed=False), tool)
+                    self.assertIn("`" + _terminal(commands, act.root) + "`",
+                                  handoff)
+                else:
+                    # No command line: a sentence naming the act's argument.
+                    self.assertEqual(command, what)
+                    self.assertNotIn(str(arguments), command)
+                self.assertEqual(describe_gate_action(name, arguments), what)
+                # The act runs where its card says: the privileged runner for
+                # a root act, the person's own process otherwise.
+                if act.root:
+                    self.assertEqual((self.paths, in_person), (["root"], []))
+                    self.assertTrue(decision.needs_pkexec)
+                elif name in ("manage_services",):
+                    self.assertEqual((self.paths, in_person), ([], [name]))
+                    self.assertIn("--user", command)
+                    self.assertFalse(decision.needs_pkexec)
+                if name == "manage_packages" and arguments["action"] == "update":
+                    guard = capability_registry.build_system_capability_guard()
+                    for argv in _update_commands(pkm="pkm"):
+                        self.assertIn("`" + " ".join(argv) + "`", guard)
+        # The calls whose card used to precede an act that differed or did not
+        # happen are refused before any card now: no package, the wrong key,
+        # the dead verbs, a daemon-reload naming a unit, a shell construct, a
+        # relative path.
+        for row in (("manage_packages", {"action": "install"}),
+                    ("manage_packages", {"action": "remove"}),
+                    ("manage_packages", {"action": "install", "name": "htop"}),
+                    ("manage_packages", {"action": "upgrade"}),
+                    ("manage_packages", {"action": "uninstall", "package": "htop"}),
+                    ("manage_services", {"action": "daemon-reload",
+                                         "service": "sshd"}),
+                    ("manage_services", {"action": "daemon-reload",
+                                         "service": "sshd", "user_mode": True}),
+                    ("run_command", {"command": "pkm sync && pkm upgrade"}),
+                    ("write_file", {"path": "notes.txt", "content": "x"})):
+            self.assertIn(row, refused_rows)
+        # A web search the model decides on is refused before any card: it
+        # runs only on the person's word.
+        self.assertIn(("web_search", {"query": "sample"}), refused_rows)
+        # The counts this class rests on: a change to either is read here.
+        self.assertEqual((shown, refused), (33, 50))
+        self.assertEqual(self.started, [])
 
 
 if __name__ == "__main__":

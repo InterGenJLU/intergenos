@@ -4,7 +4,9 @@
 
 Factored out of the GTK binary so the two security-critical, content-handling
 functions are unit-testable WITHOUT a display or GTK (CI + adversarial review).
-Pure stdlib (unicodedata + re); no GTK, no I/O, no network.
+Pure stdlib (unicodedata + re) at import; no GTK, no I/O, no network.
+describe_gate_action, which only the daemon calls, reads the registry's
+description of the act when it is called.
 
   * `sanitize_for_display` (§B / invariant 8) — makes reordering / hidden /
     non-printing characters VISIBLE so SHOWN == SENT *visually*. It NEVER changes
@@ -172,73 +174,42 @@ def review_risk_copy(provenance: object, risk_tier: object) -> tuple[str, str, s
 
 
 # Plain-language ACTION HEADLINE for the review gate — the OBJECT of consent
-# stated in words the user reads first ("Install package: htop"), instead of
-# forcing them to parse `Tool manage_packages` + {'action':'install',...} out of
-# the card. Built ONLY from the (tool, action) pair and its key argument, by a
-# fixed template — NEVER model-generated: the consent surface must state exactly
-# what will execute. The verbatim tool+args box stays below as the always-
-# verifiable original (r29 normalized-first + always-verifiable, applied to
-# consent). Returns None when no template matches, so the caller fails CLOSED to
-# the verbatim `tool: args` form rather than inventing a friendly label. The
-# returned text still carries untrusted arg bytes, so the renderer sanitises it
-# for display like any content field.
-_PKG_VERBS = {
-    "install": "Install", "remove": "Remove", "uninstall": "Remove",
-    "update": "Update", "upgrade": "Upgrade",
-    "list": "List", "list-installed": "List installed", "search": "Search",
-    "info": "Show info for", "verify": "Verify",
-}
-_SVC_VERBS = {
-    "start": "Start", "stop": "Stop", "restart": "Restart", "reload": "Reload",
-    "enable": "Enable", "disable": "Disable", "mask": "Mask", "unmask": "Unmask",
-    "status": "Show status of", "is-active": "Check whether running:",
-    "is-enabled": "Check whether enabled:",
-}
+# stated in words the user reads first, instead of forcing them to parse
+# `Tool manage_packages` + {'action':'install',...} out of the card. NEVER
+# model-generated: the consent surface must state exactly what will execute.
+# The verbatim tool+args box stays below as the always-verifiable original
+# (r29 normalized-first + always-verifiable, applied to consent).
+#
+# The headline is the registry's ONE description of the act
+# (tool_registry.describe_call), derived from the argv the tool's own builder
+# returns, so the dialog, the web card, the handoff and the console say the
+# same thing about the same act. It used to be a template over the (tool,
+# action) pair, which named "ssh" for a restart of sshd, "Update packages" for
+# a refresh, and nothing of --user. Returns None when there is no act to
+# describe (a call refused before any card), so the caller fails CLOSED to the
+# verbatim `tool: args` form. The returned text still carries untrusted arg
+# bytes, so the renderer sanitises it for display like any content field.
 
 
 def describe_gate_action(tool: object, arguments: object) -> str | None:
-    """Deterministic plain-language headline for a review-gate action, or None
-    when no template matches (caller falls closed to the verbatim form).
+    """The registry's one plain-language description of a review-gate action,
+    or None when there is none (caller falls closed to the verbatim form).
 
-    Pure + template-only (no model, no I/O). `arguments` is the structured
-    tool-call dict; a non-dict or unknown (tool, action) yields None."""
+    Called by the daemon-side launcher, never by the dialog binary: this
+    module's own import stays stdlib-only, and the registry is imported only
+    when a headline is asked for. `arguments` is the structured tool-call dict;
+    a non-dict yields None."""
     if not isinstance(arguments, dict):
         return None
-    tool = str(tool or "")
-    action = str(arguments.get("action") or "").strip().lower()
-
-    if tool == "manage_packages":
-        pkg = str(arguments.get("package") or arguments.get("query") or "").strip()
-        verb = _PKG_VERBS.get(action)
-        if not verb:
-            return None
-        if action in ("list", "list-installed"):
-            return "List installed packages"
-        return f"{verb} package: {pkg}" if pkg else f"{verb} packages"
-
-    if tool == "manage_services":
-        svc = str(arguments.get("service") or arguments.get("unit") or "").strip()
-        if action == "daemon-reload":
-            return "Reload the systemd manager configuration"
-        if action in ("list-units", "list-unit-files"):
-            return "List system services"
-        verb = _SVC_VERBS.get(action)
-        if not verb:
-            return None
-        return f"{verb} service: {svc}" if svc else f"{verb} a service"
-
-    if tool == "run_command":
-        cmd = str(arguments.get("command") or "").strip()
-        return f"Run command: {cmd}" if cmd else None
-
-    if tool == "write_file":
-        path = str(arguments.get("path") or "").strip()
-        return f"Write file: {path}" if path else None
-
-    if tool == "take_screenshot":
-        return "Take a screenshot"
-
-    return None
+    from intergen.interfaces.provenance import Provenance
+    from intergen.interfaces.types import ToolCall
+    from intergen.tool_registry import describe_call
+    call = ToolCall(name=str(tool or ""), arguments=dict(arguments),
+                    source_of_request=Provenance.USER_DIRECT)
+    act = describe_call(call)
+    if act.refusal or not act.what:
+        return None
+    return act.what
 
 
 # Conservative secret patterns. Local + deterministic; no network. Order-

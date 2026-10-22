@@ -270,6 +270,38 @@ def canonical_action(action: object) -> str:
     return ACTION_ALIASES.get(text, text)
 
 
+def runs_on_the_users_own_manager(arguments: dict[str, Any]) -> bool:
+    """Whether this call acts on the person's own service manager
+    (``systemctl --user``). The builder adds --user on exactly this answer and
+    the registry routes on it, so the two cannot disagree about whose manager
+    the act changes."""
+    return bool(arguments.get("user_mode", False))
+
+
+def daemon_reload_naming_a_unit(arguments: dict[str, Any]) -> str | None:
+    """The refusal for a daemon-reload that names a unit, or None. systemctl's
+    daemon-reload takes no unit: a card that read "reload sshd" would ask a
+    person to approve an act that systemctl then refuses, or one that reloads
+    every unit file. Pure: the service manager is not asked."""
+    service = arguments.get("service", "")
+    if canonical_action(arguments.get("action", "")) != "daemon-reload" \
+            or not service:
+        return None
+    return ("'daemon-reload' reloads the service manager's configuration and "
+            "names no service; nothing was proposed — to reload "
+            f"{service!r} itself, ask for its reload")
+
+
+def canonical_service(service: object) -> str:
+    """The unit name the tool acts on: a colloquial name mapped to the real
+    InterGenOS unit (ssh -> sshd), a trailing ".service" and any case tolerated
+    for the alias; any other name passed through unchanged."""
+    text = str(service or "")
+    if not text:
+        return text
+    return _SERVICE_ALIASES.get(text.lower().removesuffix(".service"), text)
+
+
 class ManageServicesTool(BaseTool):
     """Manage systemd services via systemctl."""
 
@@ -351,6 +383,9 @@ class ManageServicesTool(BaseTool):
         action = canonical_action(arguments.get("action", ""))
         service = arguments.get("service", "")
         if action not in UNIT_CHANGING_ACTIONS:
+            refusal = daemon_reload_naming_a_unit(arguments)
+            if refusal:
+                return refusal
             if action in ACTIONS_NAMING_NO_UNIT:
                 return None
             if service is None or (isinstance(service, str)
@@ -362,14 +397,12 @@ class ManageServicesTool(BaseTool):
             return None
         if not isinstance(service, str):
             return f"'{action}' needs a service name, not {service!r}"
-        if service:
-            service = _SERVICE_ALIASES.get(
-                service.lower().removesuffix(".service"), service)
+        service = canonical_service(service)
         if not service.strip():
             return (f"'{action}' changes a service and names none; nothing was "
                     f"proposed — say which service to {action}")
         state, unit, words = self._read_service_unit(
-            service, user_mode=bool(arguments.get("user_mode", False)))
+            service, user_mode=runs_on_the_users_own_manager(arguments))
         if state == "known" and unit == service:
             return None
         if state == "known":
@@ -397,18 +430,35 @@ class ManageServicesTool(BaseTool):
             return SafetyTier.CONFIRM
         return SafetyTier.CONFIRM
 
+    def build_command(self, arguments: dict[str, Any]) -> list[str] | None:
+        """THE builder: the systemctl command line this call runs, or None when
+        it names no act this tool can run. Every consent surface describes the
+        call from this argv, so a card shows the unit the manager is asked
+        about (sshd, not ssh) and --user when the person's own manager acts.
+
+        Colloquial unit names are canonicalized to the real InterGenOS unit
+        (ssh -> sshd); daemon-reload names no unit, whatever was passed.
+        """
+        action = canonical_action(arguments.get("action", ""))
+        service = canonical_service(arguments.get("service", ""))
+        if not action:
+            return None
+        # Most actions require a service name
+        if action not in ACTIONS_NAMING_NO_UNIT and not service:
+            return None
+        cmd = ["systemctl"]
+        if runs_on_the_users_own_manager(arguments):
+            cmd.append("--user")
+        cmd.append(action)
+        if service and action != "daemon-reload":
+            cmd.append(service)
+        return cmd
+
     def execute(self, arguments: dict[str, Any]) -> ToolResult:
         """Execute the systemctl action."""
         action = canonical_action(arguments.get("action", ""))
-        service = arguments.get("service", "")
-        user_mode = arguments.get("user_mode", False)
-
-        # Canonicalize colloquial unit names to the real InterGenOS unit
-        # (ssh -> sshd). Tolerate a trailing ".service" and any case; pass the
-        # original through unchanged when there's no alias.
-        if service:
-            service = _SERVICE_ALIASES.get(
-                service.lower().removesuffix(".service"), service)
+        service = canonical_service(arguments.get("service", ""))
+        user_mode = runs_on_the_users_own_manager(arguments)
 
         if not action:
             return ToolResult(
@@ -416,20 +466,14 @@ class ManageServicesTool(BaseTool):
                 content="Error: no action specified", success=False,
             )
 
-        # Most actions require a service name
-        if action not in ACTIONS_NAMING_NO_UNIT and not service:
+        cmd = self.build_command(arguments)
+        if cmd is None:
+            # Most actions require a service name
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Error: '{action}' requires a service name",
                 success=False,
             )
-
-        cmd = ["systemctl"]
-        if user_mode:
-            cmd.append("--user")
-        cmd.append(action)
-        if service:
-            cmd.append(service)
 
         log.info("Service operation: %s %s%s",
                  action, service or "(all)",
@@ -443,7 +487,11 @@ class ManageServicesTool(BaseTool):
         # services"). That is the OS-enforced AUTH-PROMPT of the gating model
         # (docs/security/intergen-gating-model.md §5): the consent block records
         # the user's intent, and polkit performs the actual privilege grant.
-        # User-mode (`--user`) services belong to the user and need no elevation.
+        # User-mode (`--user`) services belong to the user and need no
+        # elevation: the registry runs such a call here, in the person's own
+        # process, never through the privileged runner, where --user would
+        # reach root's manager instead of theirs (tool_registry
+        # _classify_risk_tier).
         is_privileged = action in CONFIRM_ACTIONS and not user_mode
 
         try:

@@ -229,9 +229,13 @@ class UnrecognisedActionsAreRefusedNotGated(unittest.TestCase):
     def test_declared_actions_still_validate(self):
         for action in READ_ONLY_SERVICE_ACTIONS + STATE_CHANGING_SERVICE_ACTIONS:
             with self.subTest(action=action):
-                self.assertIsNone(
-                    self.tool.validate_arguments(
-                        {"action": action, "service": "sshd"}))
+                # daemon-reload names no unit: it validates without one, and
+                # one named is refused before any card (systemctl takes none).
+                arguments = ({"action": action} if action == "daemon-reload"
+                             else {"action": action, "service": "sshd"})
+                self.assertIsNone(self.tool.validate_arguments(arguments))
+        self.assertIn("names no service", self.tool.validate_arguments(
+            {"action": "daemon-reload", "service": "sshd"}))
 
     def test_unrecognised_action_never_reaches_the_review_surface(self):
         prompted = []

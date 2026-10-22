@@ -68,8 +68,9 @@ def command_line(call: Any) -> str:
         commands = ManagePackagesTool().build_commands(args, pkm="pkm")
         return " && ".join(" ".join(argv) for argv in commands or ())
     if call.name == "manage_services":
-        from intergen.tool_registry import handoff_command
-        return handoff_command(call)
+        from intergen.tools.manage_services import ManageServicesTool
+        argv = ManageServicesTool().build_command(args)
+        return " ".join(argv) if argv else ""
     return ""
 
 
