@@ -75,8 +75,10 @@ class RepairAtTheOpen(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="pkm-version-repair-")
         self.tmp = Path(self._tmp.name)
         self.db_path = self.tmp / "pkm.db"
-        self.archives = self.tmp / "archives"
-        self.archives.mkdir()
+        # The repair reads a recorded archive only from pkm's package cache
+        # under the database's root (self.tmp), so the archives are made there.
+        self.archives = self.tmp / "var/cache/pkm/packages"
+        self.archives.mkdir(parents=True)
         self._level = output.process_level()
 
     def tearDown(self):

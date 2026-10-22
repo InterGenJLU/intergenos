@@ -207,6 +207,11 @@ class _OneTimeUpdateReport:
 DB_PATH = Path(os.environ.get("IGOS_PKM_DB", "/var/lib/igos/pkm.db"))
 MANIFEST_DIR = Path("/var/lib/igos/packages")
 ARCHIVE_DIR = Path("/var/lib/igos/archives")
+# The downloaded packages (repo.RepoManager.pkg_cache, mode 0700, root's on a
+# running system). The two version repairs read an installed row's recorded
+# archive only from here: a row installed with --archive records the file
+# the person named, which another account may be able to rewrite.
+PACKAGE_CACHE_DIR = Path("/var/cache/pkm/packages")
 
 # PKM-E2 (verify Class 1): files that post-install hooks legitimately regenerate,
 # so their on-disk content diverges from the recorded hash on a clean, untampered
@@ -546,7 +551,31 @@ def open_read_only(db_path):
     return sqlite3.connect(f"file:{db_path}?immutable=1", uri=True), "immutable"
 
 
-def release_suffix_verdict(name, version, release, archive_path):
+def archive_outside_package_cache(archive_path, cache_dir):
+    """Why the version repairs will not read archive_path, or None when they
+    may: it must be a file directly in cache_dir (pkm's package cache under
+    the database's root), and cache_dir must be a directory, not a link,
+    owned by root or by the account running pkm and writable by its owner
+    alone. Any other recorded archive -- the file a person named with
+    --archive, wherever they keep it -- may be one another account can
+    rewrite, so it is never read to change or confirm a row."""
+    cache = os.path.normpath(str(cache_dir))
+    if os.path.dirname(os.path.normpath(str(archive_path))) != cache:
+        return (f"its archive {archive_path} is outside pkm's package cache "
+                f"({cache}), so it is not read")
+    try:
+        st = os.lstat(cache)
+    except OSError as e:
+        return f"pkm's package cache {cache} cannot be checked ({e.strerror or e})"
+    if (not stat.S_ISDIR(st.st_mode) or st.st_uid not in (0, os.geteuid())
+            or st.st_mode & (stat.S_IWGRP | stat.S_IWOTH)):
+        return (f"pkm's package cache {cache} is not a directory only its "
+                f"owner can write, so its archives are not read")
+    return None
+
+
+def release_suffix_verdict(name, version, release, archive_path,
+                           cache_dir=None):
     """THE RULE for a recorded version that carries its own release, decided once.
 
     The one definition both paths call: PackageDB._repair_release_suffixed_versions,
@@ -561,9 +590,12 @@ def release_suffix_verdict(name, version, release, archive_path):
                     (archive_path) states, in its .PKGINFO, this name, this
                     release and the version without that tail: the row's
                     version is stem.
-      (None, why, unreadable)  it does, but the archive is gone, carries no
-                    .PKGINFO, states anything else, or cannot be read; why says
-                    which, and the row reads as recorded. unreadable is True only
+      (None, why, unreadable)  it does, but the archive is gone, is not in
+                    pkm's package cache (cache_dir; the running system's,
+                    PACKAGE_CACHE_DIR, when None; see
+                    archive_outside_package_cache), carries no .PKGINFO, states
+                    anything else, or cannot be read; why says which, and the
+                    row reads as recorded. unreadable is True only
                     when the archive is there but THIS user cannot read it: the
                     package cache is root-only (/var/cache/pkm/packages, mode
                     0700), so a person's read-only command meets that while a
@@ -580,6 +612,10 @@ def release_suffix_verdict(name, version, release, archive_path):
     if not archive_path:
         return None, ("the archive it was installed from "
                       "(none recorded) is not on disk"), False
+    outside = archive_outside_package_cache(
+        archive_path, PACKAGE_CACHE_DIR if cache_dir is None else cache_dir)
+    if outside is not None:
+        return None, outside, False
     try:
         st = os.stat(archive_path)
     except PermissionError:
@@ -1395,14 +1431,21 @@ class PackageDB:
             if os.path.exists(temporary):
                 os.unlink(temporary)
 
+    def _package_cache_dir(self):
+        """pkm's package cache under this database's root, the one place the
+        version repairs read an archive from (archive_outside_package_cache)."""
+        return self.root / PACKAGE_CACHE_DIR.relative_to("/")
+
     def _repair_helper_package_versions(self):
         """Restore helper package identities from their archives or install history.
 
         Earlier helper merges replaced the package version with the application
         build. The recorded archive's matching name and release establish the
-        package version. When that archive is absent, the newest successful
-        archive install after its last removal establishes its version;
-        the row's release stays unchanged. A present but unreadable or
+        package version; it is read only from pkm's package cache
+        (archive_outside_package_cache), and a row whose recorded archive is
+        anywhere else is left as recorded and said. When that archive is
+        absent, the newest successful archive install after its last removal
+        establishes its version; the row's release stays unchanged. A present but unreadable or
         contradictory archive is not replaced by historical evidence.
         A repository entry or a filename never establishes the version. Keep
         the application build, filling an empty payload_version from the old
@@ -1437,6 +1480,11 @@ class PackageDB:
             if not archive_path:
                 missing = "no installed archive is recorded"
             else:
+                outside = archive_outside_package_cache(
+                    archive_path, self._package_cache_dir())
+                if outside is not None:
+                    left.append((name, outside))
+                    continue
                 try:
                     archive_stat = os.stat(archive_path)
                 except FileNotFoundError:
@@ -1574,13 +1622,15 @@ class PackageDB:
 
         THE RULE, exact, with the archive as the only evidence. A row is
         repaired when its version ends in "-<its release>" and the archive it
-        was installed from (archive_path) states, in its .PKGINFO, the same
+        was installed from (archive_path), read only from pkm's package cache
+        (archive_outside_package_cache), states, in its .PKGINFO, the same
         name, the same release and the version without that tail. A version
         whose upstream form holds a dash (dialog 1.3-20260107, imagemagick
         7.1.2-13) does not end in its own release, or its archive states the
         dashed form, so it is never touched. A row whose archive is gone,
-        unreadable or states anything else is left exactly as it is; -v says
-        why, and the comparison keeps refusing it as before.
+        outside the package cache, unreadable or states anything else is left
+        exactly as it is; -v says why, and the comparison keeps refusing it as
+        before.
 
         Each repair is one line on stderr at every verbosity and one history
         row, all written in one transaction. It runs on every read-write open,
@@ -1605,7 +1655,7 @@ class PackageDB:
                 "SELECT id, name, version, release, archive_path FROM installed "
                 "WHERE instr(version, '-') > 0").fetchall():
             stem, why, _unreadable = release_suffix_verdict(
-                name, version, release, archive_path)
+                name, version, release, archive_path, self._package_cache_dir())
             if stem is not None:
                 repairs.append((row_id, name, version, release, archive_path, stem))
             elif why is not None:
@@ -1694,7 +1744,7 @@ class PackageDB:
         if not self.read_only:
             return version
         stem, _why, unreadable = release_suffix_verdict(
-            name, version, release, archive_path)
+            name, version, release, archive_path, self._package_cache_dir())
         if stem is None:
             if unreadable and not getattr(self, "_unreadable_said", False):
                 self._unreadable_said = True

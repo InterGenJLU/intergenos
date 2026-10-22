@@ -13,7 +13,7 @@ from pkm.database import PackageDB
 from pkm import output
 from pkm.installer import PackageInstaller
 from pkm.version import is_upgradable
-from tests.pkm.test_helper_manifest_version_repair import seed
+from tests.pkm.test_helper_manifest_version_repair import cached, seed
 from tests.pkm.test_a_version_carrying_its_own_release_is_repaired import _make_archive
 
 
@@ -30,7 +30,7 @@ def history(db_path, version="1.0", **changes):
 
 def missing_archive(tmp_path):
     state = seed(tmp_path)
-    (tmp_path / "example.igos.tar.gz").unlink()
+    cached(state[0]).unlink()
     return state
 
 
@@ -95,7 +95,7 @@ def test_a_matching_present_archive_remains_the_first_source(tmp_path):
 def test_history_does_not_override_a_present_unusable_archive(tmp_path, problem):
     root, path, *_ = seed(tmp_path)
     history(path)
-    archive = tmp_path / "example.igos.tar.gz"
+    archive = cached(root)
     if problem == "corrupt":
         archive.write_bytes(b"not an archive")
     elif problem == "other-name":
@@ -143,7 +143,7 @@ def test_a_real_archive_install_records_the_header_version_used_after_eviction(t
     root = tmp_path / "root"
     root.mkdir()
     path = tmp_path / "pkm.db"
-    archive = Path(_make_archive(tmp_path / "example-1.0-7.igos.tar.gz", "example", "1.0", 7))
+    archive = Path(_make_archive(cached(root, "example-1.0-7.igos.tar.gz"), "example", "1.0", 7))
     with PackageDB(path, root=str(root)) as db:
         ok, message = PackageInstaller(db, root=str(root)).install(
             "example", archive_path=archive,
@@ -165,7 +165,7 @@ def test_a_real_archive_install_records_the_header_version_used_after_eviction(t
                                     "corrupt", "other-name", "unreadable"])
 def test_unrepaired_rows_are_reported_once_on_each_default_open(tmp_path, capsys, problem):
     root, path, legacy, original, before = seed(tmp_path)
-    archive = tmp_path / "example.igos.tar.gz"
+    archive = cached(root)
     if problem in {"missing", "no-path", "failed-history", "empty-history"}:
         archive.unlink()
         if problem == "no-path":

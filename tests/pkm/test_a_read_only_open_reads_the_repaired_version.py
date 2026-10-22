@@ -63,8 +63,10 @@ class ReadOnlyOpenReadsTheRule(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="pkm-read-only-rule-")
         self.tmp = Path(self._tmp.name)
         self.db_path = self.tmp / "pkm.db"
-        self.archives = self.tmp / "archives"
-        self.archives.mkdir()
+        # The repair reads a recorded archive only from pkm's package cache
+        # under the database's root (self.tmp), so the archives are made there.
+        self.archives = self.tmp / "var/cache/pkm/packages"
+        self.archives.mkdir(parents=True)
         self._level = output.process_level()
 
     def tearDown(self):
@@ -184,7 +186,8 @@ class ReadOnlyOpenReadsTheRule(unittest.TestCase):
 
     def test_pkm_names_its_own_version_through_the_rule(self):
         self._poisoned(name="pkm", version="0.2.0", release=110)
-        with mock.patch.object(pkm_database, "DB_PATH", self.db_path):
+        with mock.patch.object(pkm_database, "DB_PATH", self.db_path), \
+                mock.patch.object(pkm_database, "PACKAGE_CACHE_DIR", self.archives):
             self.assertEqual(cli._installed_version_string(), "0.2.0-110")
 
     def test_the_reading_is_said_under_verbose_and_nowhere_else(self):

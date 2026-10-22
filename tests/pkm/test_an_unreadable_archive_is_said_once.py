@@ -50,8 +50,8 @@ class UnreadableArchiveIsSaidOnce(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory(prefix="pkm-unreadable-archive-")
         self.tmp = Path(self._tmp.name)
         self.db_path = self.tmp / "pkm.db"
-        self.cache = self.tmp / "packages"
-        self.cache.mkdir()
+        self.cache = self.tmp / "var/cache/pkm/packages"
+        self.cache.mkdir(parents=True)
         self._level = output.process_level()
         output.set_process_level(output.NORMAL)
 
@@ -102,11 +102,14 @@ class UnreadableArchiveIsSaidOnce(unittest.TestCase):
         self._seed([("alpha", "1.0", 3)])
         archive = str(self.cache / "alpha-1.0-3.igos.tar.gz")
         os.chmod(self.cache, 0o000)
-        stem, why, unreadable = release_suffix_verdict("alpha", "1.0-3", 3, archive)
+        stem, why, unreadable = release_suffix_verdict("alpha", "1.0-3", 3, archive,
+                                                       self.cache)
         self.assertEqual((stem, unreadable), (None, True))
         self.assertIn("cannot be read by this user", why)
-        gone = str(self.tmp / "elsewhere" / "alpha-1.0-3.igos.tar.gz")
-        stem, why, unreadable = release_suffix_verdict("alpha", "1.0-3", 3, gone)
+        os.chmod(self.cache, 0o700)
+        gone = str(self.cache / "beta-1.0-3.igos.tar.gz")
+        stem, why, unreadable = release_suffix_verdict("alpha", "1.0-3", 3, gone,
+                                                       self.cache)
         self.assertEqual((stem, unreadable), (None, False))
         self.assertIn("is not on disk", why)
 

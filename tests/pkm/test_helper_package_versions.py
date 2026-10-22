@@ -125,7 +125,11 @@ def test_info_names_both_the_package_and_application_after_ingestion(db):
 
 
 def seed(db, tmp_path, name, package, old, release, payload=None, method="helper"):
-    path = archive(tmp_path / f"{name}.igos.tar.gz", name, package, release)
+    # The repairs read a recorded archive only from pkm's package cache under
+    # the database's root, so the archive is made there.
+    cache = Path(db.root) / "var/cache/pkm/packages"
+    cache.mkdir(parents=True, exist_ok=True)
+    path = archive(cache / f"{name}.igos.tar.gz", name, package, release)
     db.add_installed(name, old, release=release, install_method=method,
                      payload_version=payload, archive_path=path)
     return path

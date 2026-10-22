@@ -15,10 +15,18 @@ from pkm.installer import PackageInstaller
 from pkm.remover import PackageRemover
 
 
+def cached(root, file_name="example.igos.tar.gz"):
+    # The repairs read a recorded archive only from pkm's package cache under
+    # the database's root, so the archives these cases record are made there.
+    cache = Path(root) / "var/cache/pkm/packages"
+    cache.mkdir(parents=True, exist_ok=True)
+    return cache / file_name
+
+
 def seed(tmp_path, with_file=True):
     root = tmp_path / "root"
     root.mkdir()
-    archive = tmp_path / "example.igos.tar.gz"
+    archive = cached(root)
     data = b"pkgname = example\npkgver = 1.0\npkgrel = 7\n"
     with tarfile.open(archive, "w:gz") as tf:
         member = tarfile.TarInfo(".PKGINFO")
