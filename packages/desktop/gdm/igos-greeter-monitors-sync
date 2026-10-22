@@ -15,11 +15,17 @@
 # (driven by igos-greeter-monitors-sync@.path).
 #
 # OWNERSHIP IS DELIBERATELY NEVER TOUCHED. GDM 49 runs the greeter as a
-# per-boot DynamicUser account and chowns the seat state itself at greeter
-# start — any ownership this helper set would be both racy and overwritten.
-# The durable guarantee is carried by MODE BITS alone: file 0644, dirs 0755,
-# readable by whatever uid GDM allocates next boot (chown does not alter
-# modes). A monitor layout is not a secret; world-readable is the point.
+# per-boot DynamicUser account and, at every greeter launch, gives the seat
+# config directory and everything in it to that account and sets the
+# directory 0700 (gdm_ensure_dir in gdm-launch-environment.c). The copy
+# therefore lands root-owned 0600 and the greeter reads it as its owner after
+# that launch; an existing config directory keeps the mode GDM gave it.
+#
+# THE BYTES THAT LAND ARE THE BYTES CHECKED. This helper runs as root and
+# reads out of a directory the user controls, so it opens the layout once,
+# without following a link at its name, and takes the file type, owner and
+# size from that open file, then parses and copies the bytes it read from it.
+# A name swapped after the open cannot change what is copied.
 #
 # FAILURE POSTURE: fail loud, never degrade the greeter. A refused sync
 # leaves the previous greeter layout in place; the worst case at the greeter
@@ -29,7 +35,6 @@
 set -euo pipefail
 
 SEAT_CONFIG=/var/lib/gdm/seat0/config
-TARGET="$SEAT_CONFIG/monitors.xml"
 MAX_BYTES=1048576   # monitors.xml is ~1-4 KB; anything near 1 MB is not one
 
 fail() { echo "igos-greeter-monitors-sync: ERROR: $*" >&2; exit 1; }
@@ -51,36 +56,111 @@ if [ ! -e "$SRC" ]; then
     exit 0
 fi
 
-# This helper runs as root and reads out of a user-controlled directory —
-# refuse anything but a plain regular file OWNED by that user, sized like a
-# monitors.xml. A symlink here could otherwise exfiltrate an arbitrary
-# root-readable file into a world-readable location.
-[ -L "$SRC" ] && fail "$SRC is a symlink — refusing"
-[ -f "$SRC" ] || fail "$SRC is not a regular file — refusing"
-SRC_UID="$(stat -c %u "$SRC")"
-[ "$SRC_UID" = "$USER_UID" ] || \
-    fail "$SRC owned by uid $SRC_UID, expected $USER_UID — refusing"
-SRC_SIZE="$(stat -c %s "$SRC")"
-[ "$SRC_SIZE" -le "$MAX_BYTES" ] || \
-    fail "$SRC is $SRC_SIZE bytes (limit $MAX_BYTES) — refusing"
+# Ensure the seat state path exists. GDM itself keeps /var/lib/gdm and seat0
+# root-owned 0755; the config directory is GDM's (see above) and is only
+# created here, 0700, when it is absent.
+install -dm755 /var/lib/gdm /var/lib/gdm/seat0
 
-# Cheap validity gate: a file that is not well-formed XML cannot be a
-# monitors.xml — refuse it and keep the previous greeter layout.
-python3 -c "import sys, xml.etree.ElementTree as ET; ET.parse(sys.argv[1])" \
-    "$SRC" 2>/dev/null || fail "$SRC is not well-formed XML — refusing"
+exec python3 -I - "$SRC" "$USER_UID" "$SEAT_CONFIG" "$MAX_BYTES" <<'PY'
+import errno, hashlib, os, stat, sys
+import xml.etree.ElementTree as ET
 
-# Ensure the seat state path exists with the drift-proof dir mode. If GDM
-# has not created it yet, root-owned 0755 is correct (GDM re-chowns at
-# greeter start; modes persist). Never chmod pre-existing sibling content.
-install -dm755 /var/lib/gdm /var/lib/gdm/seat0 "$SEAT_CONFIG"
+src, uid, seat_config, limit = sys.argv[1], int(sys.argv[2]), sys.argv[3], int(sys.argv[4])
+PREFIX = "igos-greeter-monitors-sync"
 
-# Atomic replace with the drift-proof file mode; same-filesystem mv so the
-# greeter can never observe a torn file.
-TMP="$(mktemp "$SEAT_CONFIG/.monitors.xml.XXXXXX")"
-trap 'rm -f "$TMP"' EXIT
-cat "$SRC" > "$TMP"
-chmod 0644 "$TMP"
-mv -f "$TMP" "$TARGET"
-trap - EXIT
 
-echo "igos-greeter-monitors-sync: synced $SRC -> $TARGET ($(sha256sum "$TARGET" | cut -c1-16)...)"
+def fail(message):
+    print(f"{PREFIX}: ERROR: {message}", file=sys.stderr)
+    sys.exit(1)
+
+
+# Refuse anything but a plain regular file OWNED by that user, sized like a
+# monitors.xml, judged from the one descriptor every later read uses. A link
+# here could otherwise copy an arbitrary root-readable file into the greeter's
+# seat state.
+try:
+    fd = os.open(src, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+except FileNotFoundError:
+    print(f"{PREFIX}: {src} absent, nothing to sync")
+    sys.exit(0)
+except OSError as exc:
+    if exc.errno == errno.ELOOP:
+        fail(f"{src} is a symlink — refusing")
+    fail(f"{src} cannot be opened ({exc.strerror}) — refusing")
+try:
+    info = os.fstat(fd)
+    if not stat.S_ISREG(info.st_mode):
+        fail(f"{src} is not a regular file — refusing")
+    if info.st_uid != uid:
+        fail(f"{src} owned by uid {info.st_uid}, expected {uid} — refusing")
+    if info.st_size > limit:
+        fail(f"{src} is {info.st_size} bytes (limit {limit}) — refusing")
+    chunks, total = [], 0
+    while total <= limit:
+        chunk = os.read(fd, limit + 1 - total)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+finally:
+    os.close(fd)
+data = b"".join(chunks)
+if len(data) > limit:
+    fail(f"{src} grew past {limit} bytes while it was read — refusing")
+
+# Cheap validity gate: bytes that are not well-formed XML cannot be a
+# monitors.xml — refuse them and keep the previous greeter layout.
+try:
+    ET.fromstring(data)
+except ET.ParseError:
+    fail(f"{src} is not well-formed XML — refusing")
+digest = hashlib.sha256(data).hexdigest()
+
+try:
+    os.mkdir(seat_config, 0o700)
+except FileExistsError:
+    pass
+except OSError as exc:
+    fail(f"cannot create {seat_config} ({exc.strerror})")
+try:
+    dfd = os.open(seat_config, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
+except OSError as exc:
+    fail(f"cannot open {seat_config} ({exc.strerror}) — refusing")
+
+# Atomic replace through a temporary file in the same directory, hashed in
+# full from its own descriptor before the rename, so the greeter can never
+# observe a torn file and the file it reads is the layout that was checked.
+tmp = f".monitors.xml.{os.urandom(6).hex()}"
+out = -1
+try:
+    out = os.open(tmp, os.O_RDWR | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+                  0o600, dir_fd=dfd)
+    view = memoryview(data)
+    while view:
+        view = view[os.write(out, view):]
+    os.fsync(out)
+    os.lseek(out, 0, os.SEEK_SET)
+    landed = hashlib.sha256()
+    for chunk in iter(lambda: os.read(out, 65536), b""):
+        landed.update(chunk)
+    if landed.hexdigest() != digest:
+        fail(f"the copy of {src} does not hash to the bytes checked — nothing replaced")
+    os.fchmod(out, 0o600)
+    os.close(out)
+    out = -1
+    os.replace(tmp, "monitors.xml", src_dir_fd=dfd, dst_dir_fd=dfd)
+    tmp = None
+except OSError as exc:
+    fail(f"cannot write {seat_config}/monitors.xml ({exc.strerror})")
+finally:
+    if out >= 0:
+        os.close(out)
+    if tmp is not None:
+        try:
+            os.unlink(tmp, dir_fd=dfd)
+        except OSError:
+            pass
+    os.close(dfd)
+
+print(f"{PREFIX}: synced {src} -> {seat_config}/monitors.xml ({digest[:16]}...)")
+PY
