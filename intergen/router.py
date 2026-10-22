@@ -58,6 +58,7 @@ from intergen.interfaces.provenance import (
     ConversationTrustState,
     IngressTracker,
     Provenance,
+    escalate_provenance,
 )
 from intergen.llm import LLMRouter, system_prompt_char_budget
 from intergen.metrics import EventLogger, MetricsTracker
@@ -3234,7 +3235,13 @@ def _decline_answer(reason: str,
     # first. Rendering it HERE covers every surface the router serves, not just
     # the panel. Falling through instead would send the clause to the model,
     # which is the improvised-advice shape this whole helper exists to prevent.
-    if getattr(tool_result, "denied_by_user", False) and tool_call is not None:
+    # NOR IS ANY OTHER CALL THAT RAN NOTHING. The registry's content for a call
+    # held with no review surface reads "Tool call held for user review ...
+    # Reason: Behavior matrix: ... = execute." while nothing is held and nothing
+    # will run; its content for the other refusals is written for the model and
+    # the record. Every call that did not run is told by the panel's renderer,
+    # the outcome's own reason, as the panel and the tool route tell it.
+    if not getattr(tool_result, "executed", True) and tool_call is not None:
         from intergen.tool_registry import gate_refusal_message
         refusal = gate_refusal_message(tool_call, tool_result, tool_obj)
         return RouteResult(
@@ -4565,7 +4572,11 @@ class ConversationRouter(RouterInterface):
         # judgment alone.
         if is_destructive_execution(user_input) or is_destructive_intent(user_input):
             _span.set_attribute("destructive_execution_declined", True)
-            decline = get_blocked_response(user_input)
+            # The person's own words, read as the gate would read a call the
+            # code built from them (a page read earlier in the conversation
+            # makes it user_implied, and the decline then names no packages).
+            decline = get_blocked_response(
+                user_input, provenance=self._own_ask_provenance().value)
             self._append_history(user_input, decline)
             result = RouteResult(
                 text=decline, source="safety_decline", handled=True,
@@ -6084,13 +6095,46 @@ class ConversationRouter(RouterInterface):
             return
         self._conv.handed_off_commands.add(key)
 
-    def _handoff_line(self, command: str) -> str:
+    def _handoff_line(self, command: str, *, call: "ToolCall | None" = None,
+                      tool_result: "ToolResult | None" = None,
+                      outcome: str = "") -> str:
         """The honest handoff (the honest-handoff design) for a staged shell command that could not
         run here — the user declined at the card, or there was no consent surface.
-        needs_admin from the command's own safety tier (AUTO = no admin)."""
-        from intergen.tool_registry import honest_handoff_message
+        needs_admin from the command's own safety tier (AUTO = no admin).
+
+        The command line is handed over only when the registry's rule allows it
+        (tool_registry.handoff_withheld, asked of `call` and `tool_result`): a
+        command that names an install secret, one that is not the person's own
+        ask as the gate reads it, or one its tool refuses is told what it was and
+        why it did not run, and nothing more (refusal_without_handoff). The
+        reason sentence is the outcome's own: `outcome`, or the registry's word
+        on `tool_result`."""
+        from intergen.tool_registry import (handoff_withheld,
+                                            honest_handoff_message,
+                                            refusal_without_handoff)
+        if call is not None:
+            tools = getattr(self, "_tools", None)
+            tool_obj = tools.get_tool(call.name) if tools is not None else None
+            if handoff_withheld(call, tool_result, tool_obj):
+                return refusal_without_handoff(call, tool_result,
+                                               outcome=outcome)
         needs_admin = classify_command(command) != SafetyTier.AUTO
-        return honest_handoff_message("", command, needs_admin)
+        return honest_handoff_message(
+            "", command, needs_admin,
+            outcome=outcome or getattr(tool_result, "outcome", "") or "")
+
+    def _own_ask_provenance(self) -> Provenance:
+        """The provenance the dispatcher gate gives a call the code builds from
+        the person's own words: user_direct, after the ingress watermark of this
+        conversation's tracker (escalate_provenance), as verify_tool_call reads
+        it. A refusal or handoff that repeats a command reads this, so it reads
+        the call exactly as the gate would."""
+        tracker = self._conv.ingress_tracker
+        return escalate_provenance(
+            Provenance.USER_DIRECT,
+            tracker.ingress_fired_this_turn(),
+            tracker.ingress_fired_this_conversation(),
+        )
 
     def _stage_action_offer_or_handoff(self, command: str, tool: str,
                                        original: str,
@@ -6114,15 +6158,29 @@ class ConversationRouter(RouterInterface):
                 "command": shown})
             # No live offer is armed — the action already ran its course.
             self._stage_single_offer()
+            # What is handed over is a command line, so the rule is asked of
+            # it as one, under the provenance the gate would give it now.
+            from intergen.tool_registry import HANDED_OFF_BEFORE
             if args is not None:
                 from intergen.tool_registry import (describe_call,
                                                     handoff_command,
-                                                    honest_handoff_message)
+                                                    handoff_withheld,
+                                                    honest_handoff_message,
+                                                    refusal_without_handoff)
                 call = ToolCall(name=staged_tool, arguments=args,
-                                source_of_request=Provenance.USER_DIRECT)
+                                source_of_request=self._own_ask_provenance())
+                tools = getattr(self, "_tools", None)
+                if handoff_withheld(call, None, tools.get_tool(staged_tool)
+                                    if tools is not None else None):
+                    return refusal_without_handoff(call,
+                                                   outcome=HANDED_OFF_BEFORE)
                 return honest_handoff_message("", handoff_command(call),
-                                              describe_call(call).root)
-            return self._handoff_line(shown)
+                                              describe_call(call).root,
+                                              outcome=HANDED_OFF_BEFORE)
+            call = ToolCall(name="run_command", arguments={"command": shown},
+                            source_of_request=self._own_ask_provenance())
+            return self._handoff_line(shown, call=call,
+                                      outcome=HANDED_OFF_BEFORE)
         self._stage_single_offer(action=(shown, staged_tool, original, args))
         return self._offer_line(shown)
 
@@ -6781,7 +6839,9 @@ class ConversationRouter(RouterInterface):
         # HARD safety block → deterministic honest refusal, never narrated as
         # success (mirrors the P3 blocked-dispatch handling).
         if tool_result.blocked:
-            response_text = get_blocked_response(display)
+            response_text = get_blocked_response(
+                display, provenance=getattr(
+                    tool_result, "effective_provenance", "") or "")
             self._append_history(display, response_text)
             return RouteResult(text=response_text, source="explain_offer_run",
                                handled=True, tool_calls=[call],
@@ -6804,19 +6864,26 @@ class ConversationRouter(RouterInterface):
         if not tool_result.executed and not tool_result.success:
             self._note_handed_off(command if tool == "run_command" else display)
             if tool == "run_command":
-                handoff = self._handoff_line(command)
+                handoff = self._handoff_line(command, call=call,
+                                             tool_result=tool_result)
             elif tool == "manage_packages":
                 # The registry's own handoff for the call the offer staged: the
                 # builder's command line as a person types it (sudo on every
                 # command, pkm's --yes dropped), or the reason it was refused.
                 from intergen.tool_registry import gate_refusal_message
-                handoff = gate_refusal_message(call, tool_result)
+                handoff = gate_refusal_message(
+                    call, tool_result, self._tools.get_tool(call.name))
             elif tool == "web_search":
                 handoff = ("I couldn't run that search just now — the search "
                            "didn't go through, so I have nothing to tell you "
                            "about it rather than a guess.")
             else:
-                handoff = "I'm not able to make that change from here."
+                # The panel's renderer, so a staged package, service or file
+                # action that did not run is told its outcome's own reason (a
+                # Deny is a Deny), and handed over only as the rule allows.
+                from intergen.tool_registry import gate_refusal_message
+                handoff = gate_refusal_message(
+                    call, tool_result, self._tools.get_tool(call.name))
             self._append_history(display, handoff)
             return RouteResult(text=handoff, source="explain_offer_run",
                                handled=True, tool_calls=[call],
@@ -7795,7 +7862,10 @@ class ConversationRouter(RouterInterface):
                         "safety_block_synth_skipped", True)
                     _cmd = (getattr(_tc, "arguments", None) or {}).get("command", "")
                     response_text = (
-                        get_blocked_response(_cmd) if _cmd else _tr.content)
+                        get_blocked_response(
+                            _cmd, provenance=getattr(
+                                _tr, "effective_provenance", "") or "")
+                        if _cmd else _tr.content)
                     self._append_history(user_input, response_text)
                     return RouteResult(
                         text=response_text,

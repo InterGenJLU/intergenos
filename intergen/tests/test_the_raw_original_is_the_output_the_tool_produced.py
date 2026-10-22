@@ -80,6 +80,9 @@ def _router_for(call, result):
     tools = mock.Mock()
     tools.get_tool_schemas.return_value = [{"name": "run_command"}]
     tools.execute.return_value = result
+    # The stand-in registry knows no tool object: a refusal's handoff rule then
+    # reads the call alone, as it does for a tool the registry does not hold.
+    tools.get_tool.return_value = None
     r._tools = tools
     return r
 

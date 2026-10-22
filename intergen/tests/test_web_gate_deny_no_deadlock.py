@@ -34,8 +34,9 @@ import unittest
 from aiohttp import WSMsgType
 
 from intergen.web_server import WebServer, ConnectionContext
-from intergen.interfaces.types import ToolCall
+from intergen.interfaces.types import ToolCall, ToolResult
 from intergen.interfaces.provenance import Provenance
+from intergen.tool_registry import gate_refusal_message
 
 
 def _text(obj: dict) -> types.SimpleNamespace:
@@ -92,11 +93,16 @@ class _FakeWS:
         self.closed = True
 
 
-# The deterministic friendly refusal mirrors web_server.py:1487-1491.
-_FRIENDLY_DENY = (
-    "I'm not able to do that from here right now. "
-    "If you'd like, I can look something up for you or walk "
-    "you through how to do it instead."
+# The deterministic refusal the real stream sends for a denied call: the one
+# renderer every surface uses (tool_registry.gate_refusal_message), asked of
+# the person's own denied package removal.
+_FRIENDLY_DENY = gate_refusal_message(
+    ToolCall(name="manage_packages",
+             arguments={"action": "remove", "name": "firefox"},
+             source_of_request=Provenance.USER_DIRECT),
+    ToolResult(call_id="", name="manage_packages", content="denied",
+               success=False, executed=False, denied_by_user=True,
+               outcome="denied", effective_provenance="user_direct"),
 )
 
 

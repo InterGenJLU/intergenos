@@ -37,6 +37,10 @@ _PKM_VERB = {
     "-s": "install", "-r": "remove", "-ss": "search", "-q": "list",  # pacman-style
 }
 
+# A word the wrong-package-manager redirect may name as a package: a package
+# name's own characters, nothing a shell would read as an operator or a path.
+_PACKAGE_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9+._-]*\Z")
+
 # ── iproute2-netlink family (unavailable in the hardened daemon) ──
 #
 # The daemon's hardened unit denies AF_NETLINK via RestrictAddressFamilies
@@ -3253,8 +3257,18 @@ def answer_command_capability_question(token: str) -> tuple[str, str | None]:
     return ("absent", answer)
 
 
-def get_blocked_response(command: str) -> str:
-    """Get a personality-infused blocked response for a dangerous command."""
+def get_blocked_response(command: str, provenance: str = "") -> str:
+    """Get a personality-infused blocked response for a dangerous command.
+
+    `provenance` is the provenance the dispatcher gate gives the call once
+    ingress is weighed (the value of an intergen Provenance). The redirect
+    names the call's own packages, or tells the person to run the command
+    themselves, ONLY for the person's own ask ("user_direct"): for any other
+    call the command came from somewhere else, a page the model read among
+    them, and repeating it would turn the refusal into an instruction in the
+    product's own voice. Anything else, an empty value included, gets the
+    redirect without the call's content."""
+    own_ask = provenance == "user_direct"
     cmd = os.path.basename(command.strip().split()[0]) if command.strip() else ""
 
     # Check for prompt injection patterns
@@ -3267,14 +3281,19 @@ def get_blocked_response(command: str) -> str:
         return random.choice(_BLOCKED_RESPONSES[":(){ :|:& };:"])
 
     # L2 anti-fabrication: wrong package manager -> redirect to pkm, echoing the
-    # intended action/packages so the model (and user) sees the correct command.
+    # intended action/packages so the model (and user) sees the correct command
+    # -- for the person's own ask only; otherwise only that pkm is the manager.
     if cmd in WRONG_PKG_MANAGERS:
         toks = command.strip().split()
         verb = _PKM_VERB.get(toks[1].lower()) if len(toks) > 1 else None
         pkgs = [t for t in toks[2:] if not t.startswith("-")] if len(toks) > 2 else []
-        if verb and pkgs:
+        # Only a plain package action is re-formed: a word that is not a
+        # package name (a shell operator, a path, a second command) means the
+        # line is something else, and re-forming it would hand that over too.
+        plain = all(_PACKAGE_NAME_RE.match(t) for t in pkgs)
+        if own_ask and plain and verb and pkgs:
             return f"This system uses pkm, not {cmd}. Try `pkm {verb} {' '.join(pkgs)}`."
-        if verb:
+        if own_ask and plain and verb:
             return f"This system uses pkm, not {cmd}. Try `pkm {verb}`."
         return (f"This system's package manager is pkm, not {cmd}. "
                 "See `pkm --help` (install / remove / search / list / info).")
@@ -3289,8 +3308,9 @@ def get_blocked_response(command: str) -> str:
             "helper rather than answer. For interface and address info, read "
             "/sys/class/net (e.g. `ls /sys/class/net`, "
             "`cat /sys/class/net/<iface>/address`, "
-            "`cat /sys/class/net/<iface>/operstate`), or run the command "
-            "yourself in a terminal."
+            "`cat /sys/class/net/<iface>/operstate`)"
+            + (", or run the command yourself in a terminal." if own_ask
+               else ".")
         )
 
     # Match by base command

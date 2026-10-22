@@ -3522,11 +3522,12 @@ class WebServer:
                 # execute() with review_callback=None → registry fail-closed and
                 # denied every held action: the incoherent offer/deny loop).
                 if self._governance_hard_deny(item):
-                    friendly = (
-                        "I'm not able to do that from here right now. "
-                        "If you'd like, I can look something up for you or walk "
-                        "you through how to do it instead."
-                    )
+                    # The action and why it did not run, with no offer to
+                    # carry the refused call out (refusal_without_handoff).
+                    from intergen.tool_registry import (
+                        REFUSED_WITHOUT_REVIEW, refusal_without_handoff)
+                    friendly = refusal_without_handoff(
+                        item, outcome=REFUSED_WITHOUT_REVIEW)
                     collected_tokens.append(friendly)
                     await ctx.ws.send_json({
                         "type": "stream_token",

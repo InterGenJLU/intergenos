@@ -107,6 +107,7 @@ from intergen.interfaces.provenance import (
     Provenance,
     ToolRiskTier,
     UserDecision,
+    escalate_provenance,
 )
 from intergen.provenance import (
     build_audit_record,
@@ -235,7 +236,15 @@ def tier_needs_admin(tier: "ToolRiskTier") -> bool:
     return tier is ToolRiskTier.PRIVILEGED_STATE_CHANGING
 
 
-def honest_handoff_message(what: str, command: str, needs_admin: bool) -> str:
+def _runs_as_the_account(command: str) -> bool:
+    """True for a command that acts on the account itself (pip install --user,
+    systemctl --user stop ...): it is the account's own, so the handoff never
+    puts sudo in front of it, whatever tier run_command gave it."""
+    return "--user" in (command or "").split()
+
+
+def honest_handoff_message(what: str, command: str, needs_admin: bool,
+                           outcome: str = "") -> str:
     """The 3-part honest handoff (the honest-handoff design), shown when a state-changing action
     cannot be carried out in this window — the user declined, or there is no way
     to collect approval on this surface.
@@ -250,10 +259,24 @@ def honest_handoff_message(what: str, command: str, needs_admin: bool) -> str:
 
     `what` is the plain-language action sentence (from the card translator);
     `command` is the concrete command; `needs_admin` states whether the OS
-    administrator prompt is the real authorization boundary."""
+    administrator prompt is the real authorization boundary. `outcome` is the
+    registry's word for why the call did not run (ToolResult.outcome): the
+    reason given is that outcome's own sentence, so a person who pressed Deny
+    is not told that approval could not be collected. A command that runs as
+    the account itself (a --user command) is never prefixed with sudo."""
     what = (what or "").strip()
     command = (command or "").strip()
-    if needs_admin:
+    if _runs_as_the_account(command):
+        needs_admin = False
+    if outcome in _NOT_RUN_WHY:
+        why = _NOT_RUN_WHY[outcome]
+        run_cmd = command
+        if needs_admin and command:
+            # sudo on every command of a sequence, as below.
+            run_cmd = " && ".join(
+                part if part.startswith("sudo ") else f"sudo {part}"
+                for part in (p.strip() for p in command.split("&&")) if part)
+    elif needs_admin:
         why = ("This needs administrator approval, which I can't collect from "
                "here.")
         # Prefix sudo only when there is a real command — an empty command must
@@ -627,13 +650,15 @@ def _terminal_line(act: ActDescription) -> str:
     """The act's command line as a person types it at a terminal: pkm's --yes
     dropped (a person there answers pkm's own pause), and sudo on every command
     when the act runs as root, on none when it runs on the person's own
-    manager."""
+    manager, and none before a command that acts on the account itself (a
+    --user command)."""
     lines = []
     for argv in act.commands:
         words = [w for w in argv
                  if not (os.path.basename(argv[0]) == "pkm" and w == "--yes")]
         line = shlex.join(words)
-        lines.append(f"sudo {line}" if act.root else line)
+        lines.append(f"sudo {line}"
+                     if act.root and not _runs_as_the_account(line) else line)
     return " && ".join(lines)
 
 
@@ -657,14 +682,6 @@ def handoff_command(tool_call: "ToolCall") -> str:
 #: reads the reason after it.
 VALIDATION_REFUSED = "Validation error: "
 
-# The plain refusal, for a held action with no command worth handing over and
-# for one the safety tier hard-refuses.
-GATE_REFUSAL_PLAIN = (
-    "I'm not able to do that from here right now. "
-    "If you'd like, I can look something up for you or walk "
-    "you through how to do it instead."
-)
-
 
 def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
                          tool_obj: "BaseTool | None" = None) -> str:
@@ -672,11 +689,15 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
 
     A BLOCKED action (a destructive command the safety tier hard-refuses) NEVER
     gets a "run it yourself" command — that would hand the person the very thing
-    the block exists to prevent (fail-closed, security-first); it gets the plain
-    refusal. A call refused before any card gets its reason. A normal
-    state-changing action that was denied, or that had no consent surface, gets
-    the 3-part honest handoff, so the person is honestly advised of the real
-    path forward rather than dead-ended.
+    the block exists to prevent (fail-closed, security-first); it is told in the
+    block's own words. A call whose command line may not be handed over
+    (handoff_withheld) is told the kind of action and why it did not run, and
+    nothing of the call itself; any other call refused before any card gets its
+    reason; the person's own call with no command line is told the action and
+    why (refusal_without_handoff). A state-changing action of the person's own
+    that was denied, or that had no consent surface, gets the 3-part honest
+    handoff, so the person is honestly advised of the real path forward rather
+    than dead-ended.
 
     THE SINGLE SOURCE for every surface. The web panel's tool-call loop renders
     its refusal here, and so does the router when a dispatch it drove was denied
@@ -685,20 +706,73 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
     renderer written for this case could not be reached from that path.
     """
     if getattr(tool_result, "blocked", False):
-        return GATE_REFUSAL_PLAIN
+        return refusal_without_handoff(tool_call, tool_result)
     act = describe_call(tool_call, tool_obj)
     if act.blocked:
-        return GATE_REFUSAL_PLAIN
+        return refusal_without_handoff(tool_call, tool_result)
+    withheld = handoff_withheld(tool_call, tool_result, tool_obj)
     content = str(getattr(tool_result, "content", "") or "")
     reason = act.refusal or (content[len(VALIDATION_REFUSED):]
                              if content.startswith(VALIDATION_REFUSED) else "")
-    if reason:
+    if reason and not withheld:
         # Refused before any card: the reason, never a command to run.
         return f"Nothing was run: {reason.rstrip('.')}."
     command = handoff_command(tool_call)
-    if not command:
-        return GATE_REFUSAL_PLAIN
-    return honest_handoff_message(act.what, command, act.root)
+    if withheld or not command:
+        return refusal_without_handoff(tool_call, tool_result,
+                                       name_the_call=not withheld)
+    return honest_handoff_message(act.what, command, act.root,
+                                  outcome=getattr(tool_result, "outcome", "") or "")
+
+
+def handoff_withheld(tool_call: "ToolCall", tool_result: "ToolResult | None" = None,
+                     tool_obj: "BaseTool | None" = None) -> str:
+    """Why the command line of a call that ran nothing must NOT be handed to the
+    person, or "" when it may be. A refusal that hands the refused call back as
+    "you can do it yourself" turns the refusal into an instruction in the
+    product's own voice, so the line is handed over only for the person's own
+    ask, and never for:
+
+      * a call whose arguments name an install secret: the registry's own
+        screen, asked of the same arguments with the tool's command-line
+        parameters, so the renderer and the screen cannot disagree;
+      * a call that is not the person's own ask: the provenance the gate read
+        once ingress was weighed (ToolResult.effective_provenance), or, for a
+        result that carries none, the call's declared one; anything but
+        user_direct is a command the person did not give, a page's among them;
+      * a call its own tool refused as invalid (a verb the tool does not have),
+        or a call naming a tool there is none of: the line would tell the
+        person to run a command that cannot work, and the name is the call's;
+      * a call its tool's safety tier refuses outright (BLOCKED): the block
+        exists to stop that very command, on every path that could repeat it;
+      * a call refused outright before any review (REFUSED_WITHOUT_REVIEW: a
+        forbidden zone, a governance hard deny): never the assistant's to take,
+        so the person is told it, as the zone's own refusal tells them, without
+        the command typed out for them.
+    """
+    arguments = tool_call.arguments if isinstance(tool_call.arguments, dict) else {}
+    params = (getattr(tool_obj, "command_line_parameters", ()) or ()) if tool_obj is not None else ()
+    secret = _names_an_install_secret(arguments, params)
+    if secret is not None:
+        return f"the arguments name {secret}"
+    provenance = (getattr(tool_result, "effective_provenance", "") or ""
+                  if tool_result is not None else "")
+    if not provenance:
+        provenance = getattr(tool_call.source_of_request, "value", "") or ""
+    if provenance != Provenance.USER_DIRECT.value:
+        return f"the call is not the person's own ask ({provenance or 'no provenance'})"
+    if getattr(tool_result, "outcome", "") == "invalid_arguments" or (
+            tool_obj is not None and tool_obj.validate_arguments(arguments)):
+        return "its own tool refused the arguments"
+    if getattr(tool_result, "outcome", "") == "unknown_tool":
+        return "there is no tool by that name"
+    if getattr(tool_result, "blocked", False) or (
+            tool_obj is not None
+            and tool_obj.classify_safety(arguments) == SafetyTier.BLOCKED):
+        return "its tool's safety tier refuses it outright"
+    if getattr(tool_result, "outcome", "") == REFUSED_WITHOUT_REVIEW:
+        return "it was refused outright before any review"
+    return ""
 
 
 # The answers a review callback gives the registry. Only an approval runs the
@@ -721,6 +795,9 @@ NO_REVIEW_UI = "no_review_ui"
 # that approval to the root boundary could not be minted: nothing runs, and
 # the record says the token failed, not that the person refused.
 DISPATCH_TOKEN_FAILED = "dispatch_token_failed"
+# An action the router does not offer again in a conversation because it did
+# not run when it was offered before (the loop-killer's handoff).
+HANDED_OFF_BEFORE = "handed_off_before"
 _REVIEW_NOT_DECIDED = {
     REVIEW_TIMED_OUT: "the review card was not answered before its deadline",
     REVIEW_REFUSED: ("a review card for this call was already open, so a "
@@ -731,6 +808,40 @@ _REVIEW_NOT_DECIDED = {
                              "review card was raised"),
     REVIEW_ENDED: ("the conversation it belonged to ended before anyone "
                    "answered its review card"),
+}
+
+
+# The reason a handoff gives for a call that ran nothing, one per outcome the
+# registry records on the result (ToolResult.outcome). An outcome not listed
+# keeps the handoff's general sentence.
+_NOT_RUN_WHY = {
+    "denied": "You declined it at the review card, so I didn't run it.",
+    "deny_conversation": ("You declined it at the review card for the rest of "
+                          "this conversation, so I didn't run it."),
+    REVIEW_TIMED_OUT: ("Its review card wasn't answered before its deadline, "
+                       "so nothing ran."),
+    REVIEW_REFUSED: "A review card for it was already open, so nothing ran.",
+    REVIEW_FAILED: ("Its review card couldn't be shown, or its answer couldn't "
+                    "be read, so nothing ran."),
+    REFUSED_WITHOUT_REVIEW: ("This machine refuses that action outright, so "
+                             "nothing ran."),
+    REVIEW_ENDED: ("The conversation it belonged to ended before its review "
+                   "card was answered, so nothing ran."),
+    NO_REVIEW_UI: ("There's no way to ask for your approval here, so nothing "
+                   "ran."),
+    # The recovery step rides with the reason: the record names it, and a
+    # person told only that the approval failed has no way to mend it.
+    DISPATCH_TOKEN_FAILED: ("You approved it, but the approval couldn't be "
+                            "confirmed to the system (its signing key is "
+                            "missing or unreadable), so nothing ran. Running "
+                            "'intergen setup' provisions the key again."),
+    "escalation_refused": ("This assistant runs with administrator actions "
+                           "turned off, so nothing ran."),
+    "gate_rejected": "It was refused before it reached a review, so nothing ran.",
+    # Not the registry's: the router's loop-killer, for an action it does not
+    # offer again because it did not run when it came up earlier.
+    HANDED_OFF_BEFORE: ("It didn't run when it came up earlier in this "
+                        "conversation, so I'm not offering it again."),
 }
 
 
@@ -827,6 +938,79 @@ def is_search_hold(result: "ToolResult | None") -> bool:
             and getattr(result, "content", None) == SEARCH_NOT_ASKED_SUMMARY)
 
 
+# The reason a refusal gives when no command line is handed over, one per
+# outcome the registry records on the result: the handoff's own sentences, and
+# one for each refusal that no review reached. A fixed "I'm not able to do that
+# from here right now" in their place told a person who had pressed Deny, a
+# credential the assistant never reads and a blocked action alike that the
+# assistant could not act just now, and its offer to walk them through how to
+# do it instead handed the refused call back in other words.
+_REFUSED_WHY = {
+    **_NOT_RUN_WHY,
+    "secret_refused": ("It names one of the assistant's own credential "
+                       "files, which the assistant never reads and no "
+                       "approval can open, so nothing ran."),
+    "invalid_arguments": ("That isn't something the tool can do as asked, so "
+                          "nothing ran."),
+    "unknown_tool": "There's no tool by that name here, so nothing ran.",
+    "egress_blocked": ("It would have sent content off this machine that the "
+                       "outbound check stopped, so nothing ran."),
+    "blocked": "This machine refuses that action outright, so nothing ran.",
+    SEARCH_NOT_ASKED: "You didn't ask for a web search, so no query was sent.",
+}
+# A result that carries no outcome the table knows: what is certain is that
+# the call did not run.
+_REFUSED_WHY_UNKNOWN = "It didn't run, so nothing changed."
+
+# The kind of action a call asked for, named without any of its arguments: what
+# a refusal says of a call whose content must not be repeated to the person (a
+# package name, a unit, a path or a verb a page supplied would otherwise come
+# back in the product's voice). A tool not listed is named by nothing but the
+# reason.
+_ACTION_KIND = {
+    "run_command": "Run a system command.",
+    "manage_packages": "Change the installed packages.",
+    "manage_services": "Change a system service.",
+    "write_file": "Write to a file.",
+}
+
+
+def refusal_without_handoff(tool_call: "ToolCall",
+                            tool_result: "ToolResult | None" = None,
+                            outcome: str = "", *,
+                            name_the_call: bool = False) -> str:
+    """What a person is told about a call that ran nothing when no command line
+    is handed over: the action and the outcome's own reason (`outcome`, or the
+    registry's word on `tool_result`), and nothing more — no command, and no
+    offer to carry the refused call out. The action is named by its kind alone
+    (_ACTION_KIND), none of the call's arguments, unless `name_the_call` says
+    the call is the person's own ask with nothing withheld (a tool with no
+    command line), when it is named as its review card names it. A blocked call
+    is told in the block's own words, computed from the call as the registry
+    computes them (safety.get_blocked_response under the provenance the gate
+    read, the result's effective_provenance): a result's content is written for
+    the model and the record, so it is never taken as the person's text."""
+    if getattr(tool_result, "blocked", False):
+        from intergen.safety import get_blocked_response
+        arguments = (tool_call.arguments
+                     if isinstance(tool_call.arguments, dict) else {})
+        return get_blocked_response(
+            str(arguments.get("command", str(arguments))),
+            provenance=getattr(tool_result, "effective_provenance", "") or "")
+    outcome = outcome or (getattr(tool_result, "outcome", "") or "")
+    why = _REFUSED_WHY.get(outcome, _REFUSED_WHY_UNKNOWN)
+    if name_the_call:
+        what, _cmd = card_action_description(tool_call)
+    else:
+        what = _ACTION_KIND.get(tool_call.name, "")
+    what = (what or "").strip()
+    if not what:
+        return why
+    if not what.endswith((".", "!", "?")):
+        what = what + "."
+    return f"{what} {why}"
+
+
 def _ingress_source_attribution(
     tool_name: str, arguments: dict[str, Any]
 ) -> tuple[str, str]:
@@ -915,6 +1099,24 @@ def _names_an_install_secret(arguments: object,
                 return reason
         return None
     return secret_file_reason(arguments)
+
+
+def _effective_before_gate(call: ToolCall,
+                           ingress_tracker: IngressTracker) -> Provenance:
+    """The provenance the dispatcher gate gives a call, for a call refused
+    before the gate is consulted (an unknown tool, arguments its tool refuses,
+    the BLOCKED tier): the declared label after the ingress watermark, or
+    ingress_derived when none was declared, exactly as verify_tool_call and
+    build_refusal_audit_record compute it. A refusal's wording reads it, so a
+    call the gate would not read as the person's own is never worded as theirs.
+    """
+    if call.source_of_request is None:
+        return Provenance.INGRESS_DERIVED
+    return escalate_provenance(
+        call.source_of_request,
+        ingress_tracker.ingress_fired_this_turn(),
+        ingress_tracker.ingress_fired_this_conversation(),
+    )
 
 
 def _egress_payload(arguments: dict[str, Any]) -> str:
@@ -1194,6 +1396,9 @@ class ToolRegistry:
                 content=content,
                 success=False,
                 executed=False,
+                outcome="unknown_tool",
+                effective_provenance=_effective_before_gate(
+                    call, ingress_tracker).value,
             )
 
         # Per-tool usage tally for the Usage tab's Top Tools chart (real tool
@@ -1217,14 +1422,21 @@ class ToolRegistry:
                     content=content,
                     success=False,
                     executed=False,
+                    outcome="invalid_arguments",
+                    effective_provenance=_effective_before_gate(
+                        call, ingress_tracker).value,
                 )
 
             # BLOCKED tier remains a tool-level refusal independent of
             # provenance — does not escalate regardless of declared source.
+            # Its WORDING reads the provenance, though: the redirect names the
+            # call's own packages only for the person's own ask, as the gate
+            # would read it (get_blocked_response).
             safety = tool.classify_safety(arguments)
             if safety == SafetyTier.BLOCKED:
                 from intergen.safety import get_blocked_response
                 cmd = arguments.get("command", str(arguments))
+                effective = _effective_before_gate(call, ingress_tracker)
                 self._audit_log_refusal(
                     call, ingress_tracker,
                     f"Blocked: {tool_name} classifies this call in the BLOCKED "
@@ -1235,12 +1447,15 @@ class ToolRegistry:
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
-                    content=get_blocked_response(cmd),
+                    content=get_blocked_response(
+                        cmd, provenance=effective.value),
                     success=False,
                     # Safety block — surface it like run_command's so the router
                     # synth-skips it (deterministic refusal, never narrated).
                     blocked=True,
                     executed=False,
+                    outcome="blocked",
+                    effective_provenance=effective.value,
                 )
 
             # A CALL THAT WILL BE REFUSED IS REFUSED BEFORE ANY CARD. Every
@@ -1272,6 +1487,8 @@ class ToolRegistry:
                     success=False,
                     blocked=act.blocked,
                     executed=False,
+                    effective_provenance=_effective_before_gate(
+                        call, ingress_tracker).value,
                 )
 
         # Classify tool risk tier + fire the dispatcher gate. The gate verdict
@@ -1332,6 +1549,8 @@ class ToolRegistry:
                 content=SEARCH_NOT_ASKED_SUMMARY,
                 success=False,
                 executed=False,
+                outcome=SEARCH_NOT_ASKED,
+                effective_provenance=decision.effective_provenance.value,
             )
 
         # DIRECT ARGUMENT REFERENCES ARE SCREENED HERE. This check can reject a
@@ -1391,6 +1610,8 @@ class ToolRegistry:
                 content=refusal,
                 success=False,
                 executed=False,
+                outcome="secret_refused",
+                effective_provenance=decision.effective_provenance.value,
             )
 
         # Reject path — gate refused (missing source_of_request, prior
@@ -1410,6 +1631,11 @@ class ToolRegistry:
                 content=f"Tool call refused by dispatcher: {decision.reason}",
                 success=False,
                 executed=False,
+                # A reject the trust state decided is the person's own earlier
+                # deny for the rest of the conversation, and is told as that.
+                outcome=("deny_conversation" if decision.trust_state_consulted
+                         else "gate_rejected"),
+                effective_provenance=decision.effective_provenance.value,
             )
 
         # Review path — route to review_callback (the zenity/libnotify modal
@@ -1470,6 +1696,8 @@ class ToolRegistry:
                     ),
                     success=False,
                     executed=False,
+                    outcome="egress_blocked",
+                    effective_provenance=decision.effective_provenance.value,
                 )
             if egress_verdict.disposition is ScanDisposition.FLAG:
                 egress_flag_reason = egress_verdict.reason or "outbound content flagged"
@@ -1517,6 +1745,8 @@ class ToolRegistry:
                     ),
                     success=False,
                     executed=False,
+                    outcome=NO_REVIEW_UI,
+                    effective_provenance=decision.effective_provenance.value,
                 )
 
             # Decision #1 — ONE consolidated modal: when the gate AND the egress
@@ -1570,6 +1800,9 @@ class ToolRegistry:
                     # tells every delivery path to render its own refusal rather
                     # than deliver that sentence (see gate_refusal_message).
                     denied_by_user=True,
+                    outcome=("denied" if user_choice == "deny"
+                             else "deny_conversation"),
+                    effective_provenance=decision.effective_provenance.value,
                 )
             if user_choice not in REVIEW_APPROVALS:
                 # Nobody approved it and nobody denied it: the card went
@@ -1595,6 +1828,8 @@ class ToolRegistry:
                     content=f"Nothing was run: {what}.",
                     success=False,
                     executed=False,
+                    outcome=outcome,
+                    effective_provenance=decision.effective_provenance.value,
                 )
             # Approved (allow_once / allow_conversation) — proceed to execution.
             if privileged:
@@ -1637,6 +1872,8 @@ class ToolRegistry:
                         ),
                         success=False,
                         executed=False,
+                        outcome=DISPATCH_TOKEN_FAILED,
+                        effective_provenance=decision.effective_provenance.value,
                     )
             elif held_in_person:
                 # Honoured once and never recorded, as for the privileged tier.
@@ -1666,6 +1903,12 @@ class ToolRegistry:
                     result = self._dispatch_via_pkexec(
                         call, tool_name, arguments, dispatch_token_value,
                     )
+                    if not result.executed and not result.effective_provenance:
+                        # A refusal before anything started (the escalation
+                        # posture) is told under the provenance the gate read,
+                        # as every other refusal is (handoff_withheld).
+                        result.effective_provenance = (
+                            decision.effective_provenance.value)
                 else:
                     # Read-through cache for AUTO read-only calls: a fresh hit
                     # skips the system call (and downstream re-synthesis). Privileged
@@ -2011,6 +2254,7 @@ class ToolRegistry:
                 ),
                 success=False,
                 executed=False,
+                outcome="escalation_refused",
             )
 
         if dispatch_token is None:

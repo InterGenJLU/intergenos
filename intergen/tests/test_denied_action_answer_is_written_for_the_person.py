@@ -56,7 +56,8 @@ AUDIT_STRING = "Tool call denied by user via review modal."
 def _denied_result(name="manage_services", call_id="c1") -> ToolResult:
     """What the registry returns when the person presses deny at the card."""
     return ToolResult(call_id=call_id, name=name, content=AUDIT_STRING,
-                      success=False, executed=False, denied_by_user=True)
+                      success=False, executed=False, denied_by_user=True,
+                      outcome="denied", effective_provenance="user_direct")
 
 
 def _service_call(action="restart", service="sshd") -> ToolCall:
@@ -149,18 +150,27 @@ class TheDeniedAnswerIsWrittenForThePerson(unittest.TestCase):
         self.assertEqual(link.renderer, "gate_refusal")
 
     def test_a_denial_with_no_command_still_answers_plainly(self):
-        """A tool with no command line to hand over gets the plain refusal,
-        never an invented command and never the audit string."""
+        """A tool with no command line to hand over is told why it did not
+        run, the person's own Deny, and nothing more: never an invented
+        command, never an offer to carry it out another way, and never the
+        audit string."""
         tr = _denied_result(name="take_screenshot")
         call = ToolCall(name="take_screenshot", arguments={}, call_id="c1",
                         source_of_request=Provenance.USER_DIRECT)
         rr = self._decline(tr, call)
         self.assertNotIn(AUDIT_STRING.lower(), rr.text.lower())
-        self.assertIn("not able to do that from here", rr.text.lower())
+        self.assertIn("You declined it at the review card", rr.text)
+        self.assertNotIn("`", rr.text)
+        self.assertNotIn("walk you through", rr.text)
+        self.assertNotIn("yourself", rr.text)
 
     def test_a_blocked_action_is_never_handed_a_command_to_run(self):
         """Fail-closed: a hard-refused action must not be handed to the person
-        as something to run themselves."""
+        as something to run themselves. It is told in the block's own words,
+        computed from the call; the result's content is written for the model
+        and the record, and here it is the audit string."""
+        from intergen import safety
+
         tr = ToolResult(call_id="c1", name="run_command", content=AUDIT_STRING,
                         success=False, executed=False, blocked=True,
                         denied_by_user=True)
@@ -168,7 +178,8 @@ class TheDeniedAnswerIsWrittenForThePerson(unittest.TestCase):
                         call_id="c1", source_of_request=Provenance.USER_DIRECT)
         rr = self._decline(tr, call)
         self.assertNotIn("rm -rf", rr.text)
-        self.assertIn("not able to do that from here", rr.text.lower())
+        self.assertNotIn(AUDIT_STRING.lower(), rr.text.lower())
+        self.assertIn(rr.text, safety._BLOCKED_RESPONSES["rm"])
 
 
 class TheOtherRefusalClassKeepsItsVerbatimDelivery(unittest.TestCase):
@@ -192,20 +203,28 @@ class TheOtherRefusalClassKeepsItsVerbatimDelivery(unittest.TestCase):
         self.assertEqual(rr.answer_linkage.kind, "dispatch")
         self.assertEqual(rr.answer_linkage.renderer, "tool_refusal")
 
-    def test_an_unmarked_not_executed_refusal_keeps_its_own_words(self):
-        """Only a MARKED denial is re-rendered.
+    def test_an_unmarked_not_executed_refusal_keeps_its_recovery_step(self):
+        """Every not-executed refusal is told in its outcome's own words, as
+        the panel and the tool route tell it, and the recovery step its record
+        names rides with it.
 
-        The registry has other not-executed refusals whose content is already
-        written for a person — the approval token that could not be minted names
-        the recovery step. Re-rendering those would throw that sentence away.
+        The registry's content for the approval token that could not be minted
+        is written for the model and the record ("refusing dispatch"); the
+        person reads the outcome's sentence, which keeps that content's one
+        piece of advice, the setup command that provisions the key again.
         """
         from intergen.router import _decline_answer
+        from intergen.tool_registry import DISPATCH_TOKEN_FAILED
         content = ("Privileged action approved, but the approval token could "
                    "not be minted; refusing dispatch. Run 'intergen setup'.")
         tr = ToolResult(call_id="c3", name="manage_services", content=content,
-                        success=False, executed=False)
+                        success=False, executed=False,
+                        outcome=DISPATCH_TOKEN_FAILED,
+                        effective_provenance="user_direct")
         rr = _decline_answer("dispatch_failed", tr, tool_call=_service_call())
-        self.assertEqual(rr.text, content)
+        self.assertNotIn("refusing dispatch", rr.text)
+        self.assertIn("couldn't be confirmed to the system", rr.text)
+        self.assertIn("'intergen setup'", rr.text)
 
     def test_a_successful_result_is_never_a_decline(self):
         from intergen.router import _decline_answer

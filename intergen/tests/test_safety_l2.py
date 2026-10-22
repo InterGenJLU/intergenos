@@ -40,25 +40,39 @@ class TestWrongPkgManagerBlock(unittest.TestCase):
 
 
 class TestPkmRedirectMessage(unittest.TestCase):
+    # The redirect echoes the call's own action and packages for the person's
+    # own ask (the gate's user_direct) only.
+    OWN = "user_direct"
+
     def test_install_redirect_echoes_package(self):
-        msg = get_blocked_response("apt install firefox")
+        msg = get_blocked_response("apt install firefox", self.OWN)
         self.assertIn("pkm install firefox", msg)
 
     def test_remove_redirect(self):
-        self.assertIn("pkm remove vim", get_blocked_response("dnf remove vim"))
+        self.assertIn("pkm remove vim",
+                      get_blocked_response("dnf remove vim", self.OWN))
 
     def test_pacman_flag_redirect(self):
-        self.assertIn("pkm install htop", get_blocked_response("pacman -S htop"))
+        self.assertIn("pkm install htop",
+                      get_blocked_response("pacman -S htop", self.OWN))
 
     def test_search_redirect(self):
-        self.assertIn("pkm search nginx", get_blocked_response("yum search nginx"))
+        self.assertIn("pkm search nginx",
+                      get_blocked_response("yum search nginx", self.OWN))
 
     def test_update_maps_to_sync(self):
-        self.assertIn("pkm sync", get_blocked_response("apt update"))
+        self.assertIn("pkm sync", get_blocked_response("apt update", self.OWN))
 
     def test_unparseable_falls_back_to_generic(self):
-        msg = get_blocked_response("apt")
+        msg = get_blocked_response("apt", self.OWN)
         self.assertIn("pkm", msg)
+
+    def test_a_call_not_the_persons_own_is_redirected_without_its_packages(self):
+        for provenance in ("", "user_implied", "ingress_derived"):
+            with self.subTest(provenance=provenance):
+                msg = get_blocked_response("apt install evilpkg", provenance)
+                self.assertNotIn("evilpkg", msg)
+                self.assertIn("package manager is pkm, not apt", msg)
 
 
 if __name__ == "__main__":

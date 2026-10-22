@@ -35,7 +35,8 @@ import unittest
 from unittest import mock
 
 from intergen.interfaces.types import ToolCall, ToolResult
-from intergen.interfaces.provenance import Provenance, ToolRiskTier
+from intergen.interfaces.provenance import (IngressTracker, Provenance,
+                                            ToolRiskTier)
 from intergen import tool_registry
 from intergen import capability_registry
 from intergen.tools.manage_packages import ManagePackagesTool
@@ -262,6 +263,10 @@ class _DenyTools:
                           content="Tool call denied by user via review modal.",
                           success=False, executed=False)
 
+    def get_tool(self, name):
+        # No tool object: the handoff's rule reads the call alone.
+        return None
+
 
 class LoopKillerTests(unittest.TestCase):
     def _router(self):
@@ -269,7 +274,7 @@ class LoopKillerTests(unittest.TestCase):
         r = ConversationRouter.__new__(ConversationRouter)
         r._handed_off_commands = set()
         r._tools = _DenyTools()
-        r._ingress_tracker = object()
+        r._ingress_tracker = IngressTracker()
         r._trust_state = object()
         r._review_callback = None
         r._filler = None
@@ -550,9 +555,14 @@ class BuilderAgainstSurfaceTests(unittest.TestCase):
                     console = self._console({"what": what, "command": command},
                                             name)
                     self.assertIn(f"Command: {line}", console)
+                    # The handoff of the person's own call; one that is not
+                    # theirs keeps its line withheld
+                    # (test_a_refusal_never_hands_over_the_refused_call).
+                    own = ToolCall(name=name, arguments=dict(arguments),
+                                   source_of_request=Provenance.USER_DIRECT)
                     handoff = tool_registry.gate_refusal_message(
-                        call, ToolResult(call_id="", name=name, content="",
-                                         success=False, executed=False), tool)
+                        own, ToolResult(call_id="", name=name, content="",
+                                        success=False, executed=False), tool)
                     self.assertIn("`" + _terminal(commands, act.root) + "`",
                                   handoff)
                 else:

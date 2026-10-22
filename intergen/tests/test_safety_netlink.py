@@ -78,6 +78,15 @@ class TestNetlinkRedirectMessage(unittest.TestCase):
     def test_bridge_redirect(self):
         self.assertIn("/sys/class/net", get_blocked_response("bridge link"))
 
+    def test_run_it_yourself_only_for_the_persons_own_ask(self):
+        own = get_blocked_response("ip link set eth0 down", "user_direct")
+        self.assertIn("run the command yourself", own)
+        for provenance in ("", "user_implied", "ingress_derived"):
+            with self.subTest(provenance=provenance):
+                msg = get_blocked_response("ip link set eth0 down", provenance)
+                self.assertNotIn("yourself", msg)
+                self.assertIn("/sys/class/net", msg)
+
 
 if __name__ == "__main__":
     unittest.main()

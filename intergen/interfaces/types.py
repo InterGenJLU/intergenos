@@ -118,6 +118,15 @@ class ToolResult:
     # header. Until 2026-10-20 the whole data URI rode in `content` and reached
     # the model as base64 TEXT cut at the tool-result cap — never a picture.
     image_data: str | None = None
+    # WHY A CALL THAT DID NOT RUN DID NOT RUN, as the registry decided it: one
+    # word (the outcome its audit record names, or the refusal before the gate:
+    # unknown_tool, invalid_arguments, blocked, secret_refused, gate_rejected),
+    # and the provenance the gate read, or would read, once ingress was weighed.
+    # The refusal a person reads takes its reason from the first and hands over
+    # a command line only when the second is the person's own (user_direct).
+    # Both are empty for a call that ran.
+    outcome: str = ""
+    effective_provenance: str = ""
 
 
 @dataclass
