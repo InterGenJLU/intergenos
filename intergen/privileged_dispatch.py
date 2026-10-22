@@ -13,10 +13,12 @@ boundary.
 
 Argv contract (from `intergen-privileged-runner`):
 
-    python3 -m intergen.privileged_dispatch --request-id <request_id>
+    python3 -m intergen.privileged_dispatch --tool <tool> --request-id <request_id>
 
-That is the whole command line, and it is the point. The tool name, the
-arguments and the human-approval token are read from the request file, which is
+That is the whole command line, and it is the point. The tool name is the one
+pkexec chose the PolicyKit action from, so it is the kind of action the person
+just authenticated for; the request must name the same tool or it is refused.
+The arguments and the human-approval token are read from the request file, which is
 owner-only and is removed as it is read (intergen.privileged_request). They used
 to be argv words instead, and a command line is world-readable through
 /proc/<pid>/cmdline for the life of the process — on this image /proc carries no
@@ -309,14 +311,15 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = argv if argv is not None else sys.argv[1:]
 
-    if len(args) != 2 or args[0] != "--request-id":
+    if len(args) != 4 or args[0] != "--tool" or args[2] != "--request-id":
         _fail(
             "privileged_dispatch: usage: python3 -m intergen.privileged_dispatch "
-            "--request-id <request_id>",
+            "--tool <tool> --request-id <request_id>",
             exit_code=2,
         )
 
-    request_id = args[1]
+    authenticated_tool = args[1]
+    request_id = args[3]
 
     # PKEXEC_UID + PKEXEC_USER are set by the runner shim. Their absence
     # means this module was invoked outside the runner — a bug or a
@@ -338,6 +341,18 @@ def main(argv: list[str] | None = None) -> int:
         _fail(
             f"privileged_dispatch: PKEXEC identity unavailable/invalid "
             f"({type(exc).__name__}: {exc}); refusing.",
+        )
+
+    # The tool pkexec authenticated for. pkexec chose the PolicyKit action from
+    # this name (the runner's first argument against each action's exec.argv1),
+    # so it is the kind of action the authentication prompt named. A name
+    # outside the allowlist is refused here, before the request is read; the
+    # runner refused it once already.
+    if authenticated_tool not in _PRIVILEGED_TOOLS:
+        _fail(
+            f"privileged_dispatch: tool {authenticated_tool!r} is not in the "
+            f"PRIVILEGED_STATE_CHANGING allowlist; refusing dispatch. "
+            f"(allowlist: {sorted(_PRIVILEGED_TOOLS)})",
         )
 
     # Turn the identifier into a path OURSELVES (2026-08-24). The unprivileged
@@ -364,6 +379,18 @@ def main(argv: list[str] | None = None) -> int:
         )
     except privileged_request.RequestError as exc:
         _fail(f"privileged_dispatch: {exc}; refusing dispatch.")
+
+    # ONE AUTHENTICATION IS ONE CALL, FOR THE KIND OF ACTION IT NAMED
+    # (2026-10-22). The person authenticated against the action for
+    # authenticated_tool; a request carrying another tool would run something
+    # the prompt did not name. Refused before the token is verified, so nothing
+    # is claimed or spent.
+    if tool_name != authenticated_tool:
+        _fail(
+            f"privileged_dispatch: the request names tool {tool_name!r} but "
+            f"the administrator authenticated for {authenticated_tool!r}; "
+            f"refusing dispatch.",
+        )
 
     # Re-validate tool_name against the PRIVILEGED_STATE_CHANGING
     # allowlist. The gate already filtered, but the privileged boundary

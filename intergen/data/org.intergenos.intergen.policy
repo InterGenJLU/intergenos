@@ -12,40 +12,99 @@
   fire for privileged operations per the RFC v0.1 §6 line 161 "the two
   don't replace each other" invariant.
 
-  Coverage: one action covers the entire privileged-tool tier (per RFC §6
-  taxonomy: manage_services on system services + manage_packages +
-  run_command with sudo + write_file to /etc/). The privileged-tool
-  list and per-tool argument validation live in the runner's Python
-  dispatcher entry point (intergen.privileged_dispatch) — pkexec is
-  the AUTHENTICATION boundary, intergen.privileged_dispatch is the
+  Coverage: one action per privileged tool (per RFC §6 taxonomy:
+  manage_services on system services, manage_packages, run_command with
+  sudo, write_file to /etc/). pkexec chooses the action from the program
+  it runs and that program's first argument: each action below names the
+  runner in org.freedesktop.policykit.exec.path and its tool in
+  org.freedesktop.policykit.exec.argv1, and the runner is started as
+  `intergen-privileged-runner <tool> <request_id>`. That choice is what
+  lets the authentication prompt say which kind of action it is for. Every
+  action here carries an argv1: an action bound to the runner without one
+  would match any first argument, and which of two matching actions pkexec
+  picks is not defined. A first argument naming no tool here matches no
+  action, so pkexec falls back to its own org.freedesktop.policykit.exec
+  (an administrator's password), and the runner then refuses the name. The
+  per-tool argument validation lives in the runner's Python dispatcher
+  entry point (intergen.privileged_dispatch) — pkexec is the
+  AUTHENTICATION boundary, intergen.privileged_dispatch is the
   AUTHORIZATION + ARGUMENT-VALIDATION boundary, and
   intergen/tool_registry.py + intergen/provenance.py are the INTENT
   boundary upstream.
 
-  auth_admin_keep matches the forge installer pattern: the user
-  authenticates once + the cached credentials are valid for the
-  session. For a personal-machine AI assistant making multiple
-  tool calls per conversation, re-prompting per-call would be
-  user-hostile without adding security (the same user authentication
-  covers the same conversation's tool calls; the provenance gate is
-  the per-call intent check, not the per-call authentication).
+  auth_admin, with no keep, on every action: one administrator
+  authentication is one privileged call, and the next call asks again.
+  pkexec asks PolicyKit about its PARENT process, and every runner is
+  started as a transient unit of the person's systemd user manager, so
+  every runner has the same parent. A kept authorization (auth_admin_keep)
+  is stored for that parent for five minutes, and any process of the
+  account can ask the same manager to start another runner inside that
+  window: it would run as root with no prompt and with nothing the person
+  approved. The dispatch token and the request file stay as defense in
+  depth behind this check; neither of them is the gate.
 -->
 <policyconfig>
   <vendor>InterGenOS</vendor>
   <vendor_url>https://github.com/InterGenJLU/intergenos</vendor_url>
   <icon_name>system-software-install</icon_name>
 
-  <action id="org.intergenos.intergen.privileged-tool">
-    <description>Run a privileged system action via InterGen AI</description>
-    <description xml:lang="en_US">Run a privileged system action via InterGen AI</description>
-    <message>Authentication is required to let InterGen perform the privileged system action you just approved</message>
-    <message xml:lang="en_US">Authentication is required to let InterGen perform the privileged system action you just approved</message>
+  <action id="org.intergenos.intergen.privileged-tool.manage-services">
+    <description>Start, stop or change a system service via InterGen AI</description>
+    <description xml:lang="en_US">Start, stop or change a system service via InterGen AI</description>
+    <message>Authentication is required to let InterGen start, stop or change the system service you just approved</message>
+    <message xml:lang="en_US">Authentication is required to let InterGen start, stop or change the system service you just approved</message>
     <defaults>
-      <allow_any>auth_admin_keep</allow_any>
-      <allow_inactive>auth_admin_keep</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
     </defaults>
     <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-privileged-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">manage_services</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
+  <action id="org.intergenos.intergen.privileged-tool.manage-packages">
+    <description>Install or remove software via InterGen AI</description>
+    <description xml:lang="en_US">Install or remove software via InterGen AI</description>
+    <message>Authentication is required to let InterGen install or remove the software you just approved</message>
+    <message xml:lang="en_US">Authentication is required to let InterGen install or remove the software you just approved</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-privileged-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">manage_packages</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
+  <action id="org.intergenos.intergen.privileged-tool.run-command">
+    <description>Run a command as the administrator via InterGen AI</description>
+    <description xml:lang="en_US">Run a command as the administrator via InterGen AI</description>
+    <message>Authentication is required to let InterGen run the command you just approved as the administrator</message>
+    <message xml:lang="en_US">Authentication is required to let InterGen run the command you just approved as the administrator</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-privileged-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">run_command</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
+  </action>
+
+  <action id="org.intergenos.intergen.privileged-tool.write-file">
+    <description>Write a system file via InterGen AI</description>
+    <description xml:lang="en_US">Write a system file via InterGen AI</description>
+    <message>Authentication is required to let InterGen write the system file you just approved</message>
+    <message xml:lang="en_US">Authentication is required to let InterGen write the system file you just approved</message>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/bin/intergen-privileged-runner</annotate>
+    <annotate key="org.freedesktop.policykit.exec.argv1">write_file</annotate>
     <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 

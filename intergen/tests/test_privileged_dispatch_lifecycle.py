@@ -148,7 +148,8 @@ class _LifecycleTestCase(unittest.TestCase):
         path = pr.write_request(tool, args if args is not None else _ARGS,
                                 token)
         try:
-            return pd.main(["--request-id", pr.request_id_for(path)]), None
+            return pd.main(["--tool", tool,
+                            "--request-id", pr.request_id_for(path)]), None
         except SystemExit as exc:
             return exc.code, exc
 

@@ -3,8 +3,10 @@
 #
 # Invoked via pkexec when a tool the provenance gate classified
 # PRIVILEGED_STATE_CHANGING (per RFC v0.1 §6) has been authorized for
-# execution. Runs as root after PolicyKit authentication against
-# org.intergenos.intergen.privileged-tool.
+# execution. Runs as root after PolicyKit authentication against the
+# org.intergenos.intergen.privileged-tool.<tool> action its first argument
+# selects (pkexec matches the program and its first argument against each
+# action's exec.path and exec.argv1 annotations).
 #
 # HOW IT IS STARTED (changed 2026-08-24). The assistant no longer runs pkexec
 # as its own child. Its systemd user unit sets NoNewPrivileges=yes, which every
@@ -18,8 +20,8 @@
 #
 # Two-layer security:
 #   1. PolicyKit (this runner is the exec.path target) — handles
-#      AUTHENTICATION (user enters password; cached per session via
-#      auth_admin_keep).
+#      AUTHENTICATION: an administrator's password for EVERY call (auth_admin,
+#      no keep window), with a prompt that names the tool's kind of action.
 #   2. intergen.privileged_dispatch (Python entry point) — handles
 #      AUTHORIZATION (validates tool name against allowlist + validates
 #      arguments per-tool + verifies the human-approval token + executes the
@@ -30,9 +32,15 @@
 #      enforced before the privilege crossing.
 #
 # ARGV CONTRACT (from the intergen caller, through pkexec):
-#   $1 — path to the request file.
+#   $1 — the tool name, one of the four privileged tools.
+#   $2 — the request identifier.
 #
-# That is the whole command line, and it is the point. The request file holds
+# That is the whole command line, and it is the point. The tool name is there
+# because pkexec chooses the PolicyKit action from it, which is what lets the
+# authentication prompt say which kind of action it is for; it is the action's
+# class, not its arguments. The dispatcher refuses a request whose tool is not
+# the one named here, so the prompt a person answered is the prompt for what
+# runs. The request file holds
 # the tool name, the arguments, and the human-approval token; it is owner-only
 # and it is removed as it is read. Those three values used to be argv words
 # instead, and a command line is world-readable through /proc/<pid>/cmdline for
@@ -64,17 +72,34 @@ if [ -z "${PKEXEC_UID}" ]; then
     exit 1
 fi
 
-# Argv strict equality: the request path, no extras. Narrowed from three
-# arguments to one when the tool name, arguments and token moved into the
-# request file. STRICT equality is kept so a caller still cannot smuggle extra
-# positional arguments past this entry point — any further argv would either be
-# silently ignored or could be exploited via downstream argv-shaping.
-if [ "$#" -ne 1 ]; then
-    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <request_id> (exactly 1 arg)\n' >&2
+# Argv strict equality: the tool name and the request identifier, no extras.
+# Narrowed from three arguments to one when the tool name, arguments and token
+# moved into the request file; the tool name came back as the first argument
+# when each tool got its own PolicyKit action. STRICT equality is kept so a
+# caller still cannot smuggle extra positional arguments past this entry point
+# — any further argv would either be silently ignored or could be exploited via
+# downstream argv-shaping.
+if [ "$#" -ne 2 ]; then
+    printf 'intergen-privileged-runner: usage: intergen-privileged-runner <tool> <request_id> (exactly 2 args)\n' >&2
     exit 2
 fi
 
-# The single argument is an IDENTIFIER, not a path (changed 2026-08-24). It is
+# The tool name is checked here, at the first thing that runs as root, against
+# the four names the policy binds. A name outside them matched no InterGen
+# action, so pkexec authenticated it against its own generic action; it is
+# refused before anything else runs. The dispatcher checks it again.
+TOOL="$1"
+shift
+case "${TOOL}" in
+    manage_services | manage_packages | run_command | write_file)
+        ;;
+    *)
+        printf 'intergen-privileged-runner: tool is not one of the privileged tools; refusing.\n' >&2
+        exit 2
+        ;;
+esac
+
+# The request argument is an IDENTIFIER, not a path (changed 2026-08-24). It is
 # checked here, at the first thing that runs as root, against a pattern that
 # admits nothing but lower-case hex of the generated length. A traversal, an
 # absolute path, a shell metacharacter, a newline: none of them match, so none
@@ -121,10 +146,10 @@ export HOME=/root
 export PKEXEC_UID
 export PKEXEC_USER
 
-# Hand off to the Python dispatcher. Its argv is the request identifier and
-# nothing else; the tool name, the arguments and the approval token are read from the
-# file, which the dispatcher removes as it reads. python3 is guaranteed-present
+# Hand off to the Python dispatcher. Its argv is the tool name and the request
+# identifier and nothing else; the arguments and the approval token are read from
+# the file, which the dispatcher removes as it reads. python3 is guaranteed-present
 # per packages/core/python (the intergen Python module ships with the same
 # package set; if python3 disappears, intergen itself is broken upstream of this
 # point and the issue surfaces before any tool dispatch).
-exec /usr/bin/python3 -m intergen.privileged_dispatch --request-id "${REQUEST_ID}"
+exec /usr/bin/python3 -m intergen.privileged_dispatch --tool "${TOOL}" --request-id "${REQUEST_ID}"

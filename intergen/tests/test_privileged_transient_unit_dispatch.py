@@ -372,22 +372,32 @@ class NoProtectedValueOnTheCommandLineTests(_DispatchTestCase):
         receives thirty-two hex characters and the privileged side derives the
         path itself, so a traversal or an absolute path is not something to
         reject — it is something that cannot be written down.
+
+        Changed 2026-10-22: the tool's name rides ahead of it. pkexec chooses
+        the PolicyKit action from the runner's first argument, so the name is
+        what gives each tool its own action and its own prompt. It is the
+        action's class, never its arguments.
         """
         self._dispatch()
         runner_at = self.argv.index(self.runner_path)
         passed = self.argv[runner_at + 1:]
         self.assertEqual(
-            len(passed), 1,
-            f"the runner should receive exactly one argument, the request "
-            f"identifier; got {passed}",
+            len(passed), 2,
+            f"the runner should receive exactly two arguments, the tool name "
+            f"and the request identifier; got {passed}",
         )
-        self.assertRegex(
-            passed[0], r"\A[0-9a-f]{32}\Z",
-            f"the runner's single argument is not a bare request identifier: "
+        self.assertEqual(
+            passed[0], "manage_packages",
+            f"the runner's first argument is not the dispatched tool's name: "
             f"{passed[0]!r}",
         )
+        self.assertRegex(
+            passed[1], r"\A[0-9a-f]{32}\Z",
+            f"the runner's second argument is not a bare request identifier: "
+            f"{passed[1]!r}",
+        )
         self.assertNotIn(
-            "/", passed[0],
+            "/", " ".join(passed),
             "a path separator reached the runner's command line",
         )
 

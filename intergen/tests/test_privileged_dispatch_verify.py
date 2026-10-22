@@ -165,7 +165,7 @@ class TokenVerifyGateTests(unittest.TestCase):
             key=_KEY, ttl_seconds=ttl, now=now,
         )
 
-    def _run(self, *, token=_UNSET, tool=_TOOL, args=None):
+    def _run(self, *, token=_UNSET, tool=_TOOL, args=None, authenticated_tool=None):
         """Write a request the way the unprivileged side does, then dispatch it.
 
         main() may sys.exit() on refusal; the caller captures that as a
@@ -176,9 +176,39 @@ class TokenVerifyGateTests(unittest.TestCase):
             tool, args if args is not None else _ARGS,
             "" if payload_token is None else payload_token,
         )
-        return pd.main(["--request-id", pr.request_id_for(path)])
+        return pd.main([
+            "--tool", tool if authenticated_tool is None else authenticated_tool,
+            "--request-id", pr.request_id_for(path),
+        ])
 
     # --- refusal paths -------------------------------------------------------
+
+    def test_a_request_naming_another_tool_than_the_authenticated_one_refuses(self):
+        """One authentication is one call, for the kind of action its prompt
+        named (2026-10-22). The runner's first argument chose the PolicyKit
+        action; a request carrying a different tool is refused before its token
+        is verified, so nothing runs and nothing is spent."""
+        self._set_token(self._mint(tool="run_command", args={"command": "id"}))
+        with mock.patch("builtins.print") as printed:
+            with self.assertRaises(SystemExit) as cm:
+                self._run(tool="run_command", args={"command": "id"},
+                          authenticated_tool="manage_services")
+        self.assertEqual(cm.exception.code, 1)
+        self.assertNotIn("executed", self._sink)
+        said = " ".join(str(c.args[0]) for c in printed.call_args_list)
+        self.assertIn("authenticated for 'manage_services'", said)
+        self.assertFalse(
+            os.path.exists(os.path.join(self._tmp, "consumed-nonces")),
+            "the approval was spent on a request the authentication did not name",
+        )
+
+    def test_a_tool_outside_the_allowlist_is_refused_before_the_request_is_read(self):
+        path = pr.write_request(_TOOL, _ARGS, self._mint())
+        with self.assertRaises(SystemExit) as cm:
+            pd.main(["--tool", "rm_everything", "--request-id", pr.request_id_for(path)])
+        self.assertEqual(cm.exception.code, 1)
+        self.assertTrue(os.path.exists(path), "the request was read for a tool the allowlist refuses")
+        self.assertNotIn("executed", self._sink)
 
     def test_missing_request_refuses(self):
         """The identifier is the right shape and names nothing. Refuse rather
@@ -193,7 +223,7 @@ class TokenVerifyGateTests(unittest.TestCase):
             mode=0o700, exist_ok=True,
         )
         with self.assertRaises(SystemExit) as cm:
-            pd.main(["--request-id", "0" * 32])
+            pd.main(["--tool", _TOOL, "--request-id", "0" * 32])
         self.assertNotEqual(cm.exception.code, 0)
         self.assertNotIn("executed", self._sink)
 
@@ -216,7 +246,7 @@ class TokenVerifyGateTests(unittest.TestCase):
         ):
             with self.subTest(identifier=bad):
                 with self.assertRaises(SystemExit) as cm:
-                    pd.main(["--request-id", bad])
+                    pd.main(["--tool", _TOOL, "--request-id", bad])
                 self.assertNotEqual(cm.exception.code, 0)
                 self.assertNotIn("executed", self._sink)
 
@@ -252,7 +282,7 @@ class TokenVerifyGateTests(unittest.TestCase):
             os.environ, {"PKEXEC_UID": str(other_uid)}, clear=False,
         ):
             with self.assertRaises(SystemExit) as cm:
-                pd.main(["--request-id", request_id])
+                pd.main(["--tool", _TOOL, "--request-id", request_id])
         self.assertNotEqual(cm.exception.code, 0)
         self.assertNotIn("executed", self._sink)
         self.assertTrue(
@@ -270,7 +300,7 @@ class TokenVerifyGateTests(unittest.TestCase):
     def test_the_request_is_removed_by_the_dispatch(self):
         """The approval token does not outlive the dispatch that consumed it."""
         path = pr.write_request(_TOOL, _ARGS, self._mint())
-        rc = pd.main(["--request-id", pr.request_id_for(path)])
+        rc = pd.main(["--tool", _TOOL, "--request-id", pr.request_id_for(path)])
         self.assertEqual(rc, 0)
         self.assertFalse(
             os.path.exists(path),

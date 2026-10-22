@@ -76,7 +76,10 @@ from intergen.interfaces.types import ToolCall
 from intergen.interfaces.provenance import Provenance
 
 
-#: The action the shipped policy binds to the privileged runner's exec.path.
+#: The installed policy file, and the prefix of the actions it binds to the
+#: privileged runner: one per privileged tool since 2026-10-22, each selected by
+#: pkexec from the runner's first argument (exec.argv1).
+INSTALLED_POLICY = "/usr/share/polkit-1/actions/org.intergenos.intergen.policy"
 POLICY_ACTION = "org.intergenos.intergen.privileged-tool"
 
 #: pkexec's refusal when the kernel declined to apply its setuid bit. This exact
@@ -320,30 +323,62 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
             "its clean result over this file proves nothing",
         )
 
-    @unittest.skipUnless(
-        os.path.exists(
-            f"/usr/share/polkit-1/actions/{POLICY_ACTION.rsplit('.', 1)[0]}.policy"
-        ),
-        f"the action-resolution leg was NOT measured: the installed policy file "
-        f"for {POLICY_ACTION} is absent",
-    )
+    #: Where polkit records which program an action is allowed to run. The
+    #: annotation is the binding; the rest of the file is prose around it.
+    EXEC_PATH_ANNOTATION = "org.freedesktop.policykit.exec.path"
+
+    def _runner_actions(self):
+        """Every <action> of the INSTALLED policy bound to the runner, or skip."""
+        if not os.path.exists(INSTALLED_POLICY):
+            self.skipTest(
+                f"the policy-binding leg was NOT measured: {INSTALLED_POLICY} is absent"
+            )
+        tree = ElementTree.parse(INSTALLED_POLICY)
+        bound = []
+        for action in tree.getroot().iter("action"):
+            annotations = {
+                a.get("key"): (a.text or "").strip() for a in action.iter("annotate")
+            }
+            if annotations.get(self.EXEC_PATH_ANNOTATION) == tr._PKEXEC_RUNNER_PATH:
+                bound.append(action)
+        if not bound:
+            self.fail(f"{INSTALLED_POLICY} binds no <action> to {tr._PKEXEC_RUNNER_PATH}")
+        return bound
+
     def test_the_action_is_registered_and_requires_an_administrator(self):
-        completed = self._pkcheck(POLICY_ACTION)
-        combined = completed.stdout + completed.stderr
-        self.assertNotEqual(
-            combined.strip(), "",
-            "pkcheck said nothing about the action at all",
-        )
-        self.assertIn(
-            "auth_admin", combined,
-            f"the action does not resolve to an administrator requirement: "
-            f"{combined!r}",
-        )
-        self.assertEqual(
-            completed.returncode, 2,
-            f"expected exit 2 (authentication required, interaction withheld); "
-            f"got {completed.returncode}: {combined!r}",
-        )
+        """The real daemon, asked with interaction withheld, about every action
+        the installed policy binds to the runner: each needs an administrator
+        and none is kept. A kept action carries polkit's
+        retains_authorization_after_challenge detail in the answer — the daemon
+        saying it will store the authentication for that subject — and every
+        runner's subject is the same user manager (L426, 2026-10-22).
+
+        This reads the INSTALLED policy, so it fails on a machine whose
+        installed InterGen package predates one authentication per call; that
+        failure is the reading this leg exists to give."""
+        for action in self._runner_actions():
+            action_id = action.get("id")
+            with self.subTest(action=action_id):
+                completed = self._pkcheck(action_id)
+                combined = completed.stdout + completed.stderr
+                self.assertIn(
+                    "auth_admin", combined,
+                    f"{action_id} does not resolve to an administrator "
+                    f"requirement: {combined!r}",
+                )
+                self.assertEqual(
+                    completed.returncode, 2,
+                    f"expected exit 2 (authentication required, interaction "
+                    f"withheld) for {action_id}; got {completed.returncode}: "
+                    f"{combined!r}",
+                )
+                self.assertNotIn(
+                    "retains_authorization_after_challenge", combined,
+                    f"the daemon keeps {action_id}'s authentication for later "
+                    f"calls (the installed policy is the one at "
+                    f"{INSTALLED_POLICY}; install this tree's InterGen package "
+                    f"to read the policy it ships): {combined!r}",
+                )
 
     def test_an_unregistered_action_is_reported_differently(self):
         """Control on the instrument: pkcheck distinguishes 'this action needs
@@ -357,74 +392,41 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
             f"requirement, so the check above proves nothing: {combined!r}",
         )
 
-    #: Where polkit records which program an action is allowed to run. The
-    #: annotation is the binding; the rest of the file is prose around it.
-    EXEC_PATH_ANNOTATION = "org.freedesktop.policykit.exec.path"
-
-    def _policy_action_element(self):
-        """Return the <action> element for THIS action, or skip if absent."""
-        policy = f"/usr/share/polkit-1/actions/{POLICY_ACTION.rsplit('.', 1)[0]}.policy"
-        if not os.path.exists(policy):
-            self.skipTest(
-                f"the policy-binding leg was NOT measured: {policy} is absent"
-            )
-        tree = ElementTree.parse(policy)
-        for action in tree.getroot().iter("action"):
-            if action.get("id") == POLICY_ACTION:
-                return action
-        self.fail(
-            f"{policy} contains no <action> whose id is {POLICY_ACTION}"
-        )
-
     def test_the_policy_binds_the_action_to_the_runner_path(self):
-        """What the user authenticates against is the narrow, purpose-built
+        """What the user authenticates against is a narrow, purpose-built
         action bound to this one executable — not a general 'run anything as
         root' action. That narrowness is the design's whole argument.
 
-        PARSED, NOT SEARCHED (2026-08-24). This used to assert that the action
-        id and the runner path each appeared SOMEWHERE in the file. An
-        independent review pointed out what that actually establishes: an XML
-        comment satisfies it, a different <action> block satisfies it, and the
-        runner path annotated onto some other action satisfies it. None of
-        those is the binding, and this is the leg that certifies the binding.
-
-        So the element is selected by id and its own exec.path annotation is
-        compared for EQUALITY with the runner path.
-        """
-        action = self._policy_action_element()
-        annotations = {
-            a.get("key"): (a.text or "").strip()
-            for a in action.iter("annotate")
-        }
-        self.assertIn(
-            self.EXEC_PATH_ANNOTATION, annotations,
-            f"the action carries no {self.EXEC_PATH_ANNOTATION} annotation, so "
-            f"it is not bound to any particular program: {annotations}",
-        )
-        self.assertEqual(
-            annotations[self.EXEC_PATH_ANNOTATION], tr._PKEXEC_RUNNER_PATH,
-            "the action is bound to a different program than the one this "
-            "code dispatches through",
-        )
+        PARSED, NOT SEARCHED (2026-08-24): each element is selected and its own
+        exec.path annotation compared for EQUALITY with the runner path; an XML
+        comment or another action cannot satisfy it. Since 2026-10-22 there is
+        one such action per privileged tool, each named by exec.argv1, and
+        every one of them carries the prefix of the tier's action id."""
+        for action in self._runner_actions():
+            with self.subTest(action=action.get("id")):
+                self.assertTrue(
+                    action.get("id").startswith(POLICY_ACTION),
+                    f"the runner is bound to an action outside the tier: "
+                    f"{action.get('id')}",
+                )
 
     def test_the_action_requires_an_administrator_for_an_active_session(self):
-        """The other half of the binding: what a person has to do to satisfy it.
-
-        Also parsed rather than searched, and asserted on THIS action's own
-        <defaults>, because a permissive default on the action that matters is
-        not made safe by a strict one elsewhere in the file.
-        """
-        action = self._policy_action_element()
-        defaults = action.find("defaults")
-        self.assertIsNotNone(defaults, "the action declares no <defaults>")
-        allow_active = defaults.find("allow_active")
-        self.assertIsNotNone(
-            allow_active, "the action declares no allow_active default")
-        self.assertEqual(
-            (allow_active.text or "").strip(), "auth_admin_keep",
-            "an active session does not have to authenticate as an "
-            "administrator for this action",
-        )
+        """The other half of the binding: what a person has to do to satisfy it,
+        on THIS action's own <defaults>, for every session class: auth_admin,
+        with no keep. A permissive or kept default on the action that matters is
+        not made safe by a strict one elsewhere in the file."""
+        for action in self._runner_actions():
+            defaults = action.find("defaults")
+            self.assertIsNotNone(defaults, f"{action.get('id')} declares no <defaults>")
+            for key in ("allow_any", "allow_inactive", "allow_active"):
+                with self.subTest(action=action.get("id"), default=key):
+                    element = defaults.find(key)
+                    self.assertIsNotNone(element, f"{action.get('id')} declares no {key}")
+                    self.assertEqual(
+                        (element.text or "").strip(), "auth_admin",
+                        f"{action.get('id')} {key} does not require an "
+                        f"administrator for each call",
+                    )
 
 
 def _long_lived_process_carrying(words):

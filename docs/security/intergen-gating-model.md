@@ -270,6 +270,19 @@ tools.
   privileged runner's request file open this way; a link, a FIFO or a device
   there is refused before anything opens it, and the refusal says nothing was
   opened.
+- **One authentication is one call.** Each privileged tool has its own
+  PolicyKit action, selected by pkexec from the runner's first argument (the
+  tool's name, matched against the action's `exec.argv1`), so the prompt names
+  the kind of action it is for. Every one of those actions is `auth_admin` with
+  no keep: an administrator's password for each call, and the next call asks
+  again. A kept authorization (`auth_admin_keep`) would be wrong here, because
+  pkexec asks PolicyKit about its parent process and every runner's parent is
+  the person's systemd user manager: one authentication would cover any runner
+  any process of the account asked that manager for in the next five minutes.
+  The PolicyKit prompt is the gate. The dispatch token and the request file stay
+  behind it as defense in depth (the root side refuses a request whose tool is
+  not the one authenticated for, and verifies the token before it acts); neither
+  of them is the gate.
 - **Retire** the autonomy-tier-blocks-reads behavior. If an "autonomy tier"
   axis survives, it may only modulate how many AUTH-PROMPT actions InterGen
   *offers* — it must never block a read.
@@ -288,3 +301,4 @@ tools.
 | 2026-10-22 | §8 "The root side installs the bytes it verified": the model-storage provisioner hashes and copies each staged file from one descriptor, opened without following a link and owned by the authenticated caller, and re-hashes the store's temporary copy before it replaces the entry. |
 | 2026-10-22 | §8 "The root side installs the bytes it verified" names the other root readers of a path an account controls: the greeter's monitor-layout sync and the backup engine's user-data restore read their source through one descriptor and hash their copy before the rename; the greeter's copy lands at 0600. |
 | 2026-10-22 | §8 "The root side holds a named object before it opens it": `intergen.held_open` holds a path a privileged helper is handed with `O_PATH` and checks the held object before any open for reading or writing, so a FIFO's or a device's open never runs as root; adopted by the model-storage provisioner's staging paths, the file tool's open of an existing name under the privileged runner and the runner's request file. |
+| 2026-10-22 | §8: AUTH-PROMPT is one administrator authentication per call. One PolicyKit action per privileged tool, `auth_admin` with no keep, chosen by pkexec from the tool's name so the prompt names the kind of action; the dispatch token and the request file are defense in depth, never the gate. |
