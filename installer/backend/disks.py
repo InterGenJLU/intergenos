@@ -824,8 +824,9 @@ def _partition_disk(disk_path, disk_size, efi, luks_enabled, luks_passphrase,
             if recovery_key_enabled:
                 # Before the experimental unlock methods, so that a machine
                 # whose TPM or security key enrolment fails still leaves the
-                # person with the second way in they asked for.
-                recovery_key = generate_recovery_key()
+                # person with the second way in they asked for. A dry run adds
+                # no slot, so it makes no key and carries none.
+                recovery_key = None if _DRY_RUN else generate_recovery_key()
                 confirm("adding the recovery key slot")
                 add_recovery_key_slot(p2, luks_passphrase, recovery_key)
             if tpm2_enabled or fido2_enabled:
@@ -1133,11 +1134,14 @@ def _enroll_experimental_unlock_methods(esp_partition, luks_partition,
     checkbox if their hardware turns out to not cooperate.
     """
     esp_mount = "/mnt/forge-esp-enroll"
-    os.makedirs(esp_mount, exist_ok=True)
+    # A dry run mounts nothing, so it makes no mount point or key directory.
+    if not _DRY_RUN:
+        os.makedirs(esp_mount, exist_ok=True)
     _run(["mount", esp_partition, esp_mount])
     try:
         intergen_dir = os.path.join(esp_mount, "intergen")
-        os.makedirs(intergen_dir, exist_ok=True)
+        if not _DRY_RUN:
+            os.makedirs(intergen_dir, exist_ok=True)
         if tpm2_enabled:
             tpm2_seal_random_key(intergen_dir, luks_partition, luks_passphrase)
             crypt_opts.append("tpm2")
@@ -1167,7 +1171,8 @@ def tpm2_seal_random_key(intergen_dir, luks_partition, luks_passphrase):
     the blob is useless.
     """
     tpm2_dir = os.path.join(intergen_dir, "tpm2")
-    os.makedirs(tpm2_dir, exist_ok=True)
+    if not _DRY_RUN:
+        os.makedirs(tpm2_dir, exist_ok=True)
     primary_ctx = os.path.join(tpm2_dir, "primary.ctx")
     secret_pub  = os.path.join(tpm2_dir, "secret.pub")
     secret_priv = os.path.join(tpm2_dir, "secret.priv")
@@ -1268,7 +1273,6 @@ def fido2_enroll_token(intergen_dir, luks_partition, luks_passphrase,
     "touching the token...", etc.
     """
     fido2_dir = os.path.join(intergen_dir, "fido2")
-    os.makedirs(fido2_dir, exist_ok=True)
     cred_id_path = os.path.join(fido2_dir, "cred_id")
     nonce_path   = os.path.join(fido2_dir, "stored_nonce")
 
@@ -1281,6 +1285,7 @@ def fido2_enroll_token(intergen_dir, luks_partition, luks_passphrase,
         print(f"  [DRY-RUN] fido2-assert -G --hmac-secret <prompt user to touch token>")
         print(f"  [DRY-RUN] cryptsetup luksAddKey {luks_partition}  <stdin: HMAC bytes>")
         return
+    os.makedirs(fido2_dir, exist_ok=True)
 
     # Discover token device. fido2-token -L lists "device path"
     # one-per-line. If multiple plugged, take the first; operator can
@@ -1479,6 +1484,10 @@ def _luks_add_key_with_existing(luks_partition, existing_key, new_key):
     path to cryptsetup, feed existing_key via stdin. Secret-handling: new_key
     only persists as kernel pipe buffer + tmpfile FD, never disk inode.
     """
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] cryptsetup luksAddKey --type=luks2 --batch-mode --key-file=- "
+              f"{luks_partition} <the new key's file>  <stdin: the existing key>")
+        return
     import tempfile
     # Write new_key to an unlinked tempfile (O_TMPFILE-like behavior via
     # NamedTemporaryFile + immediate unlink). Reachable via /proc/self/fd
@@ -1537,7 +1546,16 @@ def add_recovery_key_slot(luks_partition, existing_passphrase, recovery_key):
     believes they have a way back in. cryptsetup is therefore asked
     directly, with the new key, whether it opens the volume — no mapping
     is created, only the key slots are tried.
+
+    A dry run adds no slot: both commands are logged and neither runs (it
+    makes no key, so `recovery_key` is None there).
     """
+    if _DRY_RUN:
+        print(f"  [DRY-RUN] cryptsetup luksAddKey --type=luks2 --batch-mode --key-file=- "
+              f"{luks_partition} <the recovery key's file>  <stdin: <PASSPHRASE>>")
+        print(f"  [DRY-RUN] cryptsetup open --test-passphrase --batch-mode --key-file=- "
+              f"{luks_partition}  <stdin: <the recovery key>>")
+        return {"verified": False, "device": luks_partition}
     if isinstance(existing_passphrase, str):
         existing_key = existing_passphrase.encode("utf-8")
     else:
