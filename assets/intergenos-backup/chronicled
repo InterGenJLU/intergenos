@@ -164,8 +164,12 @@ def main(argv=None):
     else:  # pragma: no cover
         ap.error(f"unhandled task {args.task}")
     print(json.dumps(out, indent=2, sort_keys=True))
-    if args.task == "scrub" and not out.get("clean", False):
-        return 1
+    if args.task == "scrub":
+        if out.get("target_refused"):
+            print(f"WARNING: Backup target was not checked: {out['target_refused']}",
+                  file=sys.stderr)
+        if not out.get("clean", False) or out.get("target_refused"):
+            return 1
     if short:
         return 1
     return 0
