@@ -1,6 +1,6 @@
 {
   "_comment": "WP-4.2 coverage burndown backlog: un-annotated (testable=yes) inventory cells not yet asserted by any scenario. The coverage gate fails if a NEW gap appears outside this set, and if a listed cell has since been covered (forcing removal). This ratchet can only shrink. Most remaining cells are live-capture-dependent (a route source / gate outcome needs a real daemon trace to grade) and close as the discovery->promotion engine (WP-3.3) + live runs feed recorded captures.",
-  "count": 73,
+  "count": 74,
   "cells": [
     "A:manage_packages",
     "A:write_file",
@@ -16,6 +16,7 @@
     "B:llm_freeform",
     "B:semantic",
     "B:system_map",
+    "B:wiki_uncovered",
     "C:analyze_file:executed_fail",
     "C:analyze_file:executed_success",
     "C:manage_packages:cancel",
@@ -75,5 +76,8 @@
     "F:scanner:INGRESS:ALLOW",
     "F:scanner:INGRESS:BLOCK",
     "F:scanner:INGRESS:FLAG"
-  ]
+  ],
+  "annotations": {
+    "B:wiki_uncovered": "Listed 2026-10-23, the one cell added to this backlog rather than burned down: the documentation pointer the free-form fallback answers with when the installed wiki grounds nothing (intergen/router.py, source wiki_uncovered). No seed asserts it. A seed's routes_via assertion is graded only against a live daemon run (scenario/runner.py drives a scenario against a daemon), and the change that listed it made no live run, so the cell is listed rather than claimed covered by a seed nothing graded. Held for R002: a seed asserting the route, graded on a live run, then this entry removed."
+  }
 }
