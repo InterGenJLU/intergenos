@@ -23,7 +23,9 @@ from anyone.
 THE RULE PINNED HERE. Those forms are CONFIRM, read from each program's own help
 and manual, so the chokepoint holds them for the person's review in every cell
 and the model's tool call on the native route asks first; the read forms of the
-same commands stay AUTO.
+same commands stay AUTO. A piped form is refused before any card, with its
+reason. Every git form asks first, its read forms too (git runs the programs its
+configuration names), so they are held in every cell.
 """
 
 from __future__ import annotations
@@ -114,6 +116,8 @@ FOUND_FORMS = [form for forms in FOUND.values() for form in forms]
 #: A piped form never reaches a launch (the executor refuses a pipe), so the
 #: route cases fire the single commands.
 SINGLE_FOUND_FORMS = [form for form in FOUND_FORMS if "|" not in form]
+#: A piped form is refused before any card, with its reason.
+PIPED_FOUND_FORMS = [form for form in FOUND_FORMS if "|" in form]
 
 #: The read forms of the same commands: AUTO before and after.
 READS = [
@@ -126,13 +130,18 @@ READS = [
     "env FOO=bar", "env PATH=/tmp/d/bin", "env -iu HOME ls", "env --unset HOME ls", "env --split-string='ls -l'",
     "ionice -c 3 ls", "journalctl --no-pager -n 5",
     "journalctl --no-pager --since=today",
-    "journalctl --no-pager --system -n 1", "journalctl --no-pager --cursor=s=1", "git --no-pager log",
-    "git --no-pager log -p", "git --no-pager log --oneline", "git --no-pager diff --stat", "git --no-pager diff --text",
-    "git --no-pager show HEAD", "git --no-pager branch", "git --no-pager branch -a", "git --no-pager branch -vv",
-    "git --no-pager branch --list 'feature/*'", "git --no-pager branch --contains HEAD", "git --no-pager tag",
-    "git --no-pager tag -l 'v*'", "git --no-pager tag -n5", "git status", "git remote -v", "flock 3", "pip list",
+    "journalctl --no-pager --system -n 1", "journalctl --no-pager --cursor=s=1", "flock 3", "pip list",
     "pip list --outdated", "pip show pip", "pip freeze", "npm list", "npm list --depth=0 --json", "ls | less",
     "ls | less -R", "nice -n 5 ls", "timeout 5 ls", "stdbuf -oL ls", "nohup ls", "setsid ls",
+]
+
+#: Every git form asks first (git runs the programs its configuration names):
+#: CONFIRM, its read forms too, listed here for the verdict, not as changes.
+GIT_READS = [
+    "git --no-pager log", "git --no-pager log -p", "git --no-pager log --oneline", "git --no-pager diff --stat",
+    "git --no-pager diff --text", "git --no-pager show HEAD", "git --no-pager branch", "git --no-pager branch -a",
+    "git --no-pager branch -vv", "git --no-pager branch --list 'feature/*'", "git --no-pager branch --contains HEAD",
+    "git --no-pager tag", "git --no-pager tag -l 'v*'", "git --no-pager tag -n5", "git status", "git remote -v",
 ]
 
 
@@ -148,6 +157,11 @@ class AnOptionThatRunsOrWritesIsNotARead(unittest.TestCase):
         for command in READS:
             with self.subTest(command=command):
                 self.assertEqual(classify_command(command).value, "auto")
+
+    def test_each_git_read_form_asks_first(self):
+        for command in GIT_READS:
+            with self.subTest(command=command):
+                self.assertEqual(classify_command(command).value, "confirm")
 
     def test_a_line_that_does_not_split_is_confirm(self):
         for command in ('rg "--pre=sh x /tmp/d/notes.txt', "env 'PATH=/tmp ls", 'time "-o /tmp/x true'):
@@ -171,16 +185,25 @@ class TheChokepointHoldsEachForm(_AuditedCase):
     tool's execute a recorder: a found form is held in every cell."""
 
     def test_each_found_form_is_held_in_every_cell(self):
-        for command in FOUND_FORMS:
+        for command in SINGLE_FOUND_FORMS:
             with self.subTest(command=command):
                 self.assertEqual(self.cells("run_command", {"command": command}), "HHHHHH")
 
+    def test_each_piped_found_form_is_refused_in_every_cell(self):
+        for command in PIPED_FOUND_FORMS:
+            with self.subTest(command=command):
+                self.assertEqual(self.cells("run_command", {"command": command}), "RRRRRR")
+
     def test_the_read_forms_run_in_every_cell(self):
         for command in ("rg x /tmp/d/notes.txt", "sort -rh /tmp/d/big.txt", "time true",
-                        "env LC_ALL=C sort /tmp/d/big.txt", "git --no-pager log --oneline",
-                        "journalctl --no-pager -n 5", "ifconfig lo"):
+                        "env LC_ALL=C sort /tmp/d/big.txt", "journalctl --no-pager -n 5", "ifconfig lo"):
             with self.subTest(command=command):
                 self.assertEqual(self.cells("run_command", {"command": command}), "EEEEEE")
+
+    def test_a_git_read_form_is_held_in_every_cell(self):
+        for command in GIT_READS:
+            with self.subTest(command=command):
+                self.assertEqual(self.cells("run_command", {"command": command}), "HHHHHH")
 
 
 class TheNativeRouteHoldsTheModelsForm(screened._Case, _AuditedCase):
