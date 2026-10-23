@@ -20,6 +20,139 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
+Security update in preparation, with fixes to consent, verification,
+package recovery and assistant answers.
+
+### Changed
+
+- **Conversation replay checks.** Extend the browser test harness with recorded-conversation replay, per-turn verdicts and response timings; keep its panel credential out of request addresses.
+
+- **Replay consent and state checks.** Tighten conversation-replay checks for approval order, successful state readings and visible answers; record frame arrival times for independent timing review.
+
+- **Zero-listener replay checks.** Require an unqualified statement that nothing is listening before a replay answer passes the zero-listener check.
+
+- **Helper isolation checks.** Check every embedded Python invocation in the shared helper library and CUDA installer for interpreter isolation.
+
+- **Retrieved-page safety checks.** Extend tests for withholding flagged page content from model input and retaining ordinary pages as untrusted material.
+
+- **Assistant network disclosures.** Update installer, setup and assistant disclosures to describe requested web searches, page retrieval and configured cloud requests; preserve honest corrections in web-search guidance.
+
+- **Installed assistant guide.** Correct the guide’s network disclosures, model-size description, safety examples, service-method names and installer switch labels.
+
+- **Local scanner availability.** Describe the offline rules scanner, the separately served local classifier when available, and the absence of a connected cloud scanner in the shipped daemon.
+
+- **Fix-only release policy.** Define the bounded exception for urgent security, assistant transparency and accuracy, update-path and hardware fixes after the drift limit; retain the required major rebuild and disclosure of every changed package.
+
+- **Shipped assistant controls.** Align the manual, command help and configuration comments with the implemented controls, reserved settings, per-user paths and output formats.
+
+### Fixed
+
+- **ASUS keyboard backlight.** Restore backlight-device registration on affected ASUS keyboards; both kernel build passes carry the keyboard-handshake fix.
+
+- **Unsupported answer claims.** Recheck unsupported machine readings, action claims and offers, explain failed commands, and retry benign questions declined in the browser while retaining safety refusals.
+
+- **Download and installation progress.** Show download amounts, rates and elapsed time, and keep long driver-install steps visible. Preserve resumed-download accounting, known download sizes and a single record of each elapsed step.
+
+- **Web search answers.** Preserve the requested subject and answer from retrieved page text with source links or an explicit explanation when results are unavailable.
+
+- **Assistant guidance and records.** Improve assistant guidance and the text retained in response records.
+
+- **Package hook output.** Show post-install hook output while the hook runs, retaining the complete trace and its exit status.
+
+- **Documentation subject matching.** Limit missing-documentation pointers to explicit system subjects so unrelated how-to questions can still receive an answer.
+
+- **Web request handling.** Bound page-header reads, retain search snippets when a page is unavailable, and preserve the subject of polite lookups and earlier requests.
+
+- **Administrative how-to matching.** Require an administrative instruction before giving a missing-documentation pointer; preserve art and language-import questions.
+
+- **Page fetch deadlines.** Apply the remaining fetch deadline to TLS handshakes and retain complete excerpts and search listings.
+
+- **Security posture answers.** Answer security-state questions from local readings and say when a requested state cannot be read.
+
+- **Documentation request objects.** Check the requested object in general-action questions and retain modifiers and verb forms in administration instructions.
+
+- **Answers on the tool route.** Apply the same checks for unsupported state, actions, offers and commands to text answers on the tool route as to ordinary conversation.
+
+- **Retrieved web evidence.** Retain complete structured page and snippet fields as web results pass through content review.
+
+- **Disk encryption and privacy answers.** Describe drive-backed filesystems beyond the root filesystem, including the unencrypted EFI partition, and state the conditions under which assistant requests leave the machine.
+
+- **Fallback citations.** Keep wiki source lines off fallback messages supplied by the assistant itself.
+
+- **Firewall activation guidance.** Include the command that enables the firewall immediately and at boot, and name the rules locations shipped by the system.
+
+- **Enable and disable instructions.** Check the requested object in enable and disable questions, retaining default and optional system-object modifiers.
+
+- **Repeatedly declined general questions.** Make the offer to ask a configured cloud model available after a general question is declined twice, across answer routes.
+
+- **Console replies after tools.** Apply answer checks after tool calls on the console, including after an action was denied.
+
+- **Invented tool output.** Recheck answers that present a tool result when no tool ran.
+
+- **Masked firewall service.** Explain how to recognize and unmask the firewall service before enabling it.
+
+- **Successful command and search results.** Do not mistake quoted exit-status text in successful results for a failed command.
+
+- **Helper package identities.** Keep package versions and application builds separate in helper records and listings, repair matching archive-backed records, require an installed package before running its helper, and remove manifests with empty packages.
+
+- **Stopped Steam installations.** State that nothing was installed while naming the acceptance record, attempt record and working files left by a stopped run.
+
+- **Visible cloud-model offers.** Show the offer beneath a model answer in the browser and console, with the console command that submits the question.
+
+- **Helper history repair.** Use successful install history when a helper record’s archive is absent, preserve the application build and package release, and report records that cannot be established.
+
+- **Truncated local answers.** Recognize a token-limited answer as incomplete on the tool route and in the browser, so it can raise the offer to ask a configured cloud model.
+
+- **Stopped application installations.** Record stopped helper attempts before cleanup and report failed lookups, downloads and unpacking. Explain remaining records and working files for the affected application installers.
+
+- **Archive preflight and recovery advice.** Check explicit local archives before changing package files. Base recovery advice on the final package state, retain finish commands for incomplete installs, report needed capture identities, and stop history repairs at a later removal.
+
+- **Failed or cut-off replies after tools.** Offer a configured cloud model when a reply after a tool call fails; retry token-limited tool-route text with more room before serving it.
+
+- **Earlier command results.** Allow replies to quote results actually returned earlier in the conversation, and show a failed command’s output in the browser when no synthesized answer arrives.
+
+- **Conditional release instructions.** Preserve descriptions of when an installation or release condition holds instead of treating them as claims that the assistant performed an action.
+
+- **One package recovery instruction.** Print a failed installation’s next step once, distinguish unchanged, incomplete and absent package states, and explain which other packages a restore would revert.
+
+- **Conversation follow-ups.** Recognize capitalized follow-up questions and distinguish them from fresh questions about this computer.
+
+- **Conditional installation guidance.** Preserve instructions about checking an installation or acting after it, while continuing to check claims that the assistant itself acted.
+
+- **Action claims after introductory phrases.** Check unsupported action claims even when they follow a conditional or reassuring introduction.
+
+- **Common action-claim wording.** Recognize more common phrasings of claims that the assistant installed or ran something when no action occurred.
+
+- **Incomplete rollback guidance.** Name the finish command when a rollback returns an incomplete package, explain restore limits, and show recovery commands in package information and verification results.
+
+- **Unsupported readings and commands.** Check unsupported machine readings, commands and success claims even after conditional or reassuring introductions.
+
+- **Unsupported completion claims.** Require supporting tool output before reporting an installation or update as complete.
+
+- **Honest failure wording.** Recognize contractions and negated completion statements as failure reports, including common apostrophe variants.
+
+- **Questions requiring current information.** Offer a web search before answering live-data questions, while leaving local questions, calculations, supplied-text tasks and historical questions on their appropriate paths.
+
+- **Unavailable-model citations.** Leave source lines off the assistant’s own messages when the model server is unavailable or produces no usable answer, including correction retries.
+
+- **Command-specific evidence.** Match a quoted result to the command that produced it, and require installation or upgrade output to support a completion claim.
+
+- **Ordinary documentation in content review.** Allow ordinary welcome and configuration-override wording while retaining review for instructions that redirect the assistant.
+
+- **Unavailable models and actions that did not run.** Deliver the assistant’s own failure and refusal messages directly, avoid offering those messages as saved model answers, and constrain package-install suggestions to actual package requests. Declare the package manager dependency used by those offers.
+
+- **Installer disk identity and previews.** Recheck the established target throughout installation, keep a dry run free of command execution and writes, include BIOS recovery-key handling, and return the frontend's status.
+
+- **Package archive comparisons.** Compare the verified private archive with an installed build throughout an explicit-archive upgrade, and distinguish missing descriptor paths from other errors.
+
+- **Local history with a refused backup target.** Keep local configuration and restore-point history, drain, scrub and retention available while reporting the target refusal; exclude backup stores from source walks and size estimates, and return failure when a scheduled scrub cannot check its target.
+
+- **Privacy when cloud sending is off.** Read the escalation manager's refusal when describing cloud requests, so a configured provider is not promised a send that the setting disables.
+
+- **Refusals from administrator actions.** Preserve whether an action ran and its refusal explanation when the administrator-side runner returns a result.
+
+- **Boundary refusal explanations.** Show the refusing check’s own reason and remedy across assistant interfaces, including launch, tool-argument and image checks. Keep refused shell text out of suggested instructions.
+
 ### Security
 
 - ca-certificates advanced to the Mozilla CA bundle snapshot of 2026-10-20
@@ -32,7 +165,43 @@ landed is in the repository README, not here.
   2026-04-30 bundle verifies certificates that chain to the compromised
   issuer; the updated bundle rejects them.
 
----
+- **Download helper isolation.** Run embedded Python in the shared helper library and CUDA installer with interpreter isolation, including metadata and footprint readers.
+
+- **Steam installation validation.** Isolate the interpreter used to read the library requirements and stop installation when the release file listing cannot be read.
+
+- **Web-search consent.** Require the person’s request or accepted offer before a model-selected web search sends a query.
+
+- **Review of fetched content.** Hold fetched or read content that directs the assistant’s behavior or proposes unsafe command execution for review, and withhold it when review is unavailable.
+
+- **Approved-content audit records.** Record the approval and scan reason when flagged content is allowed, without copying the flagged text into the tool-log summary.
+
+- **Cloud-request settings and disclosures.** Honor disabled cloud escalation on every send path and refuse unrecognized mode values. Report the configured mode, clarify when requests leave the machine, and distinguish cloud escalation settings from approval for system changes.
+
+- **Network and command approval.** Require review for network requests unless the person asked directly and no outside content has been read in the conversation. Require approval for command options that execute programs or change state, and explain these conditions in command cards and guides.
+
+- **Accurate action previews.** Show the command an approved tool will actually run, retain user-service actions under the user’s account, refuse unsupported requests before approval, and report an upgrade failure after index refresh accurately.
+
+- **Content-review coverage.** Expand recognition of instructions that try to override the assistant’s task or operating rules, while retaining ordinary documentation.
+
+- **Administrator action boundaries.** Keep read-only and user-service actions out of the administrator runner, require full file paths, and show package instructions with the privileges they need.
+
+- **Verified model installation.** Install the model bytes that were verified and refuse unsuitable or changed source files before replacing the installed model.
+
+- **Verified restore and monitor settings.** Use the checked bytes when restoring backup files or copying monitor settings to the login screen, and retain private permissions for login-screen settings.
+
+- **Safe refusal messages.** Explain why an action did not run, hand back a command only when appropriate to the person’s own request, and stop a tool sequence after its first action that did not run.
+
+- **Verified local package archives.** Install the archive bytes that passed validation, refuse unsuitable archive files before reading them, and repair package-version records only from the package cache.
+
+- **Installer authorization.** Restrict the privileged installer service to installation media, authorize acting calls, verify the target disk, and refuse privileged dry runs.
+
+- **Per-call administrator authentication.** Give privileged tools their own authentication actions and check the requested tool again at dispatch. Keep policy checks aligned with the policy parser's actual interpretation and state what the static and runtime checks establish.
+
+- **System service authorization.** Remove the upstream blanket group authorization from the systemd package and reject an unrecognized remaining declaration during the build.
+
+- **Declared command and server environments.** Launch commands and external servers with their declared environment and program lookup, require approval for every git command, and refuse service overrides that do not meet the administrator ownership checks.
+
+- **File and backup target boundaries.** Refuse unsuitable files before opening them, retain checked objects through reads and restores, keep backup stores private, and validate backup targets on adoption and use.
 
 ## [R001.3] — 2026-10-18
 
