@@ -29,8 +29,10 @@ every shown row).
 from __future__ import annotations
 
 import asyncio
+import os
 import shlex
 import subprocess
+import tempfile
 import unittest
 from unittest import mock
 
@@ -480,16 +482,29 @@ class BuilderAgainstSurfaceTests(unittest.TestCase):
             argv = ManageServicesTool().build_command(arguments)
             return [argv], shlex.join(argv)
         if name == "run_command":
+            from intergen import tool_process
             from intergen.tools.run_command import RunCommandTool
             captured = []
 
             def _capture(args, *a, **kw):
                 captured.append(list(args))
                 return subprocess.CompletedProcess(args, 0, "", "")
-            with mock.patch("subprocess.run", _capture):
+            # The unit search path the launcher reads before every start is
+            # stood in by a directory that does not exist (no drop-in applies),
+            # so the one process start captured is the launch itself.
+            with tempfile.TemporaryDirectory() as scratch, \
+                    mock.patch("subprocess.run", _capture), \
+                    mock.patch.object(tool_process, "unit_search_path",
+                                      return_value=[os.path.join(scratch, "systemd", "user")]):
                 RunCommandTool().execute(dict(arguments))
             launch = captured[0]
             inner = launch[launch.index("--") + 1:]
+            # The command starts under the environment the executor writes:
+            # env -i and exactly that environment's assignments, then the program.
+            written = [tool_process.ENV, "-i"] + [
+                f"{key}={value}" for key, value in tool_process.tool_environment().items()]
+            self.assertEqual(inner[:len(written)], written)
+            inner = inner[len(written):]
             return [inner], shlex.join(inner)
         return None, None
 
