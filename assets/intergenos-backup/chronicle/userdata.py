@@ -31,6 +31,7 @@ manifest — invisible to list(), reclaimed by GC — and never disturbs the pri
 version.
 """
 
+from contextlib import contextmanager, ExitStack
 import errno
 import hashlib
 import os
@@ -87,8 +88,53 @@ def _index_by_path(prev_manifest):
     return {e["path"]: e for e in prev_manifest.get("entries", [])}
 
 
+@contextmanager
+def store_identities(roots):
+    """Hold the stores for the walk, so their device/inode pairs stay live.
+
+    A missing or unwalkable store has no directory this walk can enter.
+    Other I/O errors propagate instead of silently dropping an exclusion.
+    These holds identify exclusions only; they never authorize store access.
+    """
+    with ExitStack() as holds:
+        identities = set()
+        for root in roots:
+            try:
+                fd = _held.held_directory(root)
+            except (FileNotFoundError, PermissionError, _held.HeldOpenRefused):
+                continue
+            holds.callback(os.close, fd)
+            st = os.fstat(fd)
+            identities.add((st.st_dev, st.st_ino))
+        yield identities
+
+
+def is_store_directory(dir_fd, identities):
+    st = os.fstat(dir_fd)
+    return (st.st_dev, st.st_ino) in identities
+
+
+def estimate_directories(source_roots, store_roots, is_excluded):
+    """Yield estimate inputs after excluding each held store directory."""
+    with store_identities(store_roots) as stores:
+        for base in source_roots:
+            for dirpath, dirnames, files in os.walk(base):
+                dir_fd = _held.held_directory(dirpath)
+                try:
+                    if is_store_directory(dir_fd, stores):
+                        dirnames[:] = []
+                        continue
+                    dirnames[:] = [
+                        name for name in dirnames
+                        if not is_excluded(os.path.join(dirpath, name) + "/")
+                    ]
+                    yield dirpath, files
+                finally:
+                    os.close(dir_fd)
+
+
 def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
-            reason, is_excluded=None):
+            reason, is_excluded=None, store_roots=()):
     """Capture a user-data version by hardlink rotation against prev_manifest.
 
     Args:
@@ -102,6 +148,7 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
         wall_clock: epoch seconds to display (ordering is by sequence).
         reason: human reason recorded in the manifest.
         is_excluded: optional callable(path)->bool to skip cache/trash trees.
+        store_roots: additional stores to exclude by held directory identity.
 
     Returns:
         the committed version_id.
@@ -136,36 +183,40 @@ def capture(source_roots, target_root, prev_manifest, sequence, wall_clock,
         })
 
     try:
-        for root in source_roots:
-            root = str(root)
-            if not os.path.exists(root):
-                continue
-            for dirpath, dirnames, filenames in os.walk(
-                root, topdown=True, onerror=record_unreadable
-            ):
-                # Prune excluded directories so we never descend into them.
-                if is_excluded:
-                    dirnames[:] = [
-                        d for d in dirnames
-                        if not is_excluded(os.path.join(dirpath, d) + "/")
-                    ]
-                # The names os.walk listed are only names: each is acted on
-                # through this directory's descriptor, walked to from /.
-                dir_fd = _held_source_directory(dirpath)
-                try:
-                    _capture_dir(dirpath, dir_fd, staging, entries)
-                    # os.walk lists directory symlinks among the directories
-                    # but does not visit them; the hold tells them apart.
-                    for fn in filenames + dirnames:
-                        ap = os.path.join(dirpath, fn)
-                        if is_excluded and is_excluded(ap):
+        with store_identities((target_root, *store_roots)) as stores:
+            for root in source_roots:
+                root = str(root)
+                if not os.path.exists(root):
+                    continue
+                for dirpath, dirnames, filenames in os.walk(
+                    root, topdown=True, onerror=record_unreadable
+                ):
+                    # Prune excluded directories so we never descend into them.
+                    if is_excluded:
+                        dirnames[:] = [
+                            d for d in dirnames
+                            if not is_excluded(os.path.join(dirpath, d) + "/")
+                        ]
+                    # The names os.walk listed are only names: each is acted on
+                    # through this directory's descriptor, walked to from /.
+                    dir_fd = _held_source_directory(dirpath)
+                    try:
+                        if is_store_directory(dir_fd, stores):
+                            dirnames[:] = []
                             continue
-                        _capture_file_or_link(
-                            ap, dir_fd, fn, fn in dirnames, staging,
-                            prev_index, prev_tree, entries
-                        )
-                finally:
-                    os.close(dir_fd)
+                        _capture_dir(dirpath, dir_fd, staging, entries)
+                        # os.walk lists directory symlinks among the directories
+                        # but does not visit them; the hold tells them apart.
+                        for fn in filenames + dirnames:
+                            ap = os.path.join(dirpath, fn)
+                            if is_excluded and is_excluded(ap):
+                                continue
+                            _capture_file_or_link(
+                                ap, dir_fd, fn, fn in dirnames, staging,
+                                prev_index, prev_tree, entries
+                            )
+                    finally:
+                        os.close(dir_fd)
         manifest = _manifest.build_manifest(
             _paths.LAYER_USER_DATA, sequence, wall_clock, reason, entries,
             unreadable

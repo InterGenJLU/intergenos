@@ -360,7 +360,8 @@ class Engine:
         if layer == _paths.LAYER_CONFIG_STATE:
             paths_set = scope or _configstate.DEFAULT_CONFIG_PATHS
             vid = _configstate.capture(
-                paths_set, self.local_root, self.local_store, seq, wall, reason
+                paths_set, self.local_root, self.local_store, seq, wall, reason,
+                store_roots=self._capture_store_roots(),
             )
         elif layer == _paths.LAYER_RESTORE_POINT:
             # pkm's pre-transaction handler hands a footprint dict over; an
@@ -386,6 +387,7 @@ class Engine:
             vid = _userdata.capture(
                 self.config.user_data_paths, target_root, prev, seq, wall,
                 reason, is_excluded=self.config.is_excluded,
+                store_roots=self._capture_store_roots(),
             )
             self._finalize_target_candidate(target_root, layer, vid)
         else:  # pragma: no cover - guarded above
@@ -1465,15 +1467,33 @@ class Engine:
 
     # -- helpers --------------------------------------------------------
 
+    def _capture_store_roots(self):
+        """Configured stores to omit from sources, including a refused target.
+
+        This is only an exclusion list. Reads and writes still require
+        target_root's at-use check.
+        """
+        roots = [self.local_root]
+        target = self.state.get("target") or {}
+        if target.get("mountpoint"):
+            roots.append(_paths.target_store_root(
+                target["mountpoint"],
+                directory_class=(target.get("class") == "directory")))
+        return roots
+
     def _estimate_home_size(self):
         total = 0
-        for base in self.config.user_data_paths:
-            for dirpath, _dirs, files in os.walk(base):
-                for fn in files:
-                    try:
-                        total += os.lstat(os.path.join(dirpath, fn)).st_size
-                    except OSError:
-                        pass
+        for dirpath, files in _userdata.estimate_directories(
+                self.config.user_data_paths, self._capture_store_roots(),
+                self.config.is_excluded):
+            for fn in files:
+                ap = os.path.join(dirpath, fn)
+                if self.config.is_excluded(ap):
+                    continue
+                try:
+                    total += os.lstat(ap).st_size
+                except OSError:
+                    pass
         return total
 
 

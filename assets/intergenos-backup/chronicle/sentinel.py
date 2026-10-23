@@ -17,6 +17,7 @@ import stat
 import time
 
 from . import paths as _paths
+from . import userdata as _userdata
 
 _LOG = logging.getLogger("chronicle.sentinel")
 
@@ -53,18 +54,19 @@ def estimate_userdata_change(engine):
     last = int(engine.state.get("last_capture", {}).get(
         _paths.LAYER_USER_DATA, 0))
     total = 0
-    for base in engine.config.user_data_paths:
-        for dirpath, _dirs, files in os.walk(base):
-            for fn in files:
-                ap = os.path.join(dirpath, fn)
-                if engine.config.is_excluded(ap):
-                    continue
-                try:
-                    st = os.lstat(ap)
-                except OSError:
-                    continue
-                if int(st.st_mtime) > last:
-                    total += st.st_size
+    for dirpath, files in _userdata.estimate_directories(
+            engine.config.user_data_paths, engine._capture_store_roots(),
+            engine.config.is_excluded):
+        for fn in files:
+            ap = os.path.join(dirpath, fn)
+            if engine.config.is_excluded(ap):
+                continue
+            try:
+                st = os.lstat(ap)
+            except OSError:
+                continue
+            if int(st.st_mtime) > last:
+                total += st.st_size
     return total
 
 
