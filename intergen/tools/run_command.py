@@ -136,6 +136,9 @@ class RunCommandTool(BaseTool):
                 name=self.name,
                 content="Error: empty command",
                 success=False,
+                executed=False,
+                outcome="invalid_arguments",
+                refusal=EMPTY_COMMAND_WORDS,
             )
 
         safety = self.classify_safety(arguments)
@@ -153,6 +156,8 @@ class RunCommandTool(BaseTool):
                 # content) and skip narrating it — otherwise the model fabricates
                 # success on a blocked destructive command (the dd-wipe finding).
                 blocked=True,
+                # Nothing ran: the classifier refused it before any process.
+                executed=False,
             )
 
         # M8-1 leg 0 — the executor no longer speaks shell. Decline any input
@@ -208,6 +213,9 @@ class RunCommandTool(BaseTool):
                 name=self.name,
                 content="Error: empty command",
                 success=False,
+                executed=False,
+                outcome="invalid_arguments",
+                refusal=EMPTY_COMMAND_WORDS,
             )
 
         # The command runs as its own transient service, where the install's
@@ -304,9 +312,21 @@ class RunCommandTool(BaseTool):
             )
         except OSError as e:
             log.error("Command execution error: %s — %s", command, e)
+            # Nothing started: the program is not installed here (raised above
+            # when it does not resolve), or the launcher itself could not be
+            # executed. Told so, never narrated as a run that errored.
+            if resolved is None:
+                words = (f"{program!r} is not a program installed on this "
+                         f"machine, so there was nothing to run")
+            else:
+                words = (f"the command's process could not be started "
+                         f"({e.strerror or e})")
             return ToolResult(
                 call_id="",
                 name=self.name,
                 content=f"Command execution error: {e}",
                 success=False,
+                executed=False,
+                outcome="not_started",
+                refusal=words,
             )

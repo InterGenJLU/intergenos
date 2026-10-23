@@ -279,6 +279,13 @@ class ThePanelAndTheKeywordPathTellTheBoundarysWords(_Checks):
         self.assertToldInItsOwnWords(
             text, "I didn't read that picture into our conversation")
 
+    def test_the_panel_with_no_registry_says_nothing_ran(self):
+        text = self._streamed(ToolCall(name="run_command",
+                                       arguments={"command": "df -h"},
+                                       source_of_request=D), tools=False)
+        self.assertToldInItsOwnWords(text, "Nothing was run",
+                                     "tools are not ready")
+
     def test_the_keyword_path_tells_the_image_gates_sentence(self):
         result = ToolResult(call_id="c1", name="take_screenshot",
                             content="the gate's sentence", success=False,
@@ -307,6 +314,42 @@ class EverySiteRefusesWithoutRunning(_Checks):
 
     # run_command
 
+    def test_run_command_empty(self):
+        args = {"command": "   "}
+        self._told("run_command", args, RunCommandTool().execute(args),
+                   "invalid_arguments", "the command is empty")
+
+    def test_run_command_empty_after_splitting(self):
+        args = {"command": "x"}
+        with mock.patch.object(run_command_mod.shlex, "split", return_value=[]):
+            result = RunCommandTool().execute(args)
+        self._told("run_command", args, result, "invalid_arguments",
+                   "the command is empty")
+
+    def test_run_command_the_classifiers_block_keeps_its_line_and_ran_nothing(self):
+        result = RunCommandTool().execute({"command": "rm -rf /"})
+        self.assertTrue(result.blocked, result)
+        self.assertFalse(result.executed, result)
+        self.assertEqual(result.refusal, "")
+
+    def test_run_command_a_program_that_is_not_installed(self):
+        args = {"command": "no-such-program-340 --version"}
+        with _install_home():
+            result = RunCommandTool().execute(args)
+        self._told("run_command", args, result, "not_started",
+                   "'no-such-program-340' is not a program installed")
+
+    def test_run_command_a_launcher_that_cannot_start(self):
+        args = {"command": "uptime"}
+        # The unit-directory gate reads no search path, so the stand-in meets
+        # the launcher rather than the gate's own read.
+        with _install_home(), fixture.unit_search_path_is(), mock.patch.object(
+                run_command_mod.subprocess, "run",
+                side_effect=PermissionError(13, "Permission denied")):
+            result = RunCommandTool().execute(args)
+        self._told("run_command", args, result, "not_started",
+                   "could not be started (Permission denied)")
+
     def test_run_command_the_launch_boundary(self):
         args = {"command": "uptime"}
         with _install_home(without_credential=True) as (_home, gone):
@@ -316,7 +359,104 @@ class EverySiteRefusesWithoutRunning(_Checks):
 
     # the privileged dispatch, before its runner
 
+    def _dispatched(self, *patches, token="token"):
+        call = _call("manage_packages", {"action": "update"})
+        with contextlib.ExitStack() as stack:
+            stack.enter_context(mock.patch.dict(
+                os.environ, {reg_mod.PRIVILEGED_ESCALATION_ENV:
+                             reg_mod.ESCALATION_ALLOWED}))
+            stack.enter_context(mock.patch("intergen.tool_registry.glass.emit"))
+            for p in patches:
+                stack.enter_context(p)
+            return call, reg_mod.ToolRegistry._dispatch_via_pkexec(
+                call, "manage_packages", {"action": "update"},
+                dispatch_token=token)
+
+    def test_dispatch_without_a_token(self):
+        call, result = self._dispatched(token=None)
+        self._told("manage_packages", call.arguments, result, "not_started",
+                   "approval token")
+
+    def test_dispatch_with_a_request_that_cannot_be_written(self):
+        call, result = self._dispatched(mock.patch.object(
+            privileged_request, "write_request",
+            side_effect=privileged_request.RequestError(
+                "the privileged-request directory /x is not a directory")))
+        self._told("manage_packages", call.arguments, result, "not_started",
+                   "could not be written", "is not a directory")
+
+    @staticmethod
+    def _request_written():
+        """The request file the runner would read, stood in (no file)."""
+        return (mock.patch.object(privileged_request, "write_request",
+                                  return_value=Path("/nonexistent/request")),
+                mock.patch.object(privileged_request, "request_id_for",
+                                  return_value="request-1"),
+                mock.patch.object(privileged_request, "prune_stale_requests",
+                                  return_value=[]))
+
+    def test_dispatch_with_no_systemd_run(self):
+        # The unit-directory gate reads no search path (it asks the user
+        # manager with a process of its own), so the stand-in meets the runner.
+        call, result = self._dispatched(
+            *self._request_written(), fixture.unit_search_path_is(),
+            mock.patch.object(reg_mod.subprocess, "run",
+                              side_effect=FileNotFoundError(2, "No such file")))
+        self._told("manage_packages", call.arguments, result, "not_started",
+                   "is not available, so the privileged runner")
+
+    def test_dispatch_with_a_runner_that_cannot_be_invoked(self):
+        call, result = self._dispatched(
+            *self._request_written(), fixture.unit_search_path_is(),
+            mock.patch.object(reg_mod.subprocess, "run",
+                              side_effect=PermissionError(13, "Permission denied")))
+        self._told("manage_packages", call.arguments, result, "not_started",
+                   "could not be started (Permission denied)")
+
     # manage_packages and manage_services
+
+    def test_manage_packages_a_change_without_root(self):
+        args = {"action": "install", "package": "htop"}
+        with mock.patch.object(manage_packages_mod.os, "geteuid", return_value=1000):
+            result = ManagePackagesTool().execute(args)
+        self._told("manage_packages", args, result, "not_started",
+                   "must run as root")
+
+    def test_manage_packages_no_package_manager_at_its_path(self):
+        args = {"action": "install", "package": "htop"}
+        with mock.patch.object(manage_packages_mod.os, "geteuid", return_value=0), \
+                mock.patch.object(manage_packages_mod.os.path, "isfile",
+                                  return_value=False):
+            result = ManagePackagesTool().execute(args)
+        self._told("manage_packages", args, result, "unavailable",
+                   "not present as an executable")
+
+    def test_manage_packages_no_package_manager_installed(self):
+        args = {"action": "list"}
+        with mock.patch.object(manage_packages_mod.shutil, "which",
+                               return_value=None):
+            result = ManagePackagesTool().execute(args)
+        self._told("manage_packages", args, result, "unavailable",
+                   "is not installed here yet")
+
+    def test_manage_packages_no_command_for_the_arguments(self):
+        args = {"action": "list"}
+        with mock.patch.object(ManagePackagesTool, "build_commands",
+                               return_value=None), \
+                mock.patch.object(manage_packages_mod.shutil, "which",
+                                  return_value="/usr/bin/pkm"):
+            result = ManagePackagesTool().execute(args)
+        self._told("manage_packages", args, result, "invalid_arguments",
+                   "no package command can be built")
+
+    def test_manage_services_no_action(self):
+        self._told("manage_services", {}, ManageServicesTool().execute({}),
+                   "invalid_arguments", "no service action was given")
+
+    def test_manage_services_no_service_name(self):
+        args = {"action": "restart"}
+        self._told("manage_services", args, ManageServicesTool().execute(args),
+                   "invalid_arguments", "needs a service name")
 
     # read_file and analyze_file
 

@@ -3595,11 +3595,17 @@ class WebServer:
                         tr = await exec_future
                     ctx.conversation.record_execution(tr, item)
                 else:
+                    # No registry: nothing ran, so it is told so below, never
+                    # handed to the synthesis as a run that errored.
                     tr = ToolResult(
                         call_id=item.call_id,
                         name=item.name,
                         content="Tool registry not initialized.",
                         success=False,
+                        executed=False,
+                        outcome="unavailable",
+                        refusal=("the assistant's tools are not ready yet, so "
+                                 "nothing was run"),
                     )
                 tool_results.append(tr)
 

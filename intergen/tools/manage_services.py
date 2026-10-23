@@ -460,10 +460,14 @@ class ManageServicesTool(BaseTool):
         service = canonical_service(arguments.get("service", ""))
         user_mode = runs_on_the_users_own_manager(arguments)
 
+        # A call refused here ran nothing: told in its own words, never
+        # narrated as a run that errored.
         if not action:
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: no action specified", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="no service action was given",
             )
 
         cmd = self.build_command(arguments)
@@ -473,6 +477,9 @@ class ManageServicesTool(BaseTool):
                 call_id="", name=self.name,
                 content=f"Error: '{action}' requires a service name",
                 success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=(f"{action!r} needs a service name, and none was "
+                         f"given"),
             )
 
         log.info("Service operation: %s %s%s",

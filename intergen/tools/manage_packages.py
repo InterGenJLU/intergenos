@@ -233,6 +233,14 @@ class ManagePackagesTool(BaseTool):
                     f"bypassed."
                 ),
                 success=False,
+                # Nothing was attempted: told in the refusal's own words,
+                # never narrated as a run that errored.
+                executed=False,
+                outcome="not_started",
+                refusal=(f"the package action '{action}' changes the system "
+                         f"and must run as root, but this process is running "
+                         f"as uid {os.geteuid()} (checked), so it was not "
+                         f"attempted"),
             )
 
         # Which pkm to run. A mutation names the vendor path; a read-only action
@@ -248,6 +256,11 @@ class ManagePackagesTool(BaseTool):
                         f"attempted."
                     ),
                     success=False,
+                    executed=False,
+                    outcome="unavailable",
+                    refusal=(f"the package manager is not present as an "
+                             f"executable at {pkm_path} (checked), so "
+                             f"'{action}' was not attempted"),
                 )
         else:
             pkm_path = shutil.which("pkm")
@@ -261,6 +274,10 @@ class ManagePackagesTool(BaseTool):
                         "management is available."
                     ),
                     success=False,
+                    executed=False,
+                    outcome="unavailable",
+                    refusal=("pkm, this system's package manager, is not "
+                             "installed here yet, so nothing was looked up"),
                 )
 
         # Build the pkm commands: the one builder every consent surface
@@ -271,6 +288,11 @@ class ManagePackagesTool(BaseTool):
                 call_id="", name=self.name,
                 content=f"Invalid action or missing parameters for '{action}'",
                 success=False,
+                executed=False,
+                outcome="invalid_arguments",
+                refusal=("no package command can be built from what was asked "
+                         "(an action the tool does not have, or a package "
+                         "name missing)"),
             )
 
         output_parts: list[str] = []

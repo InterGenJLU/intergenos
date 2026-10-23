@@ -2417,6 +2417,11 @@ class ToolRegistry:
                 "privileged dispatch of %s reached without an approval token; "
                 "refusing", tool_name,
             )
+            # Nothing was dispatched: refused before the runner, told in these
+            # words, never narrated as a run that errored.
+            words = (f"{tool_name} cannot be dispatched without the approval "
+                     f"token a person's approval mints, so it was refused (fail "
+                     f"closed)")
             return ToolResult(
                 call_id=call.call_id,
                 name=tool_name,
@@ -2425,6 +2430,9 @@ class ToolRegistry:
                     "human-approval token; refusing (fail closed)."
                 ),
                 success=False,
+                executed=False,
+                outcome="not_started",
+                refusal=words,
             )
 
         try:
@@ -2435,14 +2443,16 @@ class ToolRegistry:
             logger.error(
                 "cannot stage the privileged request for %s: %s", tool_name, exc,
             )
+            words = (f"the privileged request for {tool_name} could not be "
+                     f"written, so the action was not dispatched: {exc}")
             return ToolResult(
                 call_id=call.call_id,
                 name=tool_name,
-                content=(
-                    f"the privileged request for {tool_name} could not be "
-                    f"written, so the action was not dispatched: {exc}"
-                ),
+                content=words,
                 success=False,
+                executed=False,
+                outcome="not_started",
+                refusal=words,
             )
 
         # A recognisable unit name so the dispatch is findable in the journal
@@ -2579,16 +2589,19 @@ class ToolRegistry:
                     "cannot start the privileged runner for %s: %s",
                     tool_name, exc,
                 )
+                words = (f"{_SYSTEMD_RUN} is not available, so the privileged "
+                         f"runner for {tool_name} could not be started. It is "
+                         f"part of systemd; if it is missing the installation "
+                         f"is broken upstream of this point.")
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
-                    content=(
-                        f"{_SYSTEMD_RUN} is not available, so the privileged "
-                        f"runner for {tool_name} could not be started. It is "
-                        f"part of systemd; if it is missing the installation is "
-                        f"broken upstream of this point."
-                    ),
+                    content=words,
                     success=False,
+                    # The runner never started, so nothing was dispatched.
+                    executed=False,
+                    outcome="not_started",
+                    refusal=words,
                 )
             except OSError as exc:
                 logger.error(
@@ -2600,6 +2613,11 @@ class ToolRegistry:
                     name=tool_name,
                     content=f"privileged dispatch invocation error: {exc}",
                     success=False,
+                    executed=False,
+                    outcome="not_started",
+                    refusal=(f"the privileged runner for {tool_name} could not "
+                             f"be started ({exc.strerror or exc}), so nothing "
+                             f"was dispatched"),
                 )
 
             if completed.returncode == 0:
