@@ -40,8 +40,10 @@ where it comes from:
     the message the action declares.
 
 The argv each dispatch would run is captured from the real code path
-(ToolRegistry._dispatch_via_pkexec with subprocess.run replaced by a recorder),
-and the policy is the one this tree ships. Proven by the instrument's own
+(ToolRegistry._dispatch_via_pkexec with subprocess.run replaced by a recorder,
+and the user manager's unit search path, which the launcher reads before every
+start, stood in by a directory that does not exist, so no drop-in applies and
+the read does not reach the recorder), and the policy is the one this tree ships. Proven by the instrument's own
 controls below: under a keep policy the agent counts ONE prompt for two calls
 inside the window and two when the second call comes after it.
 
@@ -60,6 +62,7 @@ import importlib.util
 from pathlib import Path
 from unittest import mock
 
+from intergen import tool_process
 from intergen import tool_registry as tr
 from intergen.interfaces.provenance import Provenance
 from intergen.interfaces.types import ToolCall
@@ -187,6 +190,8 @@ def _dispatch_argv(tool_name):
     with tempfile.TemporaryDirectory(prefix="each-call-auth-") as runtime:
         with mock.patch.dict(os.environ, {"XDG_RUNTIME_DIR": runtime}, clear=False), \
                 mock.patch.object(tr.subprocess, "run", side_effect=_record), \
+                mock.patch.object(tool_process, "unit_search_path",
+                                  return_value=[os.path.join(runtime, "no-unit-path")]), \
                 escalation_allowed_for_a_stubbed_dispatch():
             ToolRegistry._dispatch_via_pkexec(
                 ToolCall(
