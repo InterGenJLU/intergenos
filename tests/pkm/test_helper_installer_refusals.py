@@ -10,8 +10,9 @@ installed and name what the stopped run leaves.
 
 Each case fires the installer's own lines, read from the recipe, from the
 lookup up to the install step, under set -e, with the steps they call stood
-in for by shell functions: the lookup, the download, the signature check, ar
-and tar. Nothing is downloaded or installed, and nothing is written outside a
+in for by shell functions: the lookup, the download (the transport, and the
+helper library's download function, which hands the fetch to the transport it is
+named), the signature check, ar and tar. Nothing is downloaded or installed, and nothing is written outside a
 scratch directory.
 """
 
@@ -82,6 +83,7 @@ def _fire(name, scratch, find, wget=WGET_OK, ar=AR_OK, tar=TAR_OK):
         "igos_helper_verify_deb_via_signed_release() { return 0; }",
         f"igos_helper_find_verified_deb_in_packages() {{ {find}; }}",
         f"wget() {{ {wget}; }}",
+        'igos_helper_download() { local to=$1 url=$2 via=$3; shift 3; "$via" "$@" -O "$to" "$url"; }',
         f"ar() {{ {ar}; }}",
         f"tar() {{ {tar}; }}",
         *segment,
