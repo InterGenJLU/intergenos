@@ -91,6 +91,18 @@ _READER_SPEC.loader.exec_module(policy_reader)
 INSTALLED_POLICY = "/usr/share/polkit-1/actions/org.intergenos.intergen.policy"
 POLICY_ACTION = "org.intergenos.intergen.privileged-tool"
 
+#: Leg 2 reads the installed machine (its PolicyKit and its installed policy),
+#: never this tree, so it runs only in the installed-system gate tier, under the
+#: switch and in the words tests/installed/conftest.py uses: its reading belongs
+#: to the post-install evaluation of a machine that runs this tree's package.
+INSTALLED_GATES_ENV = "INTERGENOS_INSTALLED_GATES"
+INSTALLED_NOT_VERIFIED = (
+    f"NOT VERIFIED: the installed-system gate tier did not run because {INSTALLED_GATES_ENV}=1 "
+    "was not set. This is a SKIP, not a pass: the installed policy and the real PolicyKit path "
+    "have not been checked. It is invoked from the post-install evaluation checklist and the "
+    "promotion checklist."
+)
+
 #: pkexec's refusal when the kernel declined to apply its setuid bit. This exact
 #: string is the shipped defect's signature.
 SETUID_REFUSAL = "pkexec must be setuid root"
@@ -281,7 +293,12 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
     reachable from any of these.
     """
 
+    def _installed_machine(self):
+        if os.environ.get(INSTALLED_GATES_ENV) != "1":
+            self.skipTest(INSTALLED_NOT_VERIFIED)
+
     def _pkcheck(self, action):
+        self._installed_machine()
         return subprocess.run(
             ["pkcheck", "--action-id", action, "--process", str(os.getpid())],
             capture_output=True, text=True, check=False, timeout=PROBE_TIMEOUT,
@@ -341,6 +358,7 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
         reads the file (the gates' reader), or skip. A file PolicyKit would not
         read as written (it stops reading it, or keeps the last of a repeated
         element) fails here, named."""
+        self._installed_machine()
         if not os.path.exists(INSTALLED_POLICY):
             self.skipTest(
                 f"the policy-binding leg was NOT measured: {INSTALLED_POLICY} is absent"
