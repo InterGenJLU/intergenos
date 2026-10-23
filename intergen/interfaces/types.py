@@ -127,6 +127,7 @@ class ToolResult:
     # Both are empty for a call that ran.
     outcome: str = ""
     effective_provenance: str = ""
+    refusal: str = ""
 
 
 @dataclass

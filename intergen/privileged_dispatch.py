@@ -45,6 +45,13 @@ Exit code:
     2 — argv shape wrong (caller bug; should never happen via the
         runner shim)
 
+On every non-zero exit the reason is followed by ONE result line, the last line
+of the output (intergen.tool_registry.privileged_result_line): the request it
+answers and the result's executed, blocked, outcome and refusal, written by this
+module in the same print as the reason. The calling registry reads the result's
+shape from that line alone; without it a refusal made here arrived as a run that
+had errored.
+
 The runner's job is to set up a clean root-context environment + hand
 off to this module. This module's job is to re-validate (defense in
 depth — the privileged context cannot trust the un-privileged caller's
@@ -71,7 +78,8 @@ from intergen import dispatch_token
 from intergen import privileged_request
 from intergen.tool_registry import (ToolRegistry, _PRIVILEGED_TOOLS,
                                     _classify_risk_tier,
-                                    _on_the_users_own_manager)
+                                    _on_the_users_own_manager,
+                                    privileged_result_line)
 from intergen.interfaces.provenance import ToolRiskTier
 from intergen.interfaces.types import SafetyTier
 
@@ -106,6 +114,16 @@ STATE_TERMINAL_FAILED = "terminal-failed"
 STATE_TERMINAL_REFUSED = "terminal-refused"   # refused; nothing was spent
 STATE_TERMINAL_RAISED = "terminal-raised"
 
+#: The outcome a refusal made here carries back, in the registry's words: the
+#: boundary refused before the tool was started, something the dispatch needs
+#: (the registry, the tool, the approval store) is not there, or the arguments
+#: fail the tool's schema. A BLOCKED classification is the classifier's own
+#: block, carried as the registry carries one: blocked, with no words of its own.
+_NOT_STARTED = "not_started"
+_UNAVAILABLE = "unavailable"
+_INVALID_ARGUMENTS = "invalid_arguments"
+_BLOCKED = "blocked"
+
 
 class _NonceReplay(Exception):
     """The approval-nonce has already been consumed — a replayed token. A
@@ -119,11 +137,32 @@ def _emit(message: str) -> None:
     print(message)
 
 
-def _fail(message: str, exit_code: int = 1) -> None:
+def _emit_failure(message: str, *, request_id: str, executed: bool,
+                  blocked: bool, outcome: str, refusal: str) -> None:
+    """Print the reason and, after it, the result line, in ONE print.
+
+    The line is last because the registry reads the final line only, and it
+    shares the print with the reason so nothing this module writes can come
+    between them or after it.
+    """
+    _emit(message + "\n" + privileged_result_line(
+        request_id, executed=executed, blocked=blocked, outcome=outcome,
+        refusal=refusal))
+
+
+def _fail(message: str, exit_code: int = 1, *, request_id: str,
+          outcome: str = _NOT_STARTED, blocked: bool = False,
+          executed: bool = False, refusal: str | None = None) -> None:
     """Print error to stdout (so subprocess.run captures it in the
     calling registry's ToolResult.content) and exit with non-zero.
+
+    The result line after it says the call was not run (unless `executed`
+    says it was), with `outcome` and, as the refusal's words, the message
+    itself unless `refusal` names others.
     """
-    _emit(message)
+    _emit_failure(message, request_id=request_id, executed=executed,
+                  blocked=blocked, outcome=outcome,
+                  refusal=message if refusal is None else refusal)
     sys.exit(exit_code)
 
 
@@ -312,10 +351,13 @@ def main(argv: list[str] | None = None) -> int:
     args = argv if argv is not None else sys.argv[1:]
 
     if len(args) != 4 or args[0] != "--tool" or args[2] != "--request-id":
+        # No request identifier was handed over, so the result line names
+        # none, and the registry, which reads only its own request's line,
+        # reads this one as output.
         _fail(
             "privileged_dispatch: usage: python3 -m intergen.privileged_dispatch "
             "--tool <tool> --request-id <request_id>",
-            exit_code=2,
+            exit_code=2, request_id="",
         )
 
     authenticated_tool = args[1]
@@ -328,6 +370,7 @@ def main(argv: list[str] | None = None) -> int:
         _fail(
             "privileged_dispatch: PKEXEC_UID unset; refusing to run "
             "outside the pkexec runner context.",
+            request_id=request_id,
         )
 
     # PKEXEC_UID presence was checked above; read both identity vars here
@@ -341,6 +384,7 @@ def main(argv: list[str] | None = None) -> int:
         _fail(
             f"privileged_dispatch: PKEXEC identity unavailable/invalid "
             f"({type(exc).__name__}: {exc}); refusing.",
+            request_id=request_id,
         )
 
     # The tool pkexec authenticated for. pkexec chose the PolicyKit action from
@@ -353,6 +397,7 @@ def main(argv: list[str] | None = None) -> int:
             f"privileged_dispatch: tool {authenticated_tool!r} is not in the "
             f"PRIVILEGED_STATE_CHANGING allowlist; refusing dispatch. "
             f"(allowlist: {sorted(_PRIVILEGED_TOOLS)})",
+            request_id=request_id,
         )
 
     # Turn the identifier into a path OURSELVES (2026-08-24). The unprivileged
@@ -366,7 +411,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         request_path = privileged_request.resolve_request(request_id, uid)
     except privileged_request.RequestError as exc:
-        _fail(f"privileged_dispatch: {exc}; refusing dispatch.")
+        _fail(f"privileged_dispatch: {exc}; refusing dispatch.",
+              request_id=request_id)
 
     # Read the request. We are root, so privileged_request checks what it is
     # about to read rather than trusting it — regular file, no symlink, owned
@@ -378,7 +424,8 @@ def main(argv: list[str] | None = None) -> int:
             request_path, expected_uid=uid,
         )
     except privileged_request.RequestError as exc:
-        _fail(f"privileged_dispatch: {exc}; refusing dispatch.")
+        _fail(f"privileged_dispatch: {exc}; refusing dispatch.",
+              request_id=request_id)
 
     # ONE AUTHENTICATION IS ONE CALL, FOR THE KIND OF ACTION IT NAMED
     # (2026-10-22). The person authenticated against the action for
@@ -390,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
             f"privileged_dispatch: the request names tool {tool_name!r} but "
             f"the administrator authenticated for {authenticated_tool!r}; "
             f"refusing dispatch.",
+            request_id=request_id,
         )
 
     # Re-validate tool_name against the PRIVILEGED_STATE_CHANGING
@@ -400,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
             f"privileged_dispatch: tool {tool_name!r} is not in the "
             f"PRIVILEGED_STATE_CHANGING allowlist; refusing dispatch. "
             f"(allowlist: {sorted(_PRIVILEGED_TOOLS)})",
+            request_id=request_id,
         )
 
     # AI-6 (option iii) — HUMAN-APPROVAL TOKEN VERIFY, BEFORE execute.
@@ -428,16 +477,19 @@ def main(argv: list[str] | None = None) -> int:
         _fail(
             f"privileged_dispatch: dispatch token verification failed "
             f"({type(exc).__name__}): {exc}; refusing dispatch.",
+            request_id=request_id,
         )
 
     # The approval is now known to be genuine, and nothing has been spent. Every
     # exit from here on closes this record.
     _record_state(payload.nonce, payload.exp, STATE_CLAIMED)
 
-    def _refuse(message: str) -> None:
+    def _refuse(message: str, *, outcome: str = _NOT_STARTED,
+                blocked: bool = False, refusal: str | None = None) -> None:
         """Refuse after the claim, leaving the approval unspent and said so."""
         _record_state(payload.nonce, payload.exp, STATE_TERMINAL_REFUSED)
-        _fail(message)
+        _fail(message, request_id=request_id, outcome=outcome,
+              blocked=blocked, refusal=refusal)
 
     # Discover tools via the same registry the unprivileged caller used.
     # The registry's discover_tools() walks intergen/tools/*.py and
@@ -448,6 +500,7 @@ def main(argv: list[str] | None = None) -> int:
         _refuse(
             "privileged_dispatch: tool registry discovered 0 tools; "
             "intergen.tools package may be broken upstream of this point.",
+            outcome=_UNAVAILABLE,
         )
 
     tool = registry.get_tool(tool_name)
@@ -456,6 +509,7 @@ def main(argv: list[str] | None = None) -> int:
             f"privileged_dispatch: tool {tool_name!r} is in the privileged "
             f"allowlist but the registry did not discover it; "
             f"intergen.tools.{tool_name} may be missing or broken.",
+            outcome=_UNAVAILABLE,
         )
 
     # THE ROUTE, RE-DERIVED HERE. The registry sends a call to this boundary
@@ -500,6 +554,7 @@ def main(argv: list[str] | None = None) -> int:
         _refuse(
             f"privileged_dispatch: argument validation failed for "
             f"{tool_name!r}: {validation_error}",
+            outcome=_INVALID_ARGUMENTS,
         )
 
     # BLOCKED tier remains a tool-level refusal even in privileged
@@ -510,6 +565,7 @@ def main(argv: list[str] | None = None) -> int:
         _refuse(
             f"privileged_dispatch: tool {tool_name!r} classified BLOCKED "
             f"for this argument set; refusing dispatch.",
+            outcome=_BLOCKED, blocked=True, refusal="",
         )
 
     # SINGLE-USE ENFORCEMENT, HERE AND NOT EARLIER (moved 2026-08-24).
@@ -546,13 +602,17 @@ def main(argv: list[str] | None = None) -> int:
         _refuse(
             f"privileged_dispatch: consumed-nonce store unavailable "
             f"({type(exc).__name__}: {exc}); refusing dispatch (fail closed).",
+            outcome=_UNAVAILABLE,
         )
     _record_state(payload.nonce, payload.exp, STATE_CONSUMED)
 
     # Execute the tool in root context. tool.execute() returns a
     # ToolResult; we surface .content to stdout and map success/failure
     # to exit code so the calling registry can construct a ToolResult
-    # of its own from this subprocess's output.
+    # of its own from this subprocess's output. A result that did not
+    # succeed also carries its own executed, blocked, outcome and refusal
+    # back in the result line, so a refusal the tool made under the runner
+    # reaches the registry as that refusal.
     #
     # The executing record is written BEFORE the call, which is the only
     # ordering under which it survives the call not returning. If this process
@@ -570,14 +630,20 @@ def main(argv: list[str] | None = None) -> int:
         _fail(
             f"privileged_dispatch: tool {tool_name!r} raised "
             f"{type(exc).__name__}: {exc}",
+            request_id=request_id, executed=True, outcome="", refusal="",
         )
 
     _record_state(
         payload.nonce, payload.exp,
         STATE_TERMINAL_OK if result.success else STATE_TERMINAL_FAILED,
     )
-    _emit(result.content)
-    return 0 if result.success else 1
+    if result.success:
+        _emit(result.content)
+        return 0
+    _emit_failure(result.content, request_id=request_id,
+                  executed=result.executed, blocked=result.blocked,
+                  outcome=result.outcome, refusal=result.refusal)
+    return 1
 
 
 if __name__ == "__main__":

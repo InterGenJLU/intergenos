@@ -151,6 +151,67 @@ _PRIVILEGED_TOOLS: frozenset[str] = frozenset({
 })
 
 
+#: THE DISPATCHER'S OWN ACCOUNT OF A DISPATCH THAT DID NOT SUCCEED (2026-10-22).
+#: The privileged dispatcher runs in another process, and only its stdout and its
+#: exit status come back across the boundary. A refusal it made, or one a tool
+#: made under it, arrived as text and an exit status alone, and the result
+#: rebuilt from them said the call had run (executed left True) and lost its
+#: blocked flag, its outcome and its words. So on every non-zero exit it makes,
+#: the dispatcher ends its output with ONE line: this prefix and a JSON object
+#: naming the request it answers and the result's executed, blocked, outcome and
+#: refusal. _privileged_failure_result reads it from the FINAL line only, and
+#: only when it names this dispatch's request identifier, so text inside a
+#: tool's content (always written before that line) cannot pose as it, and
+#: neither can a final line the dispatcher did not write for this dispatch. A
+#: success (exit 0) carries no such line and is read exactly as before.
+PRIVILEGED_RESULT_PREFIX = "privileged_dispatch result: "
+_PRIVILEGED_RESULT_FIELDS = {
+    "request_id": str, "executed": bool, "blocked": bool,
+    "outcome": str, "refusal": str,
+}
+
+
+def privileged_result_line(request_id: str, *, executed: bool, blocked: bool,
+                           outcome: str, refusal: str) -> str:
+    """The one line the dispatcher ends a non-zero exit's output with."""
+    return PRIVILEGED_RESULT_PREFIX + json.dumps({
+        "request_id": request_id, "executed": bool(executed),
+        "blocked": bool(blocked), "outcome": str(outcome or ""),
+        "refusal": str(refusal or ""),
+    }, sort_keys=True)
+
+
+def read_privileged_result_line(stdout: str,
+                                request_id: str) -> tuple[dict | None, str]:
+    """Split the dispatcher's result line off the end of `stdout`.
+
+    Returns the line's fields and the output before it when the final line is
+    the dispatcher's line for `request_id`; otherwise None and `stdout` whole.
+    A final line that carries the prefix but names another request, or whose
+    body is not the dispatcher's shape, is read as output and logged: the
+    dispatcher did not write it for this dispatch.
+    """
+    head, _, last = stdout.rstrip("\n").rpartition("\n")
+    if not last.startswith(PRIVILEGED_RESULT_PREFIX):
+        return None, stdout
+    try:
+        fields = json.loads(last[len(PRIVILEGED_RESULT_PREFIX):])
+    except ValueError:
+        fields = None
+    if (not isinstance(fields, dict)
+            or set(fields) != set(_PRIVILEGED_RESULT_FIELDS)
+            or any(type(fields[name]) is not kind
+                   for name, kind in _PRIVILEGED_RESULT_FIELDS.items())
+            or not request_id or fields["request_id"] != request_id):
+        logger.warning(
+            "the privileged dispatch's final line carries the result prefix "
+            "but is not the dispatcher's line for request %s; it is read as "
+            "output", request_id or "(none)",
+        )
+        return None, stdout
+    return fields, head
+
+
 def _on_the_users_own_manager(arguments: dict[str, Any]) -> bool:
     """manage_services' own answer to whether a call acts on the person's own
     service manager — the same one its builder adds --user on."""
@@ -2505,7 +2566,7 @@ class ToolRegistry:
                 )
 
             return ToolRegistry._privileged_failure_result(
-                call, tool_name, completed,
+                call, tool_name, completed, request_id=request_id,
             )
         finally:
             # The runner removes the request as it reads it. This is the
@@ -2698,6 +2759,8 @@ class ToolRegistry:
         call: ToolCall,
         tool_name: str,
         completed: Any,
+        *,
+        request_id: str = "",
     ) -> ToolResult:
         """Build the failure ToolResult, stating ONLY what was measured.
 
@@ -2733,8 +2796,18 @@ class ToolRegistry:
         The runner's own words still lead when it got far enough to speak: that
         is the one account in this whole path that was produced by something
         which knew what it was doing.
+
+        WHAT IT SAID, AS WELL AS WHY (2026-10-22). When the dispatcher's own
+        result line ends the output for this request (PRIVILEGED_RESULT_PREFIX),
+        the result built here takes its executed, blocked, outcome and refusal,
+        so a refusal made under the runner arrives as the refusal it was rather
+        than as a run that errored; the line itself is not part of the content.
+        Without that line nothing about the call's shape is known, and the
+        result is built as it always was.
         """
-        stdout_message = completed.stdout.rstrip("\n")
+        shape, stdout_text = read_privileged_result_line(
+            completed.stdout, request_id)
+        stdout_message = stdout_text.rstrip("\n")
         stderr_message = completed.stderr.rstrip("\n")
 
         runner_facts = ToolRegistry._probe_path(_PKEXEC_RUNNER_PATH)
@@ -2791,11 +2864,20 @@ class ToolRegistry:
             tool_name, completed.returncode, runner_facts,
             systemd_run_facts, manager_facts, stderr_message,
         )
-        return ToolResult(
+        result = ToolResult(
             call_id=call.call_id,
             name=tool_name,
             content=content,
             success=False,
+        )
+        if shape is None:
+            return result
+        return replace(
+            result,
+            executed=shape["executed"],
+            blocked=shape["blocked"],
+            outcome=shape["outcome"],
+            refusal=shape["refusal"],
         )
 
     @staticmethod

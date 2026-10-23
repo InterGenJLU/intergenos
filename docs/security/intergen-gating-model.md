@@ -313,6 +313,19 @@ tools.
   can change back. `git` asks first in every form, since it reads
   configuration that names programs it runs from the home and from the work
   tree it stands in.
+- **The root side says what it did when it did not succeed.** Only the
+  privileged dispatcher's output and exit status cross back to the registry, so
+  on every non-zero exit the dispatcher ends its output with one result line of
+  its own (`privileged_result_line`), written in the same print as its reason:
+  the request it answers and the result's `executed`, `blocked`, `outcome` and
+  `refusal`. The registry (`_privileged_failure_result`) takes the result's
+  shape from the final line only, and only when the line names this dispatch's
+  request identifier, so a refusal made under the runner (an approval that does
+  not verify, arguments the tool's schema refuses, a BLOCKED classification, an
+  approval already spent, or a tool's own refusal such as a protected path)
+  reaches the person as a refusal in its own words, never as a run that failed,
+  and no text inside a tool's output can pose as the line. A success carries no
+  line and is read as before.
 
 ---
 
@@ -330,3 +343,4 @@ tools.
 | 2026-10-22 | §8: a command `run_command` starts runs with an environment written for it (glibc's unsafe loader variables unset, `env -i` with a fixed allowlist, the program resolved on a fixed PATH); a drop-in that would apply to its service where the account can write refuses the start; every `git` form asks first. |
 | 2026-10-22 | §8: the drop-in gate reads every directory systemd applies to a tool's service and to the privileged dispatch's unit, dependency directories included, and takes one as the administrator's only when root owns it along its whole path. |
 | 2026-10-22 | §8 "The root side holds a named object before it opens it": the backup engine's own `chronicle.held_open` carries the contract to its user-data capture, scoped captures, diff and restore; a store is adopted and used only when no other account can change it; the greeter's layout sync holds the layout before it opens it, and the first-boot seed lands at the sync's modes. |
+| 2026-10-22 | §8 "The root side says what it did when it did not succeed": the privileged dispatcher ends every non-zero exit with one result line (the request, `executed`, `blocked`, `outcome`, `refusal`), and the registry reads it from the final line only and only for its own request, so a refusal made under the runner arrives as a refusal. |
