@@ -78,12 +78,16 @@ from intergen.interfaces.provenance import Provenance
 
 #: The D-008 gates' reader of the policy (scripts/lib/check-privileged-runner-policy.py),
 #: which reads it as polkit 127 does, so this file reads it the way PolicyKit
-#: enforces it and the same way the gates certify it.
-_READER_SPEC = importlib.util.spec_from_file_location(
-    "check_privileged_runner_policy",
-    Path(__file__).resolve().parents[2] / "scripts" / "lib" / "check-privileged-runner-policy.py")
-policy_reader = importlib.util.module_from_spec(_READER_SPEC)
-_READER_SPEC.loader.exec_module(policy_reader)
+#: enforces it and the same way the gates certify it. The reader lives in the
+#: repository, not in the package: an installed layout (this file under
+#: site-packages, no checkout above it) has none, and only the leg that reads the
+#: policy needs it, so the other legs still run there and that one skips by name.
+READER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "lib" / "check-privileged-runner-policy.py"
+policy_reader = None
+if READER_PATH.is_file():
+    _READER_SPEC = importlib.util.spec_from_file_location("check_privileged_runner_policy", READER_PATH)
+    policy_reader = importlib.util.module_from_spec(_READER_SPEC)
+    _READER_SPEC.loader.exec_module(policy_reader)
 
 #: The installed policy file, and the prefix of the actions it binds to the
 #: privileged runner: one per privileged tool since 2026-10-22, each selected by
@@ -362,6 +366,11 @@ class Leg2RealPolicyKitPathTests(unittest.TestCase):
         if not os.path.exists(INSTALLED_POLICY):
             self.skipTest(
                 f"the policy-binding leg was NOT measured: {INSTALLED_POLICY} is absent"
+            )
+        if policy_reader is None:
+            self.skipTest(
+                f"the policy-binding leg was NOT measured: the gates' reader {READER_PATH} "
+                "is absent, as it is in an installed layout"
             )
         reading = policy_reader.read_policy(INSTALLED_POLICY)
         departures = policy_reader.reading_violations(reading)

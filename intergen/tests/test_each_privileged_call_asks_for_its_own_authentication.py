@@ -74,13 +74,28 @@ from intergen.tool_registry import ToolRegistry, _PRIVILEGED_TOOLS
 REPO_ROOT = Path(__file__).resolve().parents[2]
 POLICY = REPO_ROOT / "intergen" / "data" / "org.intergenos.intergen.policy"
 RUNNER_SCRIPT = REPO_ROOT / "intergen" / "data" / "intergen-privileged-runner"
+READER_PATH = REPO_ROOT / "scripts" / "lib" / "check-privileged-runner-policy.py"
+
+#: Every case here reads the policy and the runner this tree ships through the
+#: gates' reader, so the module measures a checkout. An installed layout (this
+#: file under site-packages, no checkout above it) does not carry the reader:
+#: there the module still collects, and setUpModule skips every case by name.
+_ABSENT = [str(p.relative_to(REPO_ROOT)) for p in (POLICY, RUNNER_SCRIPT, READER_PATH) if not p.is_file()]
 
 #: The D-008 gates' reader of the policy (scripts/lib/check-privileged-runner-policy.py),
 #: which reads it as polkit 127 does: intergen has one reader of its policy.
-_READER_SPEC = importlib.util.spec_from_file_location(
-    "check_privileged_runner_policy", REPO_ROOT / "scripts" / "lib" / "check-privileged-runner-policy.py")
-policy_reader = importlib.util.module_from_spec(_READER_SPEC)
-_READER_SPEC.loader.exec_module(policy_reader)
+policy_reader = None
+if READER_PATH.is_file():
+    _READER_SPEC = importlib.util.spec_from_file_location("check_privileged_runner_policy", READER_PATH)
+    policy_reader = importlib.util.module_from_spec(_READER_SPEC)
+    _READER_SPEC.loader.exec_module(policy_reader)
+
+
+def setUpModule():
+    if _ABSENT:
+        raise unittest.SkipTest(
+            "the per-call authentication cases were NOT measured: "
+            f"{', '.join(_ABSENT)} not found above the package, as in an installed layout")
 
 EXEC_PATH = "org.freedesktop.policykit.exec.path"
 EXEC_ARGV1 = "org.freedesktop.policykit.exec.argv1"
