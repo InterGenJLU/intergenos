@@ -2308,7 +2308,7 @@ class ToolRegistry:
         # The runner used to receive the request file's full path and root
         # defended itself by inspecting whatever it found there. Those checks
         # remain, but the input class they defend against no longer needs to
-        # exist: the only thing on this command line is thirty-two hex
+        # exist: the request reference on this command line is thirty-two hex
         # characters, and the privileged side derives the path itself from the
         # uid pkexec reports. A traversal, an absolute path or a symlinked
         # parent is not rejected here — it cannot be written down. The tool's
