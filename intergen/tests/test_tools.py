@@ -107,7 +107,10 @@ class TestRunCommandSafety(unittest.TestCase):
         self.assertEqual(self._classify("sudo ls /root"), SafetyTier.BLOCKED)
 
     def test_auto_env_prefix(self):
-        self.assertEqual(self._classify("env HOME=/tmp ls"), SafetyTier.AUTO)
+        # env stays AUTO only for formatting and locale names; any other name
+        # (HOME, PATH, a loader variable) sets what runs and asks first.
+        self.assertEqual(self._classify("env LANG=C ls"), SafetyTier.AUTO)
+        self.assertEqual(self._classify("env HOME=/tmp ls"), SafetyTier.CONFIRM)
 
     # === 10 CONFIRM (write) commands ===
 
