@@ -204,13 +204,10 @@ models:
 
 llama_server:
   port: 8080
-  # "auto" runs the EARN-OFFLOAD bring-up gate: the GPU must PROVE coherent
-  # output (short + ~1k-token long leg) AND >=1.5x CPU throughput before offload
-  # is granted, else it serves on CPU. This closes the silent-salad class (Intel
-  # ANV Vulkan-F16: layers offload but output is token-salad, zero errors logged).
-  # Replace with an integer to OVERRIDE the gate (user control is supreme):
-  #   gpu_layers: 999  -> force full offload unconditionally
-  #   gpu_layers: 0    -> pin CPU
+  # An explicit integer, including a quoted integer, is used verbatim.
+  # "auto" follows the measured offload plan: the resolved model's fit in
+  # detected video memory determines the layer count. Without a plan, all
+  # layers are offloaded. The hardware tier selects the model, not this count.
   gpu_layers: "auto"
   jinja: true
   parallel: 1

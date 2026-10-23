@@ -94,14 +94,12 @@ _DEFAULTS = {
     },
     "llama_server": {
         "port": 8080,
-        # "auto" resolves to the detected hardware tier's serving posture:
-        # Tier-1 hardware serves over CPU only (its model tier is sized for
-        # CPU serving — the GPU is not an inference device there), higher
-        # tiers offload every layer with nothing to prove first. An explicit
-        # INTEGER is honoured verbatim and is the last word on every tier:
-        # 0 pins the CPU, 999 is full offload stated outright, any other
-        # number is passed to llama-server as written. Resolved by
-        # intergen.llama_manager.resolve_gpu_layers.
+        # An explicit integer, including a quoted integer, is used verbatim.
+        # "auto" follows the measured offload plan: the resolved model's fit
+        # in the detected video memory determines the layer count. Without
+        # a plan, all layers are offloaded. The hardware tier selects the
+        # model, not the offload count. See resolve_gpu_layers in
+        # intergen.llama_manager.
         "gpu_layers": "auto",
         # "auto" pins the serving model to the most-capable DISCRETE card's
         # ggml device (multi-GPU boxes serve on one card and leave the other
