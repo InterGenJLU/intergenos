@@ -203,6 +203,8 @@ package recovery and assistant answers.
 
 - **File and backup target boundaries.** Refuse unsuitable files before opening them, retain checked objects through reads and restores, keep backup stores private, and validate backup targets on adoption and use.
 
+---
+
 ## [R001.3] — 2026-10-18
 
 The third point release. R001.3 was produced as a targeted rebuild against
