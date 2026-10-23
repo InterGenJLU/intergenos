@@ -183,18 +183,20 @@ PANELWRAPPER
 # User overrides: ~/.config/intergen/config.yml
 
 llm:
+  # Reserved, not read. The daemon derives the endpoint from llama_server.port.
   endpoint: "http://127.0.0.1:8080/v1/chat/completions"
   temperature: 0.6
   top_p: 0.8
   top_k: 20
   max_tokens: 4096
-  tool_calling: true
+  tool_calling: true  # Reserved, not read; the daemon supplies this state.
   presence_penalty: 1.5
   context_size: 16384
 
 escalation:
   mode: "ask"
 
+# Reserved section: path, embedding_model and embedding_device are not read.
 models:
   path: "/var/lib/intergen/models"
   embedding_model: "nomic-ai/nomic-embed-text-v1.5"
@@ -215,18 +217,19 @@ llama_server:
   reasoning: "off"
 
 logging:
-  # These three paths are what a ROOT/system deployment writes. A per-user
-  # service does not: it runs under ProtectSystem=strict, where the root-owned
+  # The configured main log path is used by a root/system deployment. A per-user
+  # service runs under ProtectSystem=strict, where the root-owned
   # /var/log/intergen is read-only, so InterGen resolves each of them under the
   # user's XDG state directory instead ($XDG_STATE_HOME/intergen, default
   # ~/.local/state/intergen). The startup line "Logging configured: … file=…"
   # names the file records actually reach, and that is the file to follow.
   #
-  # `file` is read from here. `event_log` and `mcp_audit` are NOT: the event
-  # logger and the MCP audit log each resolve their own path by the same rule.
-  # They are listed so this file says where those two land, not to be edited.
+  # `file` is read from here. The event logger resolves its own per-user path;
+  # the reserved event_log and mcp_audit values do not select a destination.
   level: "INFO"
   file: "/var/log/intergen/intergen.log"
+  # Reserved, not read. The event logger resolves its own path; this release
+  # connects no MCP server and writes no MCP call audit trail.
   event_log: "/var/log/intergen/events.jsonl"
   mcp_audit: "/var/log/intergen/mcp-audit.log"
   max_file_size_mb: 50
@@ -241,6 +244,7 @@ memory:
   # custom location, set db_path here or in ~/.config/intergen/config.yml.
   db_path: null
 
+# Reserved section: no key here is read and no MCP server is connected.
 security:
   mcp_config: "/etc/intergen/mcp.yml"
   mcp_permissions: "/etc/intergen/mcp.d"

@@ -7,10 +7,13 @@ intergen \- AI assistant for InterGenOS
 [\fIargs\fR]
 .SH DESCRIPTION
 .B intergen
-is the command-line interface to the InterGen AI assistant. It connects
-to a running InterGen daemon over D-Bus when one is available and falls
-back to an in-process direct session otherwise (useful for development
-and first-run scenarios).
+is the command-line interface to the InterGen AI assistant. Questions
+are sent to the running InterGen daemon over D-Bus. If the service is
+not running, the command reports how to start it and exits non-zero.
+An explicit
+.B \-\-direct
+permits an in-process session when no daemon owns the bus name; that
+session ends with the command.
 .PP
 InterGen selects an LLM and quantisation appropriate to the local
 hardware by detecting the system's CPU, RAM, and GPU at
@@ -21,16 +24,22 @@ shown by
 .PP
 InterGen runs as a per-user systemd user service
 .RB ( intergen.service )
-with D-Bus activation on the session bus. The daemon starts
-automatically when the first tool call arrives; it can also be started
-explicitly with
+with D-Bus activation on the session bus. Status and tier queries can
+activate the service; asking a question requires it to be running unless
+the explicit direct-session option is used. Start the managed service
+with
+.BR "systemctl --user start intergen.service" .
+Run a foreground daemon explicitly with
 .BR "intergen daemon" .
 .SH COMMANDS
 .TP
-.BR ask " \fIMESSAGE\fR"
+.BR ask " [\fB\-\-direct\fR] \fIMESSAGE\fR"
 Ask InterGen a question or issue a natural-language instruction.
-Returns the response on stdout. If no daemon is running a direct
-session is started for the duration of the call.
+Returns the response on stdout. If no daemon is running, the command
+reports the service state and exits non-zero. With
+.BR \-\-direct ,
+it may instead start a session in this process for the duration of the
+call. A running daemon is used even when this option is supplied.
 .TP
 .B status
 Show daemon status: whether it is running, version, hardware tier,
@@ -43,11 +52,23 @@ model, recommended model and quantisation, and estimated model size on
 disk.
 .TP
 .B tools
-List the tools InterGen can invoke on the user's behalf, together with
-their safety tier. Tools are scoped by the MCP permission configuration
-in
-.IR /etc/intergen/mcp.yml
-and
+List the CLI's built-in tools and their fixed schema safety tiers:
+.PP
+.nf
+run_command        confirm
+read_file          auto
+write_file         confirm
+manage_packages    confirm
+manage_services    confirm
+web_search         auto
+open_application   auto
+.fi
+.PP
+These are the declared tiers printed by this command; validation of an
+individual action and operating-system authorization still apply.
+This release connects no MCP server and reads neither
+.I /etc/intergen/mcp.yml
+nor
 .IR /etc/intergen/mcp.d/ .
 .TP
 .BR "tool-log" " [\fB\-\-clear\fR|\fB\-\-json\fR|\fB\-\-count\fR] [\fB\-\-limit\fR \fIN\fR]"
@@ -103,33 +124,47 @@ Print usage.
 .SH FILES
 .TP
 .I /etc/intergen/config.yml
-System-wide configuration: LLM endpoint, sampling parameters, logging,
-memory DB path, security policy location.
+System-wide configuration, including the sampling parameters, logging
+settings and optional memory DB path. Settings marked reserved are not
+read by this release. In particular, the LLM endpoint is derived from
+the serving port; the reserved endpoint and MCP settings do not change it
+or the built-in tools' tiers.
 .TP
 .I ~/.config/intergen/config.yml
 Per-user overrides applied on top of the system-wide configuration.
 .TP
 .I /etc/intergen/mcp.yml
-Top-level MCP configuration: which tools are enabled, their safety
-tier, and their default invocation policy.
+Reserved location. This release does not read it and connects no MCP
+server. It does not configure the built-in tools.
 .TP
 .I /etc/intergen/mcp.d/
-Drop-in directory for MCP permission overrides. Files are applied
-lexicographically.
+Reserved directory, not read by this release. Files placed here do not
+override the built-in tools' permissions or tiers.
 .TP
 .I /var/lib/intergen/models/
 Local LLM and embedding models. Populated by
 .BR "intergen setup" .
 .TP
-.I /var/lib/intergen/data/memory.db
-InterGen's persistent memory/context database.
+.I $XDG_DATA_HOME/intergen/memory.db
+Default per-user memory database (typically
+.IR ~/.local/share/intergen/memory.db ).
+The
+.B memory.db_path
+configuration setting can select a different path accessible to the user.
 .TP
-.I /var/log/intergen/intergen.log
-Main log. See
-.I /var/log/intergen/events.jsonl
-for the structured event log and
-.I /var/log/intergen/mcp-audit.log
-for the MCP tool-call audit trail.
+.I $XDG_STATE_HOME/intergen/intergen.log
+Main log for the per-user service (typically
+.IR ~/.local/state/intergen/intergen.log ).
+The logging.file setting is read; a non-root process redirects a
+configured path under /var or /usr to its XDG state directory.
+The startup logging message names the actual destination.
+.TP
+.I $XDG_STATE_HOME/intergen/events.jsonl
+Structured event log for the per-user service (typically
+.IR ~/.local/state/intergen/events.jsonl ).
+Its path is resolved by the event logger; logging.event_log is reserved
+and not read. logging.mcp_audit is also reserved and not read; this
+release connects no MCP server and produces no MCP call audit trail.
 .TP
 .I $XDG_STATE_HOME/intergen/tool-dispatch.jsonl
 Per-user D-008 dispatch audit log (typically
@@ -170,17 +205,16 @@ List callable tools and their safety tiers:
 .B intergen tools
 .RE
 .SH SECURITY
-InterGen treats every tool call as a privileged action. The default
-escalation mode is
-.BR ask ,
-requiring user confirmation for any tool invocation that modifies
-system state. Safety tiers and per-tool policies are configured in
-.I /etc/intergen/mcp.yml
-and
-.IR /etc/intergen/mcp.d/ ;
-a stored schema pin at
+Built-in tools declare their safety tiers in the shipped code. Tool
+validation and operating-system authorization determine whether an
+individual action can run; the reserved MCP paths do not configure
+these decisions.
+.PP
+The escalation.mode configuration setting controls cloud-assistance
+escalation, not the built-in tools' safety tiers. No MCP server is
+connected by this release. The directory
 .I /var/lib/intergen/mcp-pins/
-prevents silent tool-signature drift between upgrades.
+is reserved; this release uses no MCP schema pins.
 .SH SEE ALSO
 .BR pkm (1),
 .BR systemctl (1),

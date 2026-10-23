@@ -32,12 +32,13 @@ _USER_CONFIG = Path.home() / ".config" / "intergen" / "config.yml"
 
 _DEFAULTS = {
     "llm": {
+        # Reserved, not read. The daemon derives the endpoint from llama_server.port.
         "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
         "temperature": 0.6,
         "top_p": 0.8,
         "top_k": 20,
         "max_tokens": 4096,
-        "tool_calling": True,
+        "tool_calling": True,  # Reserved, not read; the daemon supplies this state.
         "presence_penalty": 1.5,
         # M6 LEG 3b — chat KV-cache size (feeds llama-server --ctx-size). NOT a
         # per-turn latency lever (it caps the KV cache; actual prefill = what a turn
@@ -45,16 +46,14 @@ _DEFAULTS = {
         # ample headroom for tool-output-heavy turns without VRAM pressure on the
         # 16 GB dGPU (the 9B Q4 serves ~5.9 GB; a 16k-token KV cache fits with room).
         "context_size": 16384,
-        "request_timeout": 120,
+        "request_timeout": 120,  # Reserved, not read from this configuration.
     },
-    # Sentinel scan policy (design plan §5). always-on by default for the
-    # external/MCP + ingress surfaces; "off" requires the human-auth path and is
-    # itself in the AI-immutable protected set (decision #5 — the AI can never
-    # edit sentinel:/escalation:/providers:; only the human does, hand-edit or
-    # authenticated GUI). Enforcement of that immutability converges with the
-    # destructive-policy never-list subsystem at the same dispatch chokepoint.
+    # Scanner selection. depth, deep_scanner and qwen_model are read below;
+    # the reserved controls are identified at their declarations. Changing a
+    # reserved value does not enable or disable scanning.
     "sentinel": {
         "scan": {
+            # These two settings are reserved and not read by this release.
             "mcp": "always",            # always | enabled | off
             "ingress_tools": "always",  # always | enabled | off
             "depth": "baseline",        # baseline (rules floor) | deep (+local-qwen)
@@ -64,9 +63,11 @@ _DEFAULTS = {
                                              # NOTE: key name retained for compat; the
                                              # Tier-1 model is now InternVL3.5-2B.
         },
+        # Reserved section: neither enabled nor provider is read. The deep-scan
+        # selection uses sentinel.scan.deep_scanner instead.
         "cloud_scanner": {
-            "enabled": False,           # opt-in
-            "provider": None,           # NO default provider
+            "enabled": False,
+            "provider": None,
         },
     },
     "escalation": {
@@ -85,6 +86,7 @@ _DEFAULTS = {
     # adapter + model + api_key_keyring_id (key lives in the Keyring, NEVER here)
     # + optional base_url. Empty by default — local-only ships ready.
     "providers": [],
+    # Reserved section: path, embedding_model and embedding_device are not read.
     "models": {
         "path": "/var/lib/intergen/models",
         "embedding_model": "nomic-ai/nomic-embed-text-v1.5",
@@ -135,22 +137,25 @@ _DEFAULTS = {
         # The root/system paths. A per-user service cannot write them —
         # ProtectSystem=strict leaves the root-owned /var/log/intergen
         # read-only — so setup_logging resolves `file` under the user's XDG
-        # state directory and says which file it chose. `event_log` and
-        # `mcp_audit` are recorded here for the same reason the memory section
-        # records its default: so the configuration states where they land.
-        # Neither is read from here; the event logger and the MCP audit log
-        # resolve their own path by the same rule.
+        # state directory and says which file it chose. The event logger
+        # resolves its own per-user path. The reserved event_log and mcp_audit
+        # values below do not select a destination.
         "file": "/var/log/intergen/intergen.log",
+        # Reserved, not read. The event logger resolves its own path; this
+        # release connects no MCP server and writes no MCP call audit trail.
         "event_log": "/var/log/intergen/events.jsonl",
         "mcp_audit": "/var/log/intergen/mcp-audit.log",
         "max_file_size_mb": 50,
         "backup_count": 5,
     },
+    # Reserved section: no key here is read and no MCP server is connected.
     "security": {
         "mcp_config": "/etc/intergen/mcp.yml",
         "mcp_permissions": "/etc/intergen/mcp.d",
         "schema_pins": "/var/lib/intergen/mcp-pins",
     },
+    # Reserved section: path is not read. Memory uses memory.db_path or its
+    # per-user XDG data-directory default.
     "data": {
         "path": "/var/lib/intergen/data",
     },

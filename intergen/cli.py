@@ -99,7 +99,7 @@ def print_usage() -> None:
     print("  reset            Clear the conversation — start fresh")
     print("  status           Show daemon status")
     print("  tier             Show hardware tier info")
-    print("  tools            List available tools")
+    print("  tools            List the CLI's built-in tools and their fixed tiers")
     # These option lists are what the handlers below actually read. They said
     # otherwise until 2026-08-26: all four of tool-log's options were printed
     # under `glass`, which accepts none of them, and glass's own --tail and
