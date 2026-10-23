@@ -77,10 +77,14 @@ class OpenApplicationTool(BaseTool):
 
         app_name = arguments.get("name", "").strip()
         if not app_name:
+            # Nothing was launched: told in its own words, never narrated as a
+            # launch that errored.
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: no application name provided",
                 success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="no application was named to open",
             )
 
         return self._launch_application(app_name)
@@ -133,6 +137,10 @@ class OpenApplicationTool(BaseTool):
                     f"Available: {', '.join(available)}"
                 ),
                 success=False,
+                # Nothing was launched. The words name the call's own name,
+                # quoted, and none of the installed entries' text.
+                executed=False, outcome="not_found",
+                refusal=f"no installed application matches {app_name!r}",
             )
 
         display_name, desktop_file = match

@@ -364,11 +364,17 @@ class TakeScreenshotTool(BaseTool):
             if source == "webcam":
                 method = self._webcam
                 if method is None:
+                    # Nothing was captured: told in its own words, never
+                    # narrated as a capture that errored.
                     return ToolResult(
                         call_id="", name=self.name,
                         content="No webcam capture method available. "
                                 "Install fswebcam or connect a webcam.",
                         success=False,
+                        executed=False, outcome="unavailable",
+                        refusal=("no webcam capture method is available here, "
+                                 "so nothing was captured; installing fswebcam "
+                                 "or connecting a webcam provides one"),
                     )
                 image_bytes, method_name = _capture_webcam(method)
                 kept = ""

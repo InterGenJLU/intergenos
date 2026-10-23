@@ -108,10 +108,15 @@ class ReadFileTool(BaseTool):
         start = arguments.get("start_line", 1)
         end = arguments.get("end_line")
 
+        # A call refused before the read ran nothing: each is told in its own
+        # words (`refusal`), never narrated as a read that errored. A path is
+        # named as the card names one, quoted.
         if not path_str:
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: no path provided", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="no file was named to read",
             )
 
         path = Path(path_str).expanduser().resolve()
@@ -120,12 +125,16 @@ class ReadFileTool(BaseTool):
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"File not found: {path}", success=False,
+                executed=False, outcome="not_found",
+                refusal=f"there is no file at {str(path)!r}",
             )
 
         if not path.is_file():
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Not a regular file: {path}", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=f"{str(path)!r} is not a regular file",
             )
 
         # Size check
@@ -135,6 +144,9 @@ class ReadFileTool(BaseTool):
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Cannot stat file: {e}", success=False,
+                executed=False, outcome="not_found",
+                refusal=(f"{str(path)!r} could not be examined "
+                         f"({e.strerror or e})"),
             )
 
         if size > MAX_FILE_SIZE:
@@ -145,6 +157,10 @@ class ReadFileTool(BaseTool):
                     f"Use start_line/end_line to read a section."
                 ),
                 success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=(f"the file is too large to read whole ({size:,} "
+                         f"bytes, the most is {MAX_FILE_SIZE:,}); a range of "
+                         f"its lines can be read instead"),
             )
 
         # Read
@@ -160,6 +176,9 @@ class ReadFileTool(BaseTool):
                 call_id="", name=self.name,
                 content=dispatch_token.opened_file_refusal_text(refused.reason),
                 success=False, executed=False,
+                # The outcome the renderer tells this refusal by: with none, the
+                # person read only that nothing ran.
+                outcome="secret_refused",
             )
         except OSError as e:
             log.error("Cannot read %s: %s", path, e)
@@ -182,6 +201,9 @@ class ReadFileTool(BaseTool):
                 call_id="", name=self.name,
                 content=f"start_line {start} is beyond end of file ({total} lines)",
                 success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=(f"the file has {total} lines, so there is no line "
+                         f"{start} to start from"),
             )
 
         selected = lines[start - 1:end]

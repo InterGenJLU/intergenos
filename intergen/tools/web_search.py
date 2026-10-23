@@ -285,9 +285,13 @@ class WebSearchTool(BaseTool):
         log.info("Web search: %s (max %d results)", query, num_results)
 
         if not query:
+            # No query left the machine: told in its own words, never narrated
+            # as a search that errored.
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: empty search query", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="the search query was empty, so nothing was searched",
             )
 
         # Try Serper first if API key is available
@@ -319,6 +323,13 @@ class WebSearchTool(BaseTool):
                          "Set the SERPER_API_KEY environment variable, or "
                          "InterGen will fall back to DuckDuckGo search."),
                 success=False,
+                # Nothing was sent: told in its own words, never narrated as a
+                # search that errored.
+                executed=False, outcome="unavailable",
+                refusal=("the search service's API key is not configured, so "
+                         "nothing was searched; setting SERPER_API_KEY "
+                         "configures it, and without it the search falls back "
+                         "to DuckDuckGo"),
             )
         try:
             data = json.dumps({"q": query, "num": num}).encode()

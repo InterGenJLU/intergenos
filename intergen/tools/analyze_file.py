@@ -79,10 +79,15 @@ class AnalyzeFileTool(BaseTool):
         path_str = arguments.get("path", "")
         question = arguments.get("question", "Explain what this file does.")
 
+        # A call refused before the file is read ran nothing: each is told in
+        # its own words (`refusal`), never narrated as an analysis that
+        # errored. A path is named as the card names one, quoted.
         if not path_str:
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: no path provided", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="no file was named to analyze",
             )
 
         path = Path(path_str).expanduser().resolve()
@@ -91,12 +96,16 @@ class AnalyzeFileTool(BaseTool):
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"File not found: {path}", success=False,
+                executed=False, outcome="not_found",
+                refusal=f"there is no file at {str(path)!r}",
             )
 
         if not path.is_file():
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Not a regular file: {path}", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=f"{str(path)!r} is not a regular file",
             )
 
         try:
@@ -105,6 +114,9 @@ class AnalyzeFileTool(BaseTool):
             return ToolResult(
                 call_id="", name=self.name,
                 content=f"Cannot stat file: {e}", success=False,
+                executed=False, outcome="not_found",
+                refusal=(f"{str(path)!r} could not be examined "
+                         f"({e.strerror or e})"),
             )
 
         if size > MAX_FILE_SIZE:
@@ -115,6 +127,10 @@ class AnalyzeFileTool(BaseTool):
                     f"max {MAX_FILE_SIZE:,}). Try read_file with a line range."
                 ),
                 success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal=(f"the file is too large to analyze whole ({size:,} "
+                         f"bytes, the most is {MAX_FILE_SIZE:,}); a range of "
+                         f"its lines can be read instead"),
             )
 
         log.info("Analyzing %s (%d bytes): %s", path, size, question)
@@ -130,6 +146,9 @@ class AnalyzeFileTool(BaseTool):
                 call_id="", name=self.name,
                 content=dispatch_token.opened_file_refusal_text(refused.reason),
                 success=False, executed=False,
+                # The outcome the renderer tells this refusal by: with none, the
+                # person read only that nothing ran.
+                outcome="secret_refused",
             )
         except OSError as e:
             log.error("Cannot read %s: %s", path, e)

@@ -228,6 +228,32 @@ class TheToolRouteTellsTheBoundarysWords(_Checks):
         self.assertEqual(tr.outcome, "image_refused")
         self.assertEqual(result.answer_linkage.renderer, "gate_refusal")
 
+    def test_a_file_that_is_not_there_is_not_read(self):
+        result, _ = _route([ToolCall(name="read_file",
+                                     arguments={"path": "/nonexistent/boundary"},
+                                     source_of_request=D)], "allow_once")
+        self.assertToldInItsOwnWords(result.text, "there is no file at",
+                                     "/nonexistent/boundary")
+        self.assertRefusedWithoutRunning(result.tool_results[0], "not_found")
+
+    def test_a_file_that_is_not_there_is_not_analyzed(self):
+        result, _ = _route([ToolCall(name="analyze_file",
+                                     arguments={"path": "/nonexistent/boundary"},
+                                     source_of_request=D)], "allow_once")
+        self.assertToldInItsOwnWords(result.text, "there is no file at",
+                                     "/nonexistent/boundary")
+        self.assertRefusedWithoutRunning(result.tool_results[0], "not_found")
+
+    def test_an_application_that_is_not_installed_is_not_launched(self):
+        with mock.patch.object(OpenApplicationTool, "_discover_apps",
+                               return_value=[]):
+            result, _ = _route([ToolCall(name="open_application",
+                                         arguments={"name": "no-such-app-340"},
+                                         source_of_request=D)], "allow_once")
+        self.assertToldInItsOwnWords(result.text, "no installed application",
+                                     "no-such-app-340")
+        self.assertRefusedWithoutRunning(result.tool_results[0], "not_found")
+
 
 
 class TheAcceptedOfferTellsTheBoundarysWords(_Checks):
@@ -460,9 +486,135 @@ class EverySiteRefusesWithoutRunning(_Checks):
 
     # read_file and analyze_file
 
+    def test_read_and_analyze_refusals(self):
+        with tempfile.TemporaryDirectory(prefix="boundary-words-") as scratch:
+            two = Path(scratch, "two.txt")
+            two.write_text("one\ntwo\n", encoding="utf-8")
+            rows = [
+                ({}, "invalid_arguments", "no file was named"),
+                ({"path": str(Path(scratch, "absent"))}, "not_found",
+                 "there is no file at"),
+                ({"path": scratch}, "invalid_arguments", "is not a regular file"),
+            ]
+            for tool, cls in (("read_file", ReadFileTool),
+                              ("analyze_file", AnalyzeFileTool)):
+                for args, outcome, words in rows:
+                    with self.subTest(tool=tool, args=args):
+                        self._told(tool, args, cls().execute(args), outcome, words)
+            for tool, cls, module in (("read_file", ReadFileTool, read_file_mod),
+                                      ("analyze_file", AnalyzeFileTool,
+                                       analyze_file_mod)):
+                with self.subTest(tool=tool, row="too large"), \
+                        mock.patch.object(module, "MAX_FILE_SIZE", 2):
+                    args = {"path": str(two)}
+                    self._told(tool, args, cls().execute(args),
+                               "invalid_arguments", "too large")
+            args = {"path": str(two), "start_line": 9}
+            self._told("read_file", args, ReadFileTool().execute(args),
+                       "invalid_arguments", "no line 9 to start from")
+
+    def test_a_credential_refused_at_the_read_is_told_by_its_outcome(self):
+        for tool, cls in (("read_file", ReadFileTool),
+                          ("analyze_file", AnalyzeFileTool)):
+            with self.subTest(tool), tempfile.NamedTemporaryFile() as f, \
+                    mock.patch.object(
+                        dispatch_token, "read_text_refusing_install_secrets",
+                        side_effect=dispatch_token.InstallSecretRefused(
+                            "the per-install dispatch signing key")):
+                args = {"path": f.name}
+                result = cls().execute(args)
+                self.assertFalse(result.executed, result)
+                self.assertEqual(result.outcome, "secret_refused")
+                self.assertToldInItsOwnWords(
+                    reg_mod.gate_refusal_message(_call(tool, args), result),
+                    "credential files")
+
     # write_file
 
+    def test_write_file_refusals(self):
+        self._told("write_file", {}, WriteFileTool().execute({}),
+                   "invalid_arguments", "no file was named")
+        args = {"path": "/etc/shadow", "content": "x"}
+        self._told("write_file", args, WriteFileTool().execute(args),
+                   "path_refused", "protected system file")
+        args = {"path": "/etc/boundary-words.conf", "content": "x"}
+        with mock.patch.object(write_file_mod.os, "geteuid", return_value=1000):
+            self._told("write_file", args, WriteFileTool().execute(args),
+                       "path_refused", "system-sensitive prefix")
+        args = {"path": "~/x", "content": "x"}
+        with mock.patch.object(dispatch_token, "expanduser_for_install_owner",
+                               side_effect=dispatch_token.InstallOwnerUnresolved(
+                                   "no entry")):
+            self._told("write_file", args, WriteFileTool().execute(args),
+                       "path_refused", "could not be established")
+        with mock.patch.object(dispatch_token, "resolved_for_a_write",
+                               side_effect=dispatch_token.LinkOnTheRequestedPath(
+                                   "a link root does not own is on the path")):
+            self._told("write_file", args, WriteFileTool().execute(args),
+                       "path_refused", "a link root does not own")
+
+    def test_write_file_credential_refusals_are_told_by_their_outcome(self):
+        refused = dispatch_token.InstallSecretRefused(
+            "the per-install dispatch signing key")
+        with tempfile.TemporaryDirectory(prefix="boundary-words-") as scratch:
+            existing = Path(scratch, "existing.txt")
+            existing.write_text("old", encoding="utf-8")
+            rows = {
+                "the diff read": ({"path": str(existing), "content": "new"},
+                                  mock.patch.object(
+                                      dispatch_token,
+                                      "read_text_refusing_install_secrets",
+                                      side_effect=refused)),
+                "before the directories": (
+                    {"path": str(Path(scratch, "a", "b")), "content": "x",
+                     "create_dirs": True},
+                    mock.patch.object(dispatch_token,
+                                      "canonical_path_secret_reason",
+                                      return_value="the signing key")),
+                "the open": ({"path": str(Path(scratch, "new.txt")),
+                              "content": "x"},
+                             mock.patch.object(
+                                 dispatch_token,
+                                 "opened_refusing_install_secrets",
+                                 side_effect=refused)),
+            }
+            for row, (args, patch) in rows.items():
+                with self.subTest(row), patch:
+                    result = WriteFileTool().execute(args)
+                    self.assertFalse(result.executed, result)
+                    self.assertEqual(result.outcome, "secret_refused")
+                    self.assertToldInItsOwnWords(
+                        reg_mod.gate_refusal_message(_call("write_file", args),
+                                                     result),
+                        "credential files")
+
     # open_application, web_search, take_screenshot
+
+    def test_open_application_refusals(self):
+        self._told("open_application", {"action": "launch"},
+                   OpenApplicationTool().execute({"action": "launch"}),
+                   "invalid_arguments", "no application was named")
+        args = {"action": "launch", "name": "no-such-app-340"}
+        with mock.patch.object(OpenApplicationTool, "_discover_apps",
+                               return_value=[]):
+            self._told("open_application", args,
+                       OpenApplicationTool().execute(args), "not_found",
+                       "no installed application matches 'no-such-app-340'")
+
+    def test_web_search_refusals(self):
+        args = {"query": "   "}
+        self._told("web_search", args, WebSearchTool().execute(args),
+                   "invalid_arguments", "the search query was empty")
+        self.assertRefusedWithoutRunning(
+            WebSearchTool()._search_serper("q", 3, ""), "unavailable",
+            "API key is not configured", "SERPER_API_KEY")
+
+    def test_take_screenshot_with_no_webcam(self):
+        args = {"source": "webcam"}
+        tool = TakeScreenshotTool()
+        tool._webcam = None
+        self._told("take_screenshot", args, tool.execute(args), "unavailable",
+                   "no webcam capture method", "fswebcam")
 
 
 class TheNewShapeLoosensNothing(_Checks):

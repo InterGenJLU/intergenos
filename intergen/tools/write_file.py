@@ -317,10 +317,16 @@ class WriteFileTool(BaseTool):
         content = arguments.get("content", "")
         create_dirs = arguments.get("create_dirs", False)
 
+        # A write refused before anything is written ran nothing: each refusal
+        # below is told in its own words (`refusal`), or by its outcome, never
+        # narrated as a write that errored. A path is named as the card names
+        # one, quoted.
         if not path_str:
             return ToolResult(
                 call_id="", name=self.name,
                 content="Error: no path provided", success=False,
+                executed=False, outcome="invalid_arguments",
+                refusal="no file was named to write",
             )
 
         # A leading ~ is the install owner's home, which is not HOME when this
@@ -341,10 +347,15 @@ class WriteFileTool(BaseTool):
                     "against the install's own files."
                 ),
                 success=False,
+                executed=False, outcome="path_refused",
+                refusal=(f"the account that owns this install could not be "
+                         f"established ({exc}), so this write could not be "
+                         f"checked against the install's own files"),
             )
         except dispatch_token.LinkOnTheRequestedPath as exc:
             return ToolResult(
                 call_id="", name=self.name, content=str(exc), success=False,
+                executed=False, outcome="path_refused", refusal=str(exc),
             )
 
         # AI-5 BLEND — gate-side policy, re-enforced root-side via the SHARED
@@ -362,6 +373,10 @@ class WriteFileTool(BaseTool):
                     "root included)."
                 ),
                 success=False,
+                executed=False, outcome="path_refused",
+                refusal=(f"{str(path)!r} is a protected system file or under a "
+                         f"danger-equivalent prefix, refused in every context, "
+                         f"root included"),
             )
 
         # AI-5 root-side euid backstop: a system-sensitive path must come through
@@ -382,6 +397,11 @@ class WriteFileTool(BaseTool):
                     "(human approval + dispatch token), not a direct write."
                 ),
                 success=False,
+                executed=False, outcome="path_refused",
+                refusal=(f"{str(path)!r} is under a system-sensitive prefix and "
+                         f"can only be written through the reviewed privileged "
+                         f"path (a person's approval and a dispatch token), not "
+                         f"a direct write"),
             )
 
         # Generate diff for existing files
@@ -412,6 +432,7 @@ class WriteFileTool(BaseTool):
                     content=dispatch_token.opened_file_refusal_text(
                         refused.reason),
                     success=False,
+                    executed=False, outcome="secret_refused",
                 )
             except OSError as e:
                 return ToolResult(
@@ -435,6 +456,7 @@ class WriteFileTool(BaseTool):
                     call_id="", name=self.name,
                     content=dispatch_token.opened_file_refusal_text(reason),
                     success=False,
+                    executed=False, outcome="secret_refused",
                 )
             try:
                 made = dispatch_token.made_parent_directories(path)
@@ -461,10 +483,13 @@ class WriteFileTool(BaseTool):
                 os.ftruncate(handle.fileno(), 0)
                 handle.write(content)
         except dispatch_token.InstallSecretRefused as refused:
+            # The open refuses before any byte is written, and removes a file
+            # it created for the refused write (opened_refusing_install_secrets).
             return ToolResult(
                 call_id="", name=self.name,
                 content=dispatch_token.opened_file_refusal_text(refused.reason),
                 success=False,
+                executed=False, outcome="secret_refused",
             )
         except OSError as e:
             return ToolResult(
