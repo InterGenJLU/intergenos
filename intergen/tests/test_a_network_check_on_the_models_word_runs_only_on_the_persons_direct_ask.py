@@ -44,6 +44,8 @@ import tempfile
 import unittest
 from unittest import mock
 
+import pytest
+
 from intergen import glass, safety, tool_registry
 from intergen.audit_log import read_records
 from intergen.consent_dialog_sanitize import tier_effect_sentence
@@ -176,14 +178,28 @@ class TheRiskTierCarriesTheClass(unittest.TestCase):
                 self.assertIs(_classify_risk_tier(tool, {"command": command}, "run_command"),
                               ToolRiskTier.READ_ONLY)
 
-    def test_a_git_form_is_held_by_its_own_tier(self):
-        # Neither the read tier nor this class: both run on the direct ask
-        # without a card, and a git form never does.
+    @pytest.mark.xfail(strict=True, reason=(
+        "held to R002: a CONFIRM run_command form that only asks first is still read as "
+        "privileged and dispatched through the privileged runner"))
+    def test_a_git_form_asks_first_and_runs_as_the_person(self):
+        # Asking first is all a git form needs: it is neither the read tier nor
+        # this class (both run on the direct ask without a card), and it changes
+        # nothing that needs root, so it is not the privileged tier and is never
+        # sent to the privileged runner in any cell. A DECLARED EXPECTED FAILURE
+        # while the registry reads every CONFIRM command as privileged.
         tool = RunCommandTool()
+        problems = []
         for command in GIT_FORMS:
-            with self.subTest(command=command):
-                self.assertNotIn(_classify_risk_tier(tool, {"command": command}, "run_command"),
-                                 (ToolRiskTier.READ_ONLY, EGRESS))
+            tier = _classify_risk_tier(tool, {"command": command}, "run_command")
+            if tier in (ToolRiskTier.READ_ONLY, EGRESS, ToolRiskTier.PRIVILEGED_STATE_CHANGING):
+                problems.append(f"{command}: {tier}")
+            for ingress, declared in CELLS:
+                call = ToolCall(name="run_command", arguments={"command": command},
+                                source_of_request=declared)
+                if verify_tool_call(call, _tracker(ingress), ConversationTrustState(),
+                                    tier).needs_pkexec:
+                    problems.append(f"{command}: privileged runner ({ingress}, {declared.value})")
+        self.assertEqual(problems, [])
 
     def test_an_external_handler_is_network_egress_and_a_privileged_name_stays(self):
         self.assertIs(_classify_risk_tier(None, {"q": "x"}, "mcp_srv_tool"),
