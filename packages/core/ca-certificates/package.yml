@@ -1,7 +1,7 @@
 name: ca-certificates
 version: "2026.10.20"
-release: 3  # r3: ship the TLS trust updater and its manual with a declared p11-kit dependency.
-content_hash: 703301d27f5fed88
+release: 4  # r4: Advance the trusted Mozilla CA bundle snapshot to 2026-10-20 and retain the declared source verification.  # r3: ship the TLS trust updater and its manual with a declared p11-kit dependency.
+content_hash: fe2aa6960c4702c3
 description: Mozilla CA root certificate bundle (PEM) for OS-level TLS verification
 license: MPL-2.0
 homepage: https://curl.se/docs/caextract.html
