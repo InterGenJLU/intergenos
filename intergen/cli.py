@@ -116,7 +116,7 @@ def print_usage() -> None:
     print("  glass            Reconstruct turns from the M1 glass trace")
     print("                     --turn ID     the full causal chain for one turn")
     print("                     --tail N      the last N rows (default 40)")
-    print("                     --json        emit raw JSONL")
+    print("                     --json        JSON records, with any status notice first")
     print("  test             Run self-test (hardware + tools)")
     print("  setup            Download and verify LLM model")
     print("                     --tier=N      force a hardware tier "
@@ -1698,7 +1698,7 @@ def cmd_glass(args: list[str]) -> None:
     `intergen glass`                list turns (newest last)
     `intergen glass --turn <id>`    the full ordered causal chain for one turn
     `intergen glass --tail [N]`     the last N rows (default 40)
-    `intergen glass --json`         raw JSONL
+    `intergen glass --json`         JSON records, with any status notice first
     """
     from intergen import glass
     rows = list(glass.read_rows())
