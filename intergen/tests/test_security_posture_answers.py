@@ -299,6 +299,7 @@ def _router(outputs=None, *, web=True, model="TestModel-2B", providers=None):
     r._review_callback = None
     r._llm = SimpleNamespace(served_model_name=lambda: model)
     r._escalation = (None if providers is None else SimpleNamespace(
+        refusal=lambda: None,
         list_providers=lambda: [SimpleNamespace(name=n) for n in providers]))
     return r
 

@@ -5415,7 +5415,10 @@ class ConversationRouter(RouterInterface):
         text += (" Your IP address is looked up at a public DNS resolver when you "
                  "ask for it, and installing or updating software downloads it "
                  "from the InterGenOS package mirror.")
-        if providers:
+        if escalation is not None and escalation.refusal():
+            text += (" Phone-A-Friend is off here (escalation.mode), so nothing "
+                     "is sent to a cloud model.")
+        elif providers:
             text += (" Phone-A-Friend sends a question to "
                      + ", ".join(providers)
                      + " only after you approve that one send.")
