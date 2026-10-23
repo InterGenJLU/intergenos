@@ -44,6 +44,8 @@ CHANGES = [
     "git remote rename origin old", "git remote remove origin", "git remote rm origin",
     "git remote set-branches origin main", "rpm -ivh x.rpm", "rpm -qa", "dpkg -i x.deb",
     "dpkg -l",
+    # every git form asks first (git runs the programs its configuration names): CONFIRM by the chain's rule, listed here for the verdict, not as changes
+    "git remote", "git remote -v", "git remote get-url origin",
 ]
 
 READS = [
@@ -52,8 +54,7 @@ READS = [
     "hostnamectl", "hostnamectl status", "hostnamectl hostname", "hostnamectl chassis",
     "hostname", "hostname -I", "hostname -f", "hostname -s", "date", "date -u",
     "date -d yesterday", "date -R", "date --iso-8601", "dmesg", "dmesg -T",
-    "dmesg --level=err,warn", "dmesg -lcrit", "dmesg -H", "git remote", "git remote -v",
-    "git remote get-url origin",
+    "dmesg --level=err,warn", "dmesg -lcrit", "dmesg -H",
 ]
 
 #: The code's own fixed reads (router.py's direct answers, the read-only state
