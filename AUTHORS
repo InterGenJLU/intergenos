@@ -70,7 +70,7 @@ Each entry below is the trailer exactly as the history carries it —
 one line per spelling, in order of first use — followed by its
 figures; the entries are in order of first contribution. The "Public"
 figures are counted over this repository's `dev` history at its
-2026-10-17 tip (1,847 commits, 1,797 of them carrying at least one
+2026-10-23 tip (2,169 commits, 2,119 of them carrying at least one
 model trailer), one count per commit per distinct trailer:
 
     git log --date=short --format='%x00%ad%x01%B' dev
@@ -140,7 +140,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Co-Authored-By: ChatGPT-6 Astra <noreply@openai.com>
 Co-Authored-By: GPT-6 Astra <noreply@openai.com>
 Co-Authored-By: GPT-6-Astra <noreply@openai.com>
-  Public: 197 commits, 2026-09-04 → 2026-10-17. Pre-publication: none.
+  Public: 280 commits, 2026-09-04 → 2026-10-23. Pre-publication: none.
 
 Co-Authored-By: ChatGPT-6 Sol <noreply@openai.com>
   Public: 16 commits, 2026-09-14 → 2026-09-22. Pre-publication: none.
@@ -149,10 +149,13 @@ Co-Authored-By: ChatGPT-5.6 Daybreak Blue <noreply@openai.com>
   Public: 20 commits, 2026-09-15 → 2026-09-22. Pre-publication: none.
 
 Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>
-  Public: 372 commits, 2026-09-22 → 2026-10-17. Pre-publication: none.
+  Public: 597 commits, 2026-09-22 → 2026-10-22. Pre-publication: none.
 
 Co-Authored-By: Claude Mythos 5.1 <noreply@anthropic.com>
-  Public: 116 commits, 2026-10-08 → 2026-10-17. Pre-publication: none.
+  Public: 132 commits, 2026-10-08 → 2026-10-21. Pre-publication: none.
+
+Co-Authored-By: gpt-6-astra <noreply@openai.com>
+  Public: 11 commits, 2026-10-20 → 2026-10-21. Pre-publication: none.
 
 Seventeen pre-publication commits of April to July 2026 carry a
 workstation label, or a model family without a version, in place of a
@@ -200,5 +203,8 @@ state audit.
 
 Amended 2026-10-17: the AI-model co-authorship record added, with the
 counting method it was derived by.
+
+Amended 2026-10-23: the AI-model co-authorship figures refreshed from
+the recorded development snapshot, by the same counting method.
 
 — InterGenJLU
