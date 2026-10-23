@@ -44,7 +44,7 @@ CHANGES = [
     "git remote rename origin old", "git remote remove origin", "git remote rm origin",
     "git remote set-branches origin main", "rpm -ivh x.rpm", "rpm -qa", "dpkg -i x.deb",
     "dpkg -l",
-    # every git form asks first (git runs the programs its configuration names): CONFIRM by the chain's rule, listed here for the verdict, not as changes
+    # every git form asks first (git runs the programs its configuration names): CONFIRM, listed here for the verdict, not as changes
     "git remote", "git remote -v", "git remote get-url origin",
 ]
 
