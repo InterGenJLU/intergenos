@@ -30,7 +30,7 @@ returns ``RouteResult(source="conversation_unbound", handled=False)`` with the
 allowlists, so it leaves by the fallback above, as a ``response`` frame
 carrying ``handled: False``. The project's own battery already classes that
 source and that sentence as a turn that was NOT answered
-(intergen/tests/web_battery.py:120-129) — by matching text and route name,
+(intergen/tests/web_battery.py:206-219) — by matching text and route name,
 because nothing on any surface reads the field the daemon actually sets.
 
 Hermetic: no service, no socket, no model server, no network. The shell is
