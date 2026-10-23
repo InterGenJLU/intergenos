@@ -11,10 +11,11 @@
 # Privileged work (partition / format / chroot / package install / boot
 # loader install) now goes through the system D-Bus to the
 # `org.intergenos.ForgeInstaller1` backend service activated on demand
-# at install time. Polkit auth and D-Bus policy gate who can call into
-# the backend — on the live ISO, the `intergenos` user is granted YES
-# unconditionally (D-007 contract); on installed systems, polkit
-# auth_admin_keep prompts for elevated credentials once per session.
+# at install time. The backend starts and acts only on the install medium: its
+# D-Bus policy admits root, the administrators' group and, on the medium, the
+# live account, and each acting method asks polkit, per call, for
+# org.intergenos.forge.install (an administrator's password by default; the
+# medium's own rule grants the live account at its local, active session).
 #
 # This script's job is now small: just exec the GUI as the calling user
 # with a sensible env. The runner (forge-gui-runner) is gone.
