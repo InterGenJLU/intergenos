@@ -344,7 +344,9 @@ class TextCannotPoseAsTheResultLineTests(_ChainTestCase):
         result = self.dispatch(canned_stdout=lambda rid: (
             "output\n" + _PREFIX + json.dumps({"request_id": rid,
                                                "executed": "no"}) + "\n"))
-        self.assertTrue(result.executed)
+        # True itself: a reader that took this body would hand over "no".
+        self.assertIs(result.executed, True)
+        self.assertIn(_PREFIX, result.content)
 
     def test_the_dispatchers_own_shape_for_this_request_is_read(self):
         result = self.dispatch(canned_stdout=lambda rid: (
