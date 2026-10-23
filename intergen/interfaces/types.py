@@ -91,12 +91,18 @@ class ToolResult:
     # and never ran. A structured signal (not a content-string match) so the
     # router can skip the synthesis hop on a blocked dispatch — otherwise the
     # model narrates a blocked destructive command as success (the dd-wipe
-    # fabrication). Default False; only the safety-block paths set it.
+    # fabrication). Default False; only the safety-block paths set it. No other
+    # boundary does: a refusal by the launch boundary, the shell-free executor
+    # or the image gate is told in its own words (`refusal`), and the
+    # classifier's line in their place dropped the entry and the remedy.
     blocked: bool = False
     # Did the tool actually RUN? True for a real execution (even one that ran and
     # returned a non-zero/error result); False when the dispatch was refused /
     # denied / not-executed at the gate (unknown tool, validation error, gate
-    # reject, egress block, no-review-UI, user-deny, token-mint fail). The synth
+    # reject, egress block, no-review-UI, user-deny, token-mint fail) or refused
+    # before its act started by a boundary of its own (the launch boundary, the
+    # shell-free executor, the tool's check of its arguments or of what this
+    # machine has, the privileged dispatch before its runner). The synth
     # hop MUST distinguish these: a ran-but-errored result is explained from its
     # output, but a not-executed result must NOT be narrated as success (the
     # shutdown fabrication — the model was told "it executed" when it was denied).
@@ -124,9 +130,21 @@ class ToolResult:
     # and the provenance the gate read, or would read, once ingress was weighed.
     # The refusal a person reads takes its reason from the first and hands over
     # a command line only when the second is the person's own (user_direct).
-    # Both are empty for a call that ran.
+    # Both are empty for a call that ran, except a picture the image gate
+    # refused after its capture ran (image_refused).
     outcome: str = ""
     effective_provenance: str = ""
+    # THE REFUSAL'S OWN WORDS, for the person: the sentence the boundary that
+    # refused this call wrote where it refused it (its entry, its reason, its
+    # remedy) — the launch boundary, the shell-free executor, a tool's own
+    # check of its arguments or of what this machine has, the privileged
+    # dispatch before its runner starts, the image gate. Code-owned text, never
+    # a tool's output or a page's: a call argument it names is the call's own,
+    # named as the refusal before any card names it. Every delivery path tells
+    # a result carrying these words in them (gate_refusal_message), never in the
+    # safety classifier's line, as a handoff or through a synthesis, whatever
+    # `executed` says. Empty for a call that ran and for the classifier's own
+    # block, which `blocked` carries.
     refusal: str = ""
 
 

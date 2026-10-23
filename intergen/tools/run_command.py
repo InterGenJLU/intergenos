@@ -41,6 +41,20 @@ log = logging.getLogger(__name__)
 # absent. The classify_command gate stays as the second, independent layer.
 _SHELL_CONSTRUCT_CHARS = frozenset("|&;<>()$`\n\r")
 
+# The refusals this tool makes before its process starts, in the words a person
+# reads (ToolResult.refusal). They name nothing of the call itself, so a
+# refused command is never repeated back in the product's voice; its detail
+# stays in the result's content, for the model and the record. The registry's
+# refusal before any card (describe_call) tells the same refusals in the same
+# words.
+EMPTY_COMMAND_WORDS = "the command is empty"
+SHELL_CONSTRUCT_WORDS = (
+    "this tool runs a single command with no shell, so shell constructs can't "
+    "be used here: pipes, redirection, ; && &, command substitution $(), "
+    "subshells and newlines. Ask for one plain command at a time")
+UNPARSEABLE_WORDS = ("the command could not be split into words (a quote left "
+                     "open?)")
+
 # AI-4: the safety tier tables + destructive-pattern denylist + compound
 # decomposition that used to live here now live in the single strong
 # classifier intergen.safety.classify_command (a strict superset of the
@@ -164,9 +178,12 @@ class RunCommandTool(BaseTool):
                     "at a time."
                 ),
                 success=False,
-                # Same HARD-block signal as the classifier path: nothing ran, so
-                # the synthesis hop must not narrate a success (no fabrication).
-                blocked=True,
+                # Nothing ran, so the synthesis hop must not narrate a success;
+                # and it is the executor's refusal, not the classifier's, so it
+                # is told in its own words rather than as a safety block.
+                executed=False,
+                outcome="shell_refused",
+                refusal=SHELL_CONSTRUCT_WORDS,
             )
 
         # Tokenize into an argv vector — no shell parsing, no word-splitting a
@@ -181,7 +198,9 @@ class RunCommandTool(BaseTool):
                 name=self.name,
                 content=f"Could not parse the command (unbalanced quotes?): {e}",
                 success=False,
-                blocked=True,
+                executed=False,
+                outcome="invalid_arguments",
+                refusal=UNPARSEABLE_WORDS,
             )
         if not argv:
             return ToolResult(
@@ -214,8 +233,12 @@ class RunCommandTool(BaseTool):
                 name=self.name,
                 content=f"This command was not run: {e}",
                 success=False,
-                # Nothing ran, so the synthesis hop must not narrate a success.
-                blocked=True,
+                # Nothing ran, so the synthesis hop must not narrate a success;
+                # the launch boundary's own words (the entry, the reason, the
+                # remedy) are what the person reads, never the classifier's line.
+                executed=False,
+                outcome="not_started",
+                refusal=str(e),
             )
 
         try:

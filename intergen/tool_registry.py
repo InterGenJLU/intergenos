@@ -484,12 +484,16 @@ class ActDescription(NamedTuple):
     the privileged runner as root; `refusal` the reason the call is refused
     before any card ("" when it is not); `blocked` whether that refusal is the
     safety tier's or the shell-free executor's hard refusal, which is never
-    handed to a person as a command to run."""
+    handed to a person as a command to run; `words` that refusal in the words
+    a person reads when they name nothing of the call (ToolResult.refusal),
+    and `kind` its outcome, for the refusals that have them."""
     what: str
     commands: tuple[tuple[str, ...], ...]
     root: bool
     refusal: str = ""
     blocked: bool = False
+    words: str = ""
+    kind: str = ""
 
     @property
     def command_line(self) -> str:
@@ -642,10 +646,13 @@ def describe_call(tool_call: "ToolCall",
         return ActDescription(_systemctl_sentence(tuple(argv)), (tuple(argv),),
                               root)
     if name == "run_command":
-        from intergen.tools.run_command import _SHELL_CONSTRUCT_CHARS
+        from intergen.tools.run_command import (
+            _SHELL_CONSTRUCT_CHARS, EMPTY_COMMAND_WORDS, SHELL_CONSTRUCT_WORDS,
+            UNPARSEABLE_WORDS)
         command = str(args.get("command", "") or "").strip()
         if not command:
-            return ActDescription("", (), root, "Error: empty command", True)
+            return ActDescription("", (), root, "Error: empty command", True,
+                                  EMPTY_COMMAND_WORDS, "invalid_arguments")
         offending = sorted({c for c in command if c in _SHELL_CONSTRUCT_CHARS})
         if offending:
             shown = ", ".join(repr(c) for c in offending)
@@ -657,13 +664,14 @@ def describe_call(tool_call: "ToolCall",
                 "constructs are not supported (found: " + shown + "). Pipes, "
                 "redirection, ; && & , command substitution $(), subshells, "
                 "and newlines can't be used here — ask for one plain command "
-                "at a time.", True)
+                "at a time.", True, SHELL_CONSTRUCT_WORDS, "shell_refused")
         try:
             words = shlex.split(command)
         except ValueError as exc:
             return ActDescription(
                 "", (), root,
-                f"Could not parse the command (unbalanced quotes?): {exc}", True)
+                f"Could not parse the command (unbalanced quotes?): {exc}", True,
+                UNPARSEABLE_WORDS, "invalid_arguments")
         program = words[0]
         if "/" in program:
             resolved = os.path.abspath(program)
@@ -791,9 +799,22 @@ def gate_refusal_message(tool_call: "ToolCall", tool_result: "ToolResult",
     at the card — before that, the router delivered the registry's audit string
     ("Tool call denied by user via review modal.") to the person, because the
     renderer written for this case could not be reached from that path.
+
+    A REFUSAL IN ITS OWN WORDS (ToolResult.refusal) is told in them: the launch
+    boundary's entry and remedy, the shell-free executor's reason, a tool's own
+    check, the image gate's sentence. Code-owned words, so they are never a
+    command to run; told in the classifier's line, or as the approval a person
+    could not give here, they dropped what the person needs to mend it.
     """
     if getattr(tool_result, "blocked", False):
         return refusal_without_handoff(tool_call, tool_result)
+    words = str(getattr(tool_result, "refusal", "") or "").strip()
+    if words:
+        if getattr(tool_result, "executed", True):
+            # Refused after its act ran (the image gate): the words say what
+            # was refused, and nothing claims that nothing ran.
+            return words
+        return f"Nothing was run: {words.rstrip('.')}."
     act = describe_call(tool_call, tool_obj)
     if act.blocked:
         return refusal_without_handoff(tool_call, tool_result)
@@ -832,6 +853,10 @@ def handoff_withheld(tool_call: "ToolCall", tool_result: "ToolResult | None" = N
         person to run a command that cannot work, and the name is the call's;
       * a call its tool's safety tier refuses outright (BLOCKED): the block
         exists to stop that very command, on every path that could repeat it;
+      * a call the shell-free executor refused (outcome shell_refused): its line
+        is not one plain command, and that refusal is never handed to a person
+        as a command to run (ActDescription.blocked), now that its result
+        carries its own words rather than the classifier's flag;
       * a call refused outright before any review (REFUSED_WITHOUT_REVIEW: a
         forbidden zone, a governance hard deny): never the assistant's to take,
         so the person is told it, as the zone's own refusal tells them, without
@@ -857,6 +882,8 @@ def handoff_withheld(tool_call: "ToolCall", tool_result: "ToolResult | None" = N
             tool_obj is not None
             and tool_obj.classify_safety(arguments) == SafetyTier.BLOCKED):
         return "its tool's safety tier refuses it outright"
+    if getattr(tool_result, "outcome", "") == "shell_refused":
+        return "the shell-free executor refuses it outright"
     if getattr(tool_result, "outcome", "") == REFUSED_WITHOUT_REVIEW:
         return "it was refused outright before any review"
     return ""
@@ -1575,7 +1602,9 @@ class ToolRegistry:
                 act = ActDescription(
                     "", (), False,
                     f"the act could not be described ({type(exc).__name__}: "
-                    f"{exc}), so it was not proposed", True)
+                    f"{exc}), so it was not proposed", True,
+                    "the call could not be described, so it was not proposed",
+                    "gate_rejected")
             if act.refusal:
                 self._audit_log_refusal(
                     call, ingress_tracker,
@@ -1583,13 +1612,19 @@ class ToolRegistry:
                     source_attribution=source_attribution,
                     excerpt=excerpt,
                 )
+                # Never `blocked`: the classifier's own block returned above,
+                # so a refusal here is the executor's or the tool's, told in
+                # its own words (act.words) — the classifier's line in their
+                # place dropped the reason. A refusal with no such words is told
+                # its reason as the renderer tells any refusal before a card.
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
                     content=act.refusal,
                     success=False,
-                    blocked=act.blocked,
                     executed=False,
+                    outcome=act.kind,
+                    refusal=act.words,
                     effective_provenance=_effective_before_gate(
                         call, ingress_tracker).value,
                 )
@@ -2256,19 +2291,24 @@ class ToolRegistry:
         """A picture a tool produced (a screen capture) meets the image gate
         before the result leaves the registry. Admitted: the result is returned
         as it is, its picture registered for the model layer. Refused: the
-        result becomes a blocked, executed result carrying the gate's own
-        sentence and no picture — the model never sees it and the router's
-        blocked-result path delivers the sentence without a synthesis hop."""
+        result carries the gate's own sentence as its refusal and no picture —
+        the model never sees it, and every delivery path tells the sentence
+        without a synthesis hop (gate_refusal_message). It stays executed: the
+        capture ran, and the record keeps that. It is not `blocked`, which is
+        the safety classifier's alone; told as a safety block, the sentence was
+        kept only where the call happened to carry no command."""
         from intergen import image_ingress
         source, source_type = _ingress_source_attribution(tool_name, arguments)
         admission = image_ingress.admit(
             result.image_data, source=source, source_type=source_type)
         if admission.admitted:
             return result
+        sentence = image_ingress.refusal_text(admission)
         return ToolResult(
             call_id=result.call_id, name=result.name,
-            content=image_ingress.refusal_text(admission),
-            success=False, executed=True, blocked=True, image_data=None,
+            content=sentence,
+            success=False, executed=True, image_data=None,
+            outcome="image_refused", refusal=sentence,
         )
 
     @staticmethod
@@ -2472,13 +2512,18 @@ class ToolRegistry:
             except tool_process.ToolProcessNotStarted as exc:
                 logger.error("privileged dispatch of %s not started: %s",
                              tool_name, exc)
+                # Told in these words (the directory, the reason, the remedy),
+                # never as the approval a person could not give here.
+                words = (f"{tool_name} was not dispatched, and no password "
+                         f"was asked for: {exc}")
                 return ToolResult(
                     call_id=call.call_id,
                     name=tool_name,
-                    content=(f"{tool_name} was not dispatched, and no password "
-                             f"was asked for: {exc}"),
+                    content=words,
                     success=False,
                     executed=False,
+                    outcome="not_started",
+                    refusal=words,
                 )
             try:
                 completed = subprocess.run(

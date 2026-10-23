@@ -324,7 +324,11 @@ class _ADropInGate(unittest.TestCase):
     def _assert_refused_by_name(self, result, runs, path: Path) -> None:
         self.assertEqual(runs.launched, [], f"the tool's service started with {path} present")
         self.assertFalse(result.success)
-        self.assertTrue(result.blocked)
+        # Nothing started, told in the launch boundary's own words.
+        self.assertFalse(result.blocked)
+        self.assertFalse(result.executed)
+        self.assertEqual(result.outcome, "not_started")
+        self.assertIn(str(path), result.refusal)
         self.assertTrue(result.content.startswith("This command was not run:"), result.content)
         self.assertIn(str(path), result.content)
 

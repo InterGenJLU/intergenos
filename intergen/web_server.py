@@ -3633,8 +3633,11 @@ class WebServer:
                 # for a real state-changing action, or the warm friendly refusal
                 # otherwise — then end the turn. (executed=False + success=False
                 # is the gate-refusal signal; a tool that ran and merely exited
-                # non-zero is executed=True and still synthesizes below.)
-                if not tr.executed and not tr.success:
+                # non-zero is executed=True and still synthesizes below.) A
+                # result carrying a boundary's own words (`refusal`) is told in
+                # them here too, the image gate's after its capture ran.
+                if ((not tr.executed or getattr(tr, "refusal", ""))
+                        and not tr.success):
                     handoff = self._gate_refusal_message(item, tr)
                     collected_tokens.append(handoff)
                     await ctx.ws.send_json({

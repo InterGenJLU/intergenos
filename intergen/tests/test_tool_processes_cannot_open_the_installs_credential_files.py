@@ -365,7 +365,11 @@ class TheLauncher(_AFixtureInstall):
         self.token_path.unlink()
         result = RunCommandTool().execute({"command": f"cat {self.notes}"})
         self.assertFalse(result.success)
-        self.assertTrue(result.blocked)
+        # Nothing started, told in the launch boundary's own words.
+        self.assertFalse(result.blocked)
+        self.assertFalse(result.executed)
+        self.assertEqual(result.outcome, "not_started")
+        self.assertIn(str(self.token_path), result.refusal)
         self.assertTrue((result.content or "").startswith("This command was not run:"),
                         f"content was {result.content!r}")
         self.assertIn(str(self.token_path), result.content)

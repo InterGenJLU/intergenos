@@ -3240,8 +3240,11 @@ def _decline_answer(reason: str,
     # Reason: Behavior matrix: ... = execute." while nothing is held and nothing
     # will run; its content for the other refusals is written for the model and
     # the record. Every call that did not run is told by the panel's renderer,
-    # the outcome's own reason, as the panel and the tool route tell it.
-    if not getattr(tool_result, "executed", True) and tool_call is not None:
+    # the outcome's own reason, as the panel and the tool route tell it; and so
+    # is a result carrying a boundary's own words (`refusal`), whatever ran.
+    if ((not getattr(tool_result, "executed", True)
+            or getattr(tool_result, "refusal", ""))
+            and tool_call is not None):
         from intergen.tool_registry import gate_refusal_message
         refusal = gate_refusal_message(tool_call, tool_result, tool_obj)
         return RouteResult(
@@ -6899,15 +6902,24 @@ class ConversationRouter(RouterInterface):
         # (why it can't proceed here + the exact command to run). Not for
         # write_file (no user-runnable command line): a bare "I can't do that
         # here" is honest there.
-        if not tool_result.executed and not tool_result.success:
+        # A result carrying a boundary's own words (`refusal`) is told in them,
+        # whichever tool the offer staged: told as the handoff, the approval a
+        # person could not give here replaced the entry and the remedy.
+        words = getattr(tool_result, "refusal", "")
+        if (not tool_result.executed or words) and not tool_result.success:
             # Recorded beside why its line is withheld, so the loop-killer's
             # handoff withholds it as this refusal does.
             from intergen.tool_registry import handoff_withheld
-            self._note_handed_off(
-                command if tool == "run_command" else display,
-                withheld=handoff_withheld(call, tool_result,
-                                          self._tools.get_tool(call.name)))
-            if tool == "run_command":
+            if not tool_result.executed:
+                self._note_handed_off(
+                    command if tool == "run_command" else display,
+                    withheld=handoff_withheld(call, tool_result,
+                                              self._tools.get_tool(call.name)))
+            if words:
+                from intergen.tool_registry import gate_refusal_message
+                handoff = gate_refusal_message(
+                    call, tool_result, self._tools.get_tool(call.name))
+            elif tool == "run_command":
                 handoff = self._handoff_line(command, call=call,
                                              tool_result=tool_result)
             elif tool == "manage_packages":
@@ -6934,9 +6946,12 @@ class ConversationRouter(RouterInterface):
                                tool_results=[tool_result], used_llm=False,
                                # Gate refusal → the code-owned honest handoff
                                # (the dispatch neither executed nor succeeded,
-                               # so the invariant skips it).
+                               # so the invariant skips it), or the boundary's
+                               # own words.
                                answer_linkage=AnswerLinkage(
-                                   kind="code", renderer="honest_handoff"))
+                                   kind="code",
+                                   renderer=("gate_refusal" if words
+                                             else "honest_handoff")))
         # Synthesize (template first for run_command, LLM fallback) — same shape as
         # the P1/P2 paths. A write_file success synthesizes from the tool's own
         # result ("Wrote N bytes to <path>"), which is TRUE — it executed + gated.
@@ -7010,7 +7025,11 @@ class ConversationRouter(RouterInterface):
         except Exception as e:  # noqa: BLE001 — a probe failure must not crash the turn
             logger.error("IP-handler command failed (%s): %s", command, e)
             return None
-        if tr is None or getattr(tr, "blocked", False):
+        # A refusal is not a reading: a call the classifier blocked, or one a
+        # boundary refused before its process started (executed False), never
+        # ran, so its text is never taken for the command's output.
+        if (tr is None or getattr(tr, "blocked", False)
+                or not getattr(tr, "executed", True)):
             return None
         if not getattr(tr, "success", False) and not keep_failed:
             return None
@@ -7940,9 +7959,12 @@ class ConversationRouter(RouterInterface):
             # handoff for a state-changing action). Handed to the synthesis
             # below, such a result was narrated by the model, worded as it
             # chose ("the safety layer blocked it"), with no command for the
-            # person to run it themselves.
+            # person to run it themselves. A result carrying a boundary's own
+            # words (`refusal`) is told in them on the same condition, the image
+            # gate's after its capture ran.
             for _tc, _tr in zip(tool_calls, tool_results):
-                if not _tr.executed and not _tr.success:
+                if ((not _tr.executed or getattr(_tr, "refusal", ""))
+                        and not _tr.success):
                     from intergen.tool_registry import gate_refusal_message
                     response_text = gate_refusal_message(
                         _tc, _tr, self._tools.get_tool(_tc.name))

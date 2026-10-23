@@ -435,7 +435,12 @@ class TheRendererHandsNothingOver(_Checks):
             with self.subTest(page_read=page):
                 _r, _c, result = _registry("run_command", arguments, D,
                                            page_read=page)
-                self.assertTrue(result.blocked)
+                # The executor's refusal, not the classifier's: nothing ran,
+                # and it carries its own words, which name nothing of the call.
+                self.assertFalse(result.blocked)
+                self.assertFalse(result.executed)
+                self.assertEqual(result.outcome, "shell_refused")
+                self.assertNotIn(TOKEN, result.refusal)
                 self.assertEqual(result.effective_provenance, provenance)
                 text = _panel("run_command", arguments, D, page_read=page)
                 self.assertIsNone(OFFER.search(text), text)

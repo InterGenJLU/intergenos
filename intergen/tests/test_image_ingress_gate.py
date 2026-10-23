@@ -299,8 +299,12 @@ class TheRegistryGatesAToolsPicture(unittest.TestCase):
             out = ToolRegistry._gate_tool_picture(
                 self._result(), "take_screenshot", {"source": "screenshot"})
         self.assertFalse(out.success)
-        self.assertTrue(out.blocked)
+        # The gate's refusal, told in its own sentence: the capture ran, and
+        # the classifier's flag is the classifier's alone.
+        self.assertFalse(out.blocked)
         self.assertTrue(out.executed)
+        self.assertEqual(out.outcome, "image_refused")
+        self.assertEqual(out.refusal, out.content)
         self.assertIsNone(out.image_data)
         self.assertIn("didn't read that picture", out.content)
         self.assertNotIn("nftables", out.content)

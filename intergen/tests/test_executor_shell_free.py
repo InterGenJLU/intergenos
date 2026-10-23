@@ -74,8 +74,11 @@ class RunCommandShellFreeTest(unittest.TestCase):
             for cmd in TWO_COMMAND_SHAPES:
                 res = self.tool.execute({"command": cmd})
                 self.assertFalse(res.success, f"must be declined: {cmd!r}")
-                self.assertTrue(getattr(res, "blocked", False),
-                                f"must signal blocked (no fabricated success): {cmd!r}")
+                # Nothing ran (no fabricated success), told as the executor's
+                # own refusal rather than the classifier's block.
+                self.assertFalse(res.executed,
+                                 f"must signal not run (no fabricated success): {cmd!r}")
+                self.assertEqual(res.outcome, "shell_refused", cmd)
             self.assertEqual(mrun.call_count, 0,
                              "no two-command shape may reach the executor")
 
