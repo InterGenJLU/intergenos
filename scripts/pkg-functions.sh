@@ -1994,7 +1994,8 @@ pkg_rebaseline_config_files() {
     # The single-flight runner returns 0 whatever pkm did (its job is the
     # one-at-a-time assertion), so the outcome is read from pkm's own lines:
     # one "refreshed baseline for <path>" per path, or the install fails.
-    local out rc=0 refreshed
+    local out rc=0 refreshed flat p
+    local -a missing=()
     if ! out=$(pkg_run_pkm_single_flight refresh-baseline "${etc_paths[@]}"); then
         rc=1
     fi
@@ -2003,9 +2004,19 @@ pkg_rebaseline_config_files() {
         pkg_error "rebaseline: pkm refresh-baseline failed for ${name}-${version}"
         return 1
     fi
-    refreshed=$(printf '%s\n' "$out" | grep -c 'refreshed baseline for ')
-    if [ "$refreshed" -ne "${#etc_paths[@]}" ]; then
-        pkg_error "rebaseline: ${refreshed} of ${#etc_paths[@]} configuration baseline(s) refreshed for ${name}-${version}; pkm's lines above name the rest"
+    # pkm wraps its report at whitespace and never inside a path, so a long
+    # path can begin the line after "refreshed baseline for". Collapse every
+    # whitespace run to one space, then find each path by name.
+    flat=" $(printf '%s' "$out" | tr -s '[:space:]' ' ') "
+    for p in "${etc_paths[@]}"; do
+        case "$flat" in
+            *" refreshed baseline for ${p} "*) ;;
+            *) missing+=("$p") ;;
+        esac
+    done
+    refreshed=$(( ${#etc_paths[@]} - ${#missing[@]} ))
+    if [ "${#missing[@]}" -ne 0 ]; then
+        pkg_error "rebaseline: ${refreshed} of ${#etc_paths[@]} configuration baseline(s) refreshed for ${name}-${version}; not refreshed: ${missing[*]}"
         return 1
     fi
     return 0

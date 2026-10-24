@@ -199,6 +199,46 @@ pkm() { :; }
     assert 'rebaseline: 0 of 1' in output or 'REFUSED' in output
 
 
+
+@pytest.mark.parametrize('report,refreshed', [
+    # pkm wraps its report at whitespace and never inside a path: a long
+    # path begins the line after "refreshed baseline for", and the hash can
+    # wrap again. The path is refreshed and the install goes on.
+    (r"""printf '    refreshed baseline for\n      %s →\n      %s...\n' /etc/sub/a-long-drop-in.conf 0123456789abcdef""", True),
+    # pkm's report names another path: a count alone would accept it.
+    (r"""printf '    refreshed baseline for %s → %s...\n' /etc/sub/a-long-drop-in.conf.orig 0123456789abcdef""", False),
+    # pkm's report names nothing.
+    (r"""printf '    /etc/sub/a-long-drop-in.conf: not tracked as a config file\n'""", False),
+])
+def test_rebaseline_finds_each_path_by_name_across_pkm_wrapping(report, refreshed, tmp_path):
+    body = shell_vars(IGOS_TRACE_LIB_LOADED=0, PKG_CONFIGURE_DRIFT_REQUIRED=0,
+                      IGOS_PKG_ARCHIVES=tmp_path, IGOS_PKG_DB=tmp_path,
+                      MANIFEST_BODY=_manifest_with(['etc/sub/a-long-drop-in.conf sha256:' + 'a' * 64]))
+    body += r'''
+pkg_log() { printf '%s\n' "$*"; }
+pkg_error() { printf '%s\n' "$*" >&2; }
+pkg_init() { :; }
+pkg_stage() { :; }
+pkg_manifest() { printf '%s' "$MANIFEST_BODY" > "$IGOS_PKG_DB/$1-$2"; }
+pkg_archive() { :; }
+pkg_deploy() { :; }
+pkg_run_pkm_single_flight() { if [ "$1" = refresh-baseline ]; then ''' + report + r'''; fi; return 0; }
+pkg_retire_superseded_archives() { printf 'RETIRED\n'; }
+pkg_cleanup() { :; }
+pkm() { :; }
+'''
+    body += function('pkg-functions.sh', 'pkg_rebaseline_config_files') + '\n'
+    body += function('pkg-functions.sh', 'pkg_install') + '\npkg_install sample 1 fixture 2\n'
+    result = run(tmp_path, body)
+    output = result.stdout + result.stderr
+    if refreshed:
+        assert result.returncode == 0, output
+        assert 'RETIRED' in output
+    else:
+        assert result.returncode != 0, output
+        assert 'RETIRED' not in output
+        assert 'rebaseline: 0 of 1' in output and 'not refreshed: /etc/sub/a-long-drop-in.conf' in output, output
+
 def test_record_mode_writes_paths_without_python(tmp_path):
     recipe = tmp_path / 'package.yml'; recipe.write_text('name: sample\n')
     log = tmp_path / 'sample-ch8-20260101-000000.log'; log.write_text('checking for x... yes\n')
