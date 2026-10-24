@@ -33,9 +33,6 @@
 # License: GPL-3.0-or-later (matches the broader InterGenOS in-house
 # licensing posture). All source is original work.
 
-# The recipe directory: the polkit files ship from beside this script.
-PKG_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-
 configure() {
     set -e
     :
@@ -178,14 +175,14 @@ FORGE
     # Every acting method of the backend asks polkit for this action with the
     # caller's bus name (installer/backend_service.py, PolkitAuthority).
     install -dm755 "${DESTDIR}/usr/share/polkit-1/actions"
-    install -m644 "${PKG_DIR}/polkit/org.intergenos.forge.policy" \
+    install -m644 "${IGOS_PACKAGE_DIR:-/mnt/intergenos/packages/desktop/forge}/polkit/org.intergenos.forge.policy" \
         "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.forge.policy"
     # The live account's rule ships INERT: polkit reads no rules from this
     # directory. The install medium's boot copies it into the live overlay's
     # /etc/polkit-1/rules.d/ (installer/init/init.sh); an installed system
     # never makes it a rule.
     install -dm755 "${DESTDIR}/usr/share/intergenos/forge"
-    install -m644 "${PKG_DIR}/polkit/49-intergenos-forge-live-install.rules" \
+    install -m644 "${IGOS_PACKAGE_DIR:-/mnt/intergenos/packages/desktop/forge}/polkit/49-intergenos-forge-live-install.rules" \
         "${DESTDIR}/usr/share/intergenos/forge/49-intergenos-forge-live-install.rules"
 
     # ---- /usr/share/applications launcher (live-mode click-to-install) -----
