@@ -561,9 +561,9 @@ class TheShippedActionAndTheMediumOnlyRule(unittest.TestCase):
 
     def test_the_package_installs_the_action_and_ships_the_rule_inert(self):
         build = (self.FORGE / "build.sh").read_text()
-        self.assertIn('"${PKG_DIR}/polkit/org.intergenos.forge.policy" \\\n'
+        self.assertIn('"${IGOS_PACKAGE_DIR:-/mnt/intergenos/packages/desktop/forge}/polkit/org.intergenos.forge.policy" \\\n'
                       '        "${DESTDIR}/usr/share/polkit-1/actions/org.intergenos.forge.policy"', build)
-        self.assertIn('"${PKG_DIR}/polkit/49-intergenos-forge-live-install.rules" \\\n'
+        self.assertIn('"${IGOS_PACKAGE_DIR:-/mnt/intergenos/packages/desktop/forge}/polkit/49-intergenos-forge-live-install.rules" \\\n'
                       '        "${DESTDIR}/usr/share/intergenos/forge/49-intergenos-forge-live-install.rules"', build)
         installed = [line for line in build.splitlines()
                      if "rules.d" in line and not line.lstrip().startswith("#")]
