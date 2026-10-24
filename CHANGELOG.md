@@ -20,10 +20,16 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Security update in preparation, with fixes to consent, verification,
+R001.4 security point release in preparation, with fixes to consent, verification,
 package recovery and assistant answers.
 
 ### Changed
+
+- **R001.4 identity.** Advance the declared release identity for this security point release; publication follows the release evaluation.
+
+- **Installer's included assistant guide.** Describe the review of pictures before the assistant uses them, including images supplied by the person and screenshots.
+
+- **Test-only assistant release.** The final assistant package update contains tests and documentation, with no runtime change. Align approval, refusal and environment expectations with the composed rules; distinguish installed-system authorization checks, skip the two privileged-call test modules where their policy reader is unavailable, and retain the declared expected failure and documentation-route coverage gap.
 
 - **Conversation replay checks.** Extend the browser test harness with recorded-conversation replay, per-turn verdicts and response timings; keep its panel credential out of request addresses.
 
@@ -46,6 +52,16 @@ package recovery and assistant answers.
 - **Shipped assistant controls.** Align the manual, command help and configuration comments with the implemented controls, reserved settings, per-user paths and output formats.
 
 ### Fixed
+
+- **Action follow-ups.** Resolve an action request from the conversation's offered action, named package or preceding command. Recognize package capability questions and typed package commands while retaining negated requests.
+
+- **Accepted package actions.** Run a staged package action with its intended package-manager arguments, offer the action with installation instructions, and recognize acceptance expressed in the person's own words.
+
+- **Scheduled one-time jobs.** Give the scheduling daemon access to its deny list so users can submit scheduled jobs.
+
+- **Installer enrollment guidance.** Show the Secure Boot key-enrollment notice during installation.
+
+- **Detected graphics.** State the detected GPU above optional graphics-software offers and explain why nothing is offered when there is no applicable addition.
 
 - **ASUS keyboard backlight.** Restore backlight-device registration on affected ASUS keyboards; both kernel build passes carry the keyboard-handshake fix.
 
@@ -155,6 +171,8 @@ package recovery and assistant answers.
 
 ### Security
 
+- **Picture review.** Review supplied images and screenshots before model use; refuse pictures that are not admitted and explain when an image cannot be included in a turn.
+
 - ca-certificates advanced to the Mozilla CA bundle snapshot of 2026-10-20
   (118 roots). It no longer carries emSign ECC Root CA - G3, the root to
   which the compromised eMudhra intermediate CAs chain, nor emSign ECC
@@ -202,6 +220,29 @@ package recovery and assistant answers.
 - **Declared command and server environments.** Launch commands and external servers with their declared environment and program lookup, require approval for every git command, and refuse service overrides that do not meet the administrator ownership checks.
 
 - **File and backup target boundaries.** Refuse unsuitable files before opening them, retain checked objects through reads and restores, keep backup stores private, and validate backup targets on adoption and use.
+
+### Known limits
+
+The retained limits and outstanding evaluation work below accompany this release in preparation.
+
+- **Model-size evaluations.** The three model-size evaluations are not all passing; a passed check on one size does not establish the result on another.
+- **Terminal instructions.** A terminal how-to request can miss the installed guide after an earlier topic has supplied the context. The result for the same request in a fresh conversation remains unproved.
+- **Printer output.** A printer follow-up can run successfully and receive a truthful reply without showing its command output.
+- **Updates after flagged content.** An update request after a flagged read can produce neither an approval card nor a package action.
+- **Search page retrieval.** Recorded searches returned results, but fetching their pages received HTTP 403. The earlier empty-search result did not recur in those checks.
+- **Scanner differences by model size.** The 2B model's content-review outcome differs from the 9B and 35B outcomes in a recorded case. The content was withheld on all three; the cause of the difference remains unproved.
+- **Build and publication checks.** Some validation claims exceed what their checks establish. Direct image evaluation, the sweep after writing installation media and the signed fresh-install record remain required; an aggregate pass does not settle these limits.
+- **Approval-only requests.** Known limitations in handling replies that only express approval remain for the next major release; administrator authentication still gates the action.
+- **Withheld-result explanations.** Some answers omit or misstate the reason a result was withheld.
+- **Vision answers.** The 9B model misidentified a supplied desktop as a login screen in evaluation; this release does not change the model.
+- **Automated grading.** Coverage gaps remain for terminal instructions, image identification, denial after a search and explanations of withheld results.
+- **Installed authorization checks.** The installed-system runner does not automatically select every required PolicyKit check; the omitted check must be run explicitly during image evaluation.
+- **Expected test failure.** A privileged git-dispatch test remains a declared expected failure; its behavior is not proved fixed.
+- **Test bind waits.** A test whose expected port is missing can wait before reporting the problem.
+- **Test-display cleanup.** A test display can leave its socket in temporary runtime storage after the test ends.
+- **Security advisory review.** A fresh advisory scan and the named package-review dispositions remain required for this cycle. The older report does not establish current advisory completeness or exploitability.
+- **Temporary storage.** The large-package temporary-storage issue and the host temporary-directory boundary review remain open; no untested workaround is certified.
+- **Installer preview.** A complete unprivileged installation preview remains future work, separate from the corrected dry-run description.
 
 ---
 
