@@ -181,13 +181,20 @@ class TestNothingElseCarriesTheKey(unittest.TestCase):
             "the default policy must deny receiving the service's messages",
         )
 
+        # Root and the administrators' group receive everything the service
+        # sends; polkitd receives only polkit's own Authority interface from
+        # it (the service's per-call authorization checks), never its signals.
         may_receive = {
-            (p.get("user"), p.get("group"))
+            (p.get("user"), p.get("group"), a.get("receive_interface"))
             for p in policies
-            if any(a.get("receive_sender") == SERVICE_NAME
-                   for a in p.findall("allow"))
+            for a in p.findall("allow")
+            if a.get("receive_sender") == SERVICE_NAME
         }
-        self.assertEqual(may_receive, {("root", None), (None, "wheel")})
+        self.assertEqual(may_receive, {
+            ("root", None, None),
+            (None, "wheel", None),
+            ("polkitd", None, backend_service.PolkitAuthority.INTERFACE),
+        })
 
 
 if __name__ == "__main__":
