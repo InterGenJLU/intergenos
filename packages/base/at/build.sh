@@ -81,12 +81,10 @@ post_install() {
     # Restore the access policy file's group after archive deployment.
     chown root:atd /etc/at.deny
 
-    # Spool ownership: the sealed archive ships no spool paths (the Makefile
-    # creates them outside DESTDIR capture), so whatever creates them on the
-    # target leaves root:root — measured on an installed ge9b-12 system —
-    # and atd cannot write its own spool. install -d creates-or-corrects
-    # either way: the Makefile's canonical atd:atd 1770 spool dirs, plus
-    # atd-owned .SEQ when present (600, no setuid bit, no re-chmod hazard).
+    # Spool ownership: archive deployment does not retain recorded ownership.
+    # Create or correct the canonical atd:atd 1770 spool directories on the
+    # target, plus atd-owned .SEQ when present (600, no setuid bit, so no
+    # re-chmod is needed).
     install -d -m1770 -o atd -g atd /var/spool/atjobs /var/spool/atspool
     # An `if` rather than `[ -f … ] && chown …`: with the enable that used to
     # follow it removed, this became the LAST statement in the hook, and under

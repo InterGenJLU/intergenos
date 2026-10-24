@@ -271,9 +271,8 @@ def test_the_tree_sets_non_root_ownership_in_hooks_and_not_in_archives():
         assert expected in recipes, (
             f"{expected} applies a non-root ownership in its post_install "
             f"hook and the derivation did not find it: {sorted(recipes)}")
-    # at's spool directories are the clearest case: created AND owned by the
-    # hook, on the live system, because the archive ships no spool paths at
-    # all.
+    # at's spool directories are created or corrected by the hook on the
+    # target because archive deployment does not retain recorded ownership.
     assert any("/var/spool/atjobs" in s for s in recipes["at"]), recipes["at"]
 
 
