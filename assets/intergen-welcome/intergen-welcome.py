@@ -3193,9 +3193,9 @@ def _gpu_detection_record(path=_GPU_RECORD_PATH):
     """The installer's display-controller record, or None.
 
     Returns None for every failure — absent, unreadable, malformed, or written
-    by a schema version this build does not know. A missing offer is a silent,
-    correct outcome; guessing at the hardware from a record we cannot parse is
-    not. Never raises.
+    by a schema version this build does not know. Unknown records authorize no
+    offer; the page explains that state instead of guessing at the hardware.
+    Never raises.
     """
     try:
         with open(path) as fh:
@@ -4026,6 +4026,50 @@ def _gpu_offer_heading(record):
     return 'OPTIONAL GRAPHICS SOFTWARE IS AVAILABLE FOR THIS MACHINE'
 
 
+def _gpu_detection_statement(record, model_offer, has_offers):
+    """Describe the measured hardware even when there is no software offer.
+
+    The model offer supplies the current device name; the installer's record
+    supplies the vendor, AMD architecture and engine included at install time.
+    That historical engine is not a claim about what is running now.
+    """
+    model = (model_offer or {}).get('gpu_model')
+    vendor = (record or {}).get('vendor')
+    vendors = {'nvidia': 'NVIDIA', 'amd': 'AMD', 'intel': 'Intel'}
+    if isinstance(model, str) and model.strip():
+        identity = model.strip()
+    else:
+        identity = vendors.get(vendor) if isinstance(vendor, str) else None
+    targets = (record or {}).get('gfx_targets')
+    if vendor == 'amd' and isinstance(targets, list):
+        targets = [t for t in targets if isinstance(t, str) and t.strip()]
+        if targets:
+            identity = (identity or 'AMD') + ' (' + ', '.join(targets) + ')'
+    if identity:
+        text = 'Graphics detected: ' + identity + '.'
+    elif record is None:
+        text = 'Graphics detection is unavailable.'
+    else:
+        text = 'Graphics hardware was not identified.'
+    engines = {'vulkan': 'Vulkan', 'cuda': 'CUDA', 'hip': 'HIP/ROCm', 'cpu': 'CPU'}
+    shipped = (record or {}).get('shipped_engine')
+    if isinstance(shipped, str) and shipped in engines:
+        text += ' Included compute engine: ' + engines[shipped] + '.'
+    if has_offers:
+        return text
+    if record is None:
+        return (text + ' No additional graphics software is offered because '
+                'the installer\'s detection record is unavailable.')
+    upgrade = record.get('upgrade_engine')
+    if upgrade == 'hip' and record.get('upgrade_engine_supported') is False:
+        return (text + ' No HIP/ROCm engine is offered because this build '
+                'does not support this GPU architecture.')
+    if vendor == 'nvidia' or upgrade in ('cuda', 'hip'):
+        return (text + ' The graphics software offered for this GPU is '
+                'already installed.')
+    return text + ' No additional graphics software is offered for this hardware.'
+
+
 _GPU_INSTALL_BUTTON_LABEL = 'Open a terminal and install what I selected'
 _GPU_INSTALL_RETRY_LABEL = 'Open the terminal again'
 
@@ -4486,8 +4530,7 @@ def build_intergen_page():
     # _standalone_driver_banner_applies is the rule that keeps a second box
     # from coming back.
     #
-    # Absent record, hardware with nothing to add, or a machine that already
-    # has everything on offer: appends nothing.
+    # State the detection even when there is no optional software to add.
     record = _gpu_detection_record()
     is_set_up = _intergen_is_set_up()
 
@@ -4504,6 +4547,14 @@ def build_intergen_page():
 
     gpu_section = _build_gpu_install_offer(
         record, on_engine_installed=_on_engine_installed)
+    graphics = Gtk.Label(label=_gpu_detection_statement(
+        record, offer, gpu_section is not None))
+    graphics.add_css_class('intergen-graphics-statement')
+    graphics.add_css_class('intergen-summon-text')
+    graphics.set_justify(Gtk.Justification.CENTER)
+    graphics.set_wrap(True)
+    graphics.set_max_width_chars(82)
+    box.append(graphics)
     if gpu_section is not None:
         box.append(gpu_section)
     if not is_set_up:

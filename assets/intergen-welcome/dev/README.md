@@ -39,4 +39,6 @@ and no X. On an InterGenOS machine with no Xvfb this is the headless route:
 machine instead of the render host: `nvidia-offer` (open driver, the advisory
 box with its switches) or `nvidia-driver-done` (driver installed, two model
 sizes offered — the state the page crashed in on 2026-09-02). Unset, the page
-reads the render host as before.
+reads the render host as before. `intel-no-offer` shows detected Intel graphics
+with no additional software offered; `amd-unsupported` shows the recorded AMD
+architecture and explains why the HIP build is not offered.

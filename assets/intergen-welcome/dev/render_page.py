@@ -78,6 +78,22 @@ elif SCENARIO in ('key-unprotected', 'key-unrecorded'):
     mod._signing_key_protected = (
         (lambda *a, **k: False) if SCENARIO == 'key-unprotected'
         else (lambda *a, **k: None))
+elif SCENARIO in ('intel-no-offer', 'amd-unsupported'):
+    amd = SCENARIO == 'amd-unsupported'
+    mod._gpu_detection_record = lambda *a, **k: {
+        'version': mod._GPU_RECORD_VERSION, 'vendor': 'amd' if amd else 'intel',
+        'pci_vendors': ['1002' if amd else '8086'], 'shipped_engine': 'vulkan',
+        'upgrade_engine': 'hip' if amd else None,
+        'upgrade_outranks_shipped': amd,
+        'gfx_targets': ['gfx90c'] if amd else [],
+        'upgrade_engine_supported': False if amd else None}
+    mod._model_offer = lambda: {
+        'tiers': [1], 'gpu_model': 'AMD integrated graphics' if amd else 'Intel UHD Graphics 620',
+        'download_bytes': {'1': 1918542336}}
+    mod._package_is_installed = lambda name: False
+    mod._intergen_is_set_up = lambda *a, **k: False
+    mod._qwen_attribution = lambda *a, **k: None
+    mod._probe_download_sources = lambda *a, **k: type('P', (), {'cause': None})()
 elif SCENARIO in ('nvidia-offer', 'nvidia-driver-done'):
     driver_done = SCENARIO == 'nvidia-driver-done'
     mod._gpu_detection_record = lambda *a, **k: {
