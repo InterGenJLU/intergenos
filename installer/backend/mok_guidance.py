@@ -16,11 +16,15 @@ decided 2026-09-05 after an enrolment was lost to an unseen prompt):
 """
 
 MOK_WINDOW_ADVISORY = (
+    "MokManager is the blue screen that enrolls your machine's signing key "
+    "before InterGenOS starts. If the screen stays black, press Esc to bring "
+    "up the menu. "
     "MokManager waits about 10 seconds for a key press and the prompt can pass "
     "unseen while a monitor wakes up; if you miss it, the boot stops at a "
     "'Verification failed' menu — choose 'Enroll key from disk', open the boot "
     "partition and pick EFI > InterGenOS > mok.der, then Continue and reboot. "
-    "No password is needed on that path."
+    "No password is needed on that path. If MokManager appears again on the "
+    "next boot after enrollment, choose 'Continue boot'."
 )
 
 

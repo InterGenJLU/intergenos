@@ -95,6 +95,12 @@ The password is the one **you chose** during install — Forge never generates o
 
 If you forget the password before enrolling, you can re-stage enrollment with a new one (`mokutil --import`), or reinstall for a fresh MOK — see [Recovery](#recovery) below.
 
+### Before you reboot
+
+When you re-enable Secure Boot, expect **MokManager**, the blue screen that enrolls your machine's signing key before InterGenOS starts. It waits about **10 seconds** for a key press, and that window can pass while your monitor wakes up. **If the screen stays black, press Esc to bring up the menu.**
+
+If you missed the enrollment window, choose **Enroll key from disk** from the **Verification failed** menu, open the boot partition, then **EFI → InterGenOS → mok.der**. This is the certificate the installer staged for your machine. Choose **Continue**, answer **Yes**, then **Reboot**; this path needs no enrollment password. If MokManager appears again on the next boot after enrollment, choose **Continue boot**.
+
 ## First-boot MOK enrollment
 
 MOK enrollment only matters when you intend to run with Secure Boot **enabled**. If you leave Secure Boot off, the firmware never gates on the MOK and the MokManager step never runs — the enrollment simply stays queued, which is not a failure.
@@ -213,12 +219,14 @@ Most of the time you will never think about any of this. When something goes wro
 
 ### "I missed the MokManager prompt"
 
-The MokManager window is short (about 10 seconds), and on some machines the firmware's display is not awake yet when it appears. When it passes unseen, shim drops the queued request and stops at a menu titled **"Verification failed"** that offers *Continue boot*, *Enroll key from disk* and *Enroll hash from disk*. Recovery takes one minute and needs no password:
+The MokManager window is short (about 10 seconds), and on some machines the firmware's display is not awake yet when it appears. **If the screen stays black, press Esc to bring up the menu.** When the window passes unseen, shim drops the queued request and stops at a menu titled **"Verification failed"** that offers *Continue boot*, *Enroll key from disk* and *Enroll hash from disk*. Recovery needs no enrollment password:
 
 1. Choose **Enroll key from disk**.
 2. Pick the boot partition (the small FAT volume, usually the only one offered).
 3. Open **EFI**, then **InterGenOS**, and pick **mok.der** — the installer staged your machine's certificate there for exactly this.
 4. Choose **Continue**, answer **Yes**, then **Reboot**.
+
+If MokManager appears again on the next boot after enrollment, choose **Continue boot**.
 
 Do not use *Enroll hash from disk*: it pins today's boot loader bytes, and the next kernel update would fail to boot.
 

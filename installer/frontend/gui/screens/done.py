@@ -39,9 +39,9 @@ _MEDIA_CLAUSE_DEFAULT = "remove the install media"
 # the old unconditional text had to hedge "If you set…" at every user,
 # including machines where MokManager can never fire.
 _MOK_REMINDER = (
-    " Re-enable Secure Boot in your UEFI firmware setup on this reboot — "
+    "\n\nRe-enable Secure Boot in your UEFI firmware setup on this reboot — "
     "that is what triggers MokManager, where you enter the MOK enrollment "
-    "password you set to register your machine's signing key. "
+    "password you set to register your machine's signing key.\n\n"
     + MOK_WINDOW_ADVISORY
     + " See docs/users/secure-boot-and-mok.md for the full first-boot "
     "walkthrough."
