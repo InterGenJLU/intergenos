@@ -78,6 +78,8 @@ post_install() {
     # install to date. Restore the 4750 mode AFTER the chown. Package-local
     # twin of the L29 staging-chokepoint strip; mode per do_install / BLFS 13.0.
     chmod 4750 /usr/bin/at /usr/sbin/atd
+    # Restore the access policy file's group after archive deployment.
+    chown root:atd /etc/at.deny
 
     # Spool ownership: the sealed archive ships no spool paths (the Makefile
     # creates them outside DESTDIR capture), so whatever creates them on the
