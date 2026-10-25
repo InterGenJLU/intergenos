@@ -143,6 +143,13 @@ class ProgressPage(_ForgePage):
         # sub-progress rides the fill forward from here so the bar never
         # freezes mid-phase (notably through the long packages phase).
         self._last_boundary_fraction = 0.0
+        # The fill the bar shows now: it only moves forward. A count-only update
+        # (an empty message — the installed-file check) keeps the step's own
+        # line on the bar and puts the count under it; its fill starts from
+        # wherever the bar stands.
+        self._shown_fraction = 0.0
+        self._phase_line = None
+        self._count_base = None
         # Cancellation: threading.Event set by the Cancel button, polled by
         # the backend orchestrator at every phase boundary. Created once
         # per page-instance lifetime; reset between back-then-forward navs
@@ -356,6 +363,13 @@ class ProgressPage(_ForgePage):
         """Legacy worker → main-loop marshaller — see note above."""
         GLib.idle_add(self._on_progress_event, phase, current, total, message)
 
+    def _set_fraction(self, fraction):
+        """Sets the bar's fill, never backwards: a phase-boundary event after a
+        count-only fill can carry a lower fraction than the bar already shows."""
+        fraction = max(self._shown_fraction, max(0.0, min(1.0, fraction)))
+        self._shown_fraction = fraction
+        self._progress_bar.set_fraction(fraction)
+
     def _on_progress_event(self, phase, current, total, message):
         """Runs on the GTK main loop. Updates progress widgets.
 
@@ -365,16 +379,29 @@ class ProgressPage(_ForgePage):
         """
         if self._phases_total is not None and total == self._phases_total:
             fraction = max(0.0, min(1.0, current / self._phases_total))
-            self._progress_bar.set_fraction(fraction)
+            self._set_fraction(fraction)
             # Remember this boundary's fraction so per-item sub-progress can
             # ride the fill forward from here toward the next phase band.
             self._last_boundary_fraction = fraction
             label = f"{phase}: {message}" if message else phase
             self._progress_bar.set_text(label)
-            self._status_label.set_label(
+            self._phase_line = (
                 f"Phase {min(current, self._phases_total)}/"
                 f"{self._phases_total}: {phase} — {message}"
             )
+            self._status_label.set_label(self._phase_line)
+            self._count_base = None
+        elif not message:
+            # Count-only update (the installed-file check): the step's own line
+            # stays on the bar, the count goes under it, and the fill moves
+            # forward from where the bar stands across one phase band.
+            if self._count_base is None:
+                self._count_base = self._shown_fraction
+            if self._phases_total and total:
+                self._set_fraction(self._count_base
+                                   + (current / total) / self._phases_total)
+            self._progress_bar.set_text(self._phase_line or phase)
+            self._status_label.set_label(f"{current:,} of {total:,}")
         else:
             # Sub-progress fanout (per-package, per-hook). Update the bar TEXT,
             # the bar FILL, and the status line. Before this, only the status
@@ -390,7 +417,7 @@ class ProgressPage(_ForgePage):
             if self._phases_total and total:
                 frac = (self._last_boundary_fraction
                         + (current / total) / self._phases_total)
-                self._progress_bar.set_fraction(max(0.0, min(1.0, frac)))
+                self._set_fraction(frac)
             self._status_label.set_label(
                 f"{phase}: {message} ({current}/{total})"
             )

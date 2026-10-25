@@ -1076,8 +1076,6 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # hook that regenerates or edits it would leave a menu nothing checked;
         # the check is repeated here, the last step that can write the menu.
         bootloader.verify_boot_menu_after_hooks(target, partitions)
-        result.phase_completed = PHASE_HOOKS
-        _emit(PHASE_HOOKS, 11, "post-install hooks complete; root password kept")
 
         # PKM-E: signing (PHASE_BOOTLOADER) + post-install hooks have now mutated
         # some installed files AFTER pkm recorded their archive hashes — the
@@ -1086,13 +1084,32 @@ def run_install(yaml_path, install_io, archive_dir, packages_dir=None,
         # validates the true installed state (preserving tamper detection) rather
         # than false-flagging legitimate post-install mutations. Non-fatal: a
         # reconcile error must not abort an otherwise-complete install.
+        #
+        # The check reads every installed file — under half a minute on a fast
+        # disk, minutes on a slow one or in a virtual machine — so it says what
+        # it is doing and how many files, then reports a count that the progress
+        # screens show under a moving bar (an empty message marks a count-only
+        # update). It runs before the phase is called complete, so nothing on
+        # screen says "complete" while it works.
+        def _file_check_progress(done, total_files):
+            if done == 0:
+                _emit(PHASE_HOOKS, 10,
+                      f"Checking all {total_files:,} installed files "
+                      f"(this process will take a few minutes)")
+            if progress_callback and total_files != total:
+                progress_callback(PHASE_HOOKS, done, total_files, "")
+
         try:
             reconciled = packages.reconcile_checksums(
-                target, installed_names=installed_names)
-            _emit(PHASE_HOOKS, 11,
-                  f"reconciled {reconciled} file checksums to installed state")
+                target, installed_names=installed_names,
+                progress=_file_check_progress)
+            reconcile_note = (
+                f"reconciled {reconciled} file checksums to installed state")
         except Exception as exc:
-            _emit(PHASE_HOOKS, 11, f"warning: checksum reconcile skipped ({exc})")
+            reconcile_note = f"warning: checksum reconcile skipped ({exc})"
+        result.phase_completed = PHASE_HOOKS
+        _emit(PHASE_HOOKS, 11, "post-install hooks complete; root password kept")
+        _emit(PHASE_HOOKS, 11, reconcile_note)
 
         _check_cancel(PHASE_SERVICES)
 

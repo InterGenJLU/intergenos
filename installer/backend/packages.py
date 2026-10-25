@@ -1324,7 +1324,7 @@ def compute_install_set_gap(groups, archive_dir, package_dir,
     return sorted((name, archives[name][0]) for name in missing)
 
 
-def reconcile_checksums(target, installed_names=None):
+def reconcile_checksums(target, installed_names=None, progress=None, batch=None):
     """PKM-E: re-record installed file checksums from the live target filesystem
     after post-install hooks + signing have run, so `pkm verify` validates the
     true installed state (the MOK-signed kernel/UKI + hook-edited files) instead
@@ -1348,7 +1348,17 @@ def reconcile_checksums(target, installed_names=None):
 
         None keeps the whole-tree behaviour for callers that genuinely hold a
         known-good tree (fresh image assembly, tests); it is not what the
-        installer passes."""
+        installer passes.
+
+    progress: optional callable(done, total). The check reads every file it
+        covers — under half a minute on a fast disk, minutes on a slow one —
+        so the installer shows a count while it runs. When it is given with
+        installed_names, each distinct path is checked once, in batches of
+        `batch` paths (default: about 1 % of the total, at least 2,000):
+        progress(0, total) before the first batch, progress(done, total) after
+        each, ending at (total, total). Every owning row of every path is
+        updated exactly as by the single call, and the database is committed
+        once, after the last batch."""
     db_path = Path(target) / "var" / "lib" / "igos" / "pkm.db"
     if not db_path.exists():
         return 0
@@ -1361,7 +1371,19 @@ def reconcile_checksums(target, installed_names=None):
                          if not f["is_dir"])
         if not paths:
             return 0
-        return db.reconcile_checksums_from_live(paths=paths)
+        if progress is None:
+            return db.reconcile_checksums_from_live(paths=paths)
+        unique = list(dict.fromkeys(paths))
+        total = len(unique)
+        step = batch or max(2000, -(-total // 100))
+        progress(0, total)
+        updated = 0
+        for start in range(0, total, step):
+            end = min(start + step, total)
+            updated += db.reconcile_checksums_from_live(
+                paths=unique[start:end], commit=(end == total))
+            progress(end, total)
+        return updated
 
 
 def install_packages(target, archive_dir, groups, package_dir=None,

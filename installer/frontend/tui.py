@@ -145,6 +145,18 @@ class _ForgeReporter:
         """A sub-step / continuation line, indented under its step."""
         self._emit(self.out, f"    {text}")
 
+    def count(self, current, total):
+        """A count rewritten in place on one line while it runs (on a terminal),
+        so a long check shows its progress without printing a line per update;
+        on a redirected stream only the final count is written."""
+        body = f"    {current:,} of {total:,}"
+        stream = self.out
+        if hasattr(stream, "isatty") and stream.isatty():
+            print(f"\r{self._ts()} {body}", end="" if current < total else "\n",
+                  file=stream, flush=True)
+        elif current >= total:
+            self._emit(stream, body)
+
     def ok(self, text):
         """A success verdict line (✓)."""
         self._emit(self.out, f"✓ {text}", color=self._C_GREEN)
@@ -1250,6 +1262,10 @@ def run_declarative(yaml_path, install_io, archive_dir, packages_dir, dry_run):
     phases_total = len(backend_install.PHASE_ORDER)
 
     def _progress(phase, current, total, message):
+        if total != phases_total and not message:
+            # count-only update (the installed-file check): one line, counting
+            _reporter.count(current, total)
+            return
         if phase == backend_install.PHASE_PACKAGES and total != phases_total:
             # per-package fanout from packages.install_packages
             _reporter.detail(f"({current}/{total}) {message}")
