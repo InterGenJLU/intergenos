@@ -20,12 +20,31 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-R001.4 security point release in preparation, with fixes to consent, verification,
-package recovery and assistant answers.
+Nothing yet.
+
+---
+
+## [R001.4] — 2026-10-25
+
+R001.4 is a [fix-only point release](https://github.com/InterGenJLU/intergenos/blob/master/docs/release-policy.md), issued ahead of R002 because the certificate fix below cannot wait.
+
+**Critical: the system certificate bundle.** Eight eMudhra intermediate certificate-authority keys were compromised: six TLS-issuing and two code-signing intermediates under emSign Root TLS CA - G3 and emSign Root CS CA - G3, cross-signed by Sectigo AAA. Mozilla’s OneCRL and Chrome’s CRLSet blocked them on 17 October 2026; NSS 3.131.1 removed the root on 20 October.
+
+**R001.3 is affected.** An attacker holding those keys can present a certificate for a site that an R001.3 machine accepts as genuine: the connection looks secure and is not. R001.3’s bundle (ca-certificates 2026.04.30, 121 certificates) still trusts emSign ECC Root CA - G3, and we confirmed the exposure on an R001.3 machine: a certificate chained to the compromised keys passed TLS verification against a public test host. Until a machine is updated, every TLS connection it makes trusts that root.
+
+**The fix.** R001.4 moves the system bundle to Mozilla’s snapshot dated 20 October 2026, which drops that root along with the snapshot’s other removals.
+
+### Upgrading from R001.3
+
+`sudo pkm upgrade --all` moves an R001.3 system to R001.4, the certificate bundle included. Two messages can appear during the upgrade; neither needs a rollback.
+
+- **The kernel can be reported as not finished.** The upgrade can end by reporting `linux-kernel` as not finished, with `FATAL: 2 staged module trees under /usr/lib/modules — refusing to guess which release to depmod`. The message is a false alarm from the kernel package's own install script, which still finds the previous kernel's module directory: the new kernel is installed, signed, set as the boot default, and its module index is built. Do not roll back; `pkm reinstall linux-kernel` repeats the same message. `pkm list` shows the kernel as not finished until a later kernel update replaces it.
+
+- **The version shown stays R001.3.** `/etc/os-release` keeps saying R001.3 (Settings → About, `hostnamectl`), and the upgrade lists `/etc/os-release.pkmnew` for review, because the installer recorded the installation medium in that file and the package manager treats that as your own edit. If you have not edited the file yourself, take the new identity and keep the medium line with `sudo sh -c 'grep "^IMAGE_VERSION=" /etc/os-release >> /etc/os-release.pkmnew; mv /etc/os-release.pkmnew /etc/os-release'`; if you have, compare the two files first with `diff /etc/os-release /etc/os-release.pkmnew`.
 
 ### Changed
 
-- **R001.4 identity.** Advance the declared release identity for this security point release; publication follows the release evaluation.
+- **R001.4 identity.** Declare R001.4 as the release identity in the release files and the login banner.
 
 - **Installer's included assistant guide.** Describe the review of pictures before the assistant uses them, including images supplied by the person and screenshots.
 
@@ -60,6 +79,8 @@ package recovery and assistant answers.
 - **Scheduled one-time jobs.** Give the scheduling daemon access to its deny list so users can submit scheduled jobs.
 
 - **Installer enrollment guidance.** Show the Secure Boot key-enrollment notice during installation.
+
+- **Installer progress during the file check.** State how many installed files the final check reads and show a count under a moving bar (one counting line in the text installer), where the screen used to stand still.
 
 - **Detected graphics.** State the detected GPU above optional graphics-software offers and explain why nothing is offered when there is no applicable addition.
 
@@ -221,17 +242,17 @@ package recovery and assistant answers.
 
 - **File and backup target boundaries.** Refuse unsuitable files before opening them, retain checked objects through reads and restores, keep backup stores private, and validate backup targets on adoption and use.
 
-### Known limits
+### Known limits in R001.4
 
-The retained limits and outstanding evaluation work below accompany this release in preparation.
+These limits ship with R001.4. The release notes list the limits that concern installation and the image.
 
 - **Model-size evaluations.** The three model-size evaluations are not all passing; a passed check on one size does not establish the result on another.
 - **Terminal instructions.** A terminal how-to request can miss the installed guide after an earlier topic has supplied the context. The result for the same request in a fresh conversation remains unproved.
 - **Printer output.** A printer follow-up can run successfully and receive a truthful reply without showing its command output.
-- **Updates after flagged content.** An update request after a flagged read can produce neither an approval card nor a package action.
+- **Updates after a withheld read.** An update request that follows a read whose content was not admitted, such as a flagged page or a file that could not be read, can produce neither an approval card nor a package action; the same request in a new conversation receives its approval card.
 - **Search page retrieval.** Recorded searches returned results, but fetching their pages received HTTP 403. The earlier empty-search result did not recur in those checks.
 - **Scanner differences by model size.** The 2B model's content-review outcome differs from the 9B and 35B outcomes in a recorded case. The content was withheld on all three; the cause of the difference remains unproved.
-- **Build and publication checks.** Some validation claims exceed what their checks establish. Direct image evaluation, the sweep after writing installation media and the signed fresh-install record remain required; an aggregate pass does not settle these limits.
+- **Build and publication checks.** Some build and publication checks state more than they establish. The image was evaluated directly instead: installed on real hardware and in a virtual machine, with a signed fresh-install record.
 - **Approval-only requests.** Known limitations in handling replies that only express approval remain for the next major release; administrator authentication still gates the action.
 - **Withheld-result explanations.** Some answers omit or misstate the reason a result was withheld.
 - **Vision answers.** The 9B model misidentified a supplied desktop as a login screen in evaluation; this release does not change the model.
@@ -240,9 +261,10 @@ The retained limits and outstanding evaluation work below accompany this release
 - **Expected test failure.** A privileged git-dispatch test remains a declared expected failure; its behavior is not proved fixed.
 - **Test bind waits.** A test whose expected port is missing can wait before reporting the problem.
 - **Test-display cleanup.** A test display can leave its socket in temporary runtime storage after the test ends.
-- **Security advisory review.** A fresh advisory scan and the named package-review dispositions remain required for this cycle. The older report does not establish current advisory completeness or exploitability.
+- **Known advisories at shipped versions.** The per-package list of published advisories at this release's versions, with each advisory's severity, is published at https://intergenos.org/advisories/r001-4.html; an advisory's score is its published severity, not proof that this build is affected. R001.4 changes no package for an advisory apart from the certificate bundle: the six packages the R001.3 update said would be fixed in the next point release (peft, unsloth, unsloth-zoo, tokenizers, diffusers and mtr) are unchanged and move with the next major release's version updates.
 - **Temporary storage.** The large-package temporary-storage issue and the host temporary-directory boundary review remain open; no untested workaround is certified.
 - **Installer preview.** A complete unprivileged installation preview remains future work, separate from the corrected dry-run description.
+- **Virtual machines at shutdown.** In a virtual machine, powering off can record failures for the display manager and the compressed swap device; neither occurred on the evaluation hardware.
 
 ---
 
