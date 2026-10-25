@@ -1,6 +1,6 @@
 # Getting Started with InterGenOS
 
-Welcome to InterGenOS R001.3. This guide covers how to verify your download, write the installation media, and what to expect during your first boot, as well as how to keep your new system up to date.
+Welcome to InterGenOS R001.4. This guide covers how to verify your download, write the installation media, and what to expect during your first boot, as well as how to keep your new system up to date.
 
 R001.x is the first public release line; the project is in active development. The current release is always stated at https://intergenos.org/news.html.
 
@@ -42,9 +42,9 @@ That primary key carries several signing subkeys, and the subkey is what your to
 **2. Download the image, its checksum, and the signature over that checksum.**
 
 ```bash
-curl -O https://repo.intergenos.org/iso/intergenos-r001.3.iso
-curl -O https://repo.intergenos.org/iso/intergenos-r001.3.iso.sha256
-curl -O https://repo.intergenos.org/iso/intergenos-r001.3.iso.sha256.asc
+curl -O https://repo.intergenos.org/iso/intergenos-r001.4.iso
+curl -O https://repo.intergenos.org/iso/intergenos-r001.4.iso.sha256
+curl -O https://repo.intergenos.org/iso/intergenos-r001.4.iso.sha256.asc
 ```
 
 **3. Verify the signature on the checksum file, then the image against the checksum.**
@@ -52,12 +52,12 @@ curl -O https://repo.intergenos.org/iso/intergenos-r001.3.iso.sha256.asc
 ```bash
 gpg --export 5597A3E0587B253006D0DD7B8C50826182083050 > release-key.gpg
 gpgv --keyring ./release-key.gpg \
-     intergenos-r001.3.iso.sha256.asc intergenos-r001.3.iso.sha256
+     intergenos-r001.4.iso.sha256.asc intergenos-r001.4.iso.sha256
 
-sha256sum -c intergenos-r001.3.iso.sha256
+sha256sum -c intergenos-r001.4.iso.sha256
 ```
 
-Expect `Good signature from "InterGenOS Project Signing Key (primary)"` from the first command and `intergenos-r001.3.iso: OK` from the second.
+Expect `Good signature from "InterGenOS Project Signing Key (primary)"` from the first command and `intergenos-r001.4.iso: OK` from the second.
 
 Both halves matter, and each answers a different question. The signature proves the checksum file is the project's and was not altered on the mirror or in transit. It says nothing about the file on your disk — hashing the image against that checksum is the step that catches a truncated download or a substituted image.
 
@@ -65,12 +65,12 @@ Both halves matter, and each answers a different question. The signature proves 
 
 ## 3. Writing the Installation Media
 
-Once verified, write the image to a USB flash drive of at least 16 GB. The R001.3 image is about 9.8 GiB, so an 8 GB stick cannot hold it.
+Once verified, write the image to a USB flash drive of at least 16 GB. The R001.4 image is about 9.8 GiB, so an 8 GB stick cannot hold it.
 
 **On Linux/macOS:**
 ```bash
 # Replace /dev/sdX with your actual USB device. DOUBLE-CHECK THIS.
-sudo dd if=intergenos-r001.3.iso of=/dev/sdX bs=4M status=progress oflag=sync
+sudo dd if=intergenos-r001.4.iso of=/dev/sdX bs=4M status=progress oflag=sync
 ```
 
 **On Windows:**
@@ -79,7 +79,7 @@ We recommend using [Rufus](https://rufus.ie) or [balenaEtcher](https://balena.io
 A successful exit from the write command is not proof the stick holds the image. Read back exactly the image's byte count from the device and hash that:
 
 ```bash
-head -c "$(stat -c %s intergenos-r001.3.iso)" /dev/sdX | sha256sum
+head -c "$(stat -c %s intergenos-r001.4.iso)" /dev/sdX | sha256sum
 ```
 
 The value it prints must equal the checksum you verified in section 2.

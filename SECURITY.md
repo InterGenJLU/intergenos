@@ -130,7 +130,7 @@ them requires trusting this document:
 
 | Artifact | Where |
 |---|---|
-| Installation image | the current image, named on the [Updates page](https://intergenos.org/news.html); for example, `https://repo.intergenos.org/iso/intergenos-r001.3.iso` for R001.3 |
+| Installation image | the current image, named on the [Updates page](https://intergenos.org/news.html); for example, `https://repo.intergenos.org/iso/intergenos-r001.4.iso` for R001.4 |
 | Image checksum | the same name with `.sha256` |
 | Signature over that checksum | the same name with `.sha256.asc` |
 | Release public key | `https://repo.intergenos.org/keys/intergenos-release-key.asc` |
