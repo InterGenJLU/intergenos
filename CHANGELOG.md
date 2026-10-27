@@ -20,7 +20,9 @@ landed is in the repository README, not here.
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **Documentation** — the README describes the security scanner as shipped: the rules layer always on and the local model review when its model is present and verified; the earlier text described opt-in cloud scanners and a cloud branch in the scanner diagram that the shipped assistant does not connect. The network paths named are web search, page retrieval and Phone-A-Friend, each at the user's choice. The license policy's Tier-1 model row no longer says the license is accepted at first launch: the signed manifest declares Apache-2.0 and the check accepts it without a prompt.
 
 ---
 

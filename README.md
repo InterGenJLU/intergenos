@@ -13,9 +13,9 @@
 
 InterGenOS puts the user in control of their own machine. Every package is compiled from source with deliberate choices. Every design decision serves one purpose: giving people a system they understand, can modify, and can trust.
 
-**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. It runs on everything from a laptop with no discrete graphics to a GPU workstation, fully offline, choosing its model tier from the graphics hardware it finds. Every tier is multimodal. **InterGen Sentinel** — its pluggable security-scanner architecture — routes MCP traffic through your choice of scanner before it reaches a tool. A local-only default (`Local-Rules` rule-based + `Local-Qwen` InterGen-LLM-backed via your local Qwen model) ships ready to go. Six cloud providers are opt-in: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. Frontier AI models in 2026 routinely surface security-relevant findings at scale — pluggable cloud routing lets users opt into that capability through whichever vendor they trust. The user picks which (if any) reaches across the network.
+**InterGen**, the local AI assistant, doesn't just help you use your system — it helps you understand and secure it. It runs on everything from a laptop with no discrete graphics to a GPU workstation, fully offline, choosing its model tier from the graphics hardware it finds. Every tier is multimodal. **InterGen Sentinel** — its security-scanner layer — checks every MCP tool call before it reaches a tool: a deterministic rules scanner that is always on, and a local model-backed classifier (`Local-Qwen`, your local Qwen model) that attaches when its configured model is present and verified.
 
-"Fully offline" means the local model: web search and the opt-in cloud scanners are the only paths that touch the network, and both are your choice.
+"Fully offline" means the local model: web searches and page retrieval you request, and Phone-A-Friend requests you approve, are the only paths that touch the network, and each is your choice.
 
 ![InterGenOS desktop — GNOME 49.4 on Wayland](images/screenshots/gnome-desktop.png)
 
@@ -72,7 +72,7 @@ The Prime Directive and the security-only alignment above are complementary: a m
 - **Test harness** — over 600 tests in `installer/tests/` covering installer backend, MOK validation, install-integrity, and Class 1 signing-chain verification; Phase A scaffold for GRUB `check_signatures=enforce` empirical validation. A further over 4,900 tests across the repo-level suites under `tests/` (preflight, repo-publish, SBOM, upstream-check, download-sources, and more).
 - **Extra tier** — 190+ packages spanning nine install-helpers for proprietary software (Brave, Chrome, Claude Code, Discord, Edge, Signal, Spotify, VS Code, Zoom) plus open-source applications (Firefox, LibreOffice, Audacity, GIMP, Inkscape, Thunderbird, MPV, Rhythmbox, Transmission), the Rust CLI suite (ripgrep, bat, eza, fd, hyperfine, just, starship, zoxide, and more), and container runtimes (podman, crun, conmon, netavark). Proprietary packages are fetched transparently via pkm.
 - **InterGen** — tiered local AI assistant with permission-gated tool calling, D-Bus activation, and a local LLM stack (llama.cpp). Hardware-detected, fully offline, and **multimodal on every tier** — each pinned model ships a paired vision projector, and a tier whose projector is not pinned in the signed manifest is refused fail-closed rather than served without vision.
-- **InterGen Sentinel** — Pluggable security-scanner architecture. `Local-Rules` (rule-based, deterministic) + `Local-Qwen` (InterGen-LLM-backed via your local Qwen model) ship by default, fully offline. Six cloud providers are opt-in: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, DeepSeek. Schema-pinning, audit logging, and sandbox enforcement are vendor-neutral local plumbing — they apply regardless of which scanner is active.
+- **InterGen Sentinel** — Security-scanner layer. `Local-Rules` (rule-based, deterministic) is always on, and `Local-Qwen` (your local Qwen model reviewing the call) attaches when its configured model is present and verified — fully offline. Schema-pinning, audit logging, and sandbox enforcement are vendor-neutral local plumbing — they apply regardless of which scanner is active.
 
 ## Meet InterGen
 
@@ -95,13 +95,13 @@ fits, as many layers as fit when it does not, and reports a processor-only
 result when no layer fits. An explicit
 `llama_server.gpu_layers` setting remains the user's override.
 
-The local model needs no cloud account or API key. Web search and optional
-cloud scanning or Phone-A-Friend requests use the network only when you choose
-those features.
+The local model needs no cloud account or API key. Web searches and page
+retrieval you request, and Phone-A-Friend requests you approve, use the network
+only when you choose those features.
 
 What separates InterGen from a generic local-LLM wrapper is the permission model. Every tool call is classified before dispatch: read-only operations may run automatically, state-changing operations require confirmation, and blocked operations are refused. Confirmed privileged operations cross PolicyKit through a short-lived runner rather than inheriting the assistant daemon's `NoNewPrivileges` setting. Tool signatures are pinned against drift between upgrades. A separate audit log captures every tool invocation for after-the-fact review. The AI is a system component, not a hole in it.
 
-**InterGen Sentinel** routes every MCP tool call through a security scanner of your choice before it executes. The default is local-only: `Local-Rules` (rule-based, deterministic) and `Local-Qwen` (your local Qwen model reviewing the call). For richer review, opt into any of six cloud providers: Claude-Anthropic, Gemini-Google, CoPilot-Microsoft, ChatGPT-OpenAI, Grok-xAI, and DeepSeek. The user picks which (if any) reaches across the network; everything else stays on the box.
+**InterGen Sentinel** routes every MCP tool call through a security scanner before it executes: `Local-Rules` (rule-based, deterministic) is always on, and `Local-Qwen` (your local Qwen model reviewing the call) attaches when its configured model is present and verified; everything stays on the box.
 
 ```mermaid
 flowchart TD
@@ -109,12 +109,10 @@ flowchart TD
     IG --> T1["&nbsp;every tool call&nbsp;"] --> SEN{"InterGen Sentinel<br/>scan + permission gate"}
     SEN --> LR["Local-Rules<br/>(deterministic)"]
     SEN --> LQ["Local-Qwen<br/>(local model review)"]
-    SEN -.-> T2["&nbsp;opt-in&nbsp;"] -.-> CL["Cloud scanner<br/>Claude · Gemini · CoPilot ·<br/>ChatGPT · Grok · DeepSeek"]
     LR --> RUN["approved → tool dispatches<br/>(outcome logged to the dispatch audit)"]
     LQ --> RUN
-    CL -.-> RUN
     classDef lab fill:#4b4b4b,color:#ffffff,stroke:none;
-    class T1,T2 lab;
+    class T1 lab;
 ```
 
 See `intergen(1)` for the full command surface and `/etc/intergen/config.yml` for the default configuration.

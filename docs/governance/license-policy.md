@@ -369,7 +369,7 @@ Each must ship its upstream LICENSE text under `/usr/share/licenses/<package>/`.
 
 | Component | Source | License | User-acceptance gate |
 |---|---|---|---|
-| InternVL3.5-2B GGUF (Tier 1) | Hugging Face `bartowski/OpenGVLab_InternVL3_5-2B-GGUF` | `Apache-2.0` | Required at first launch of InterGen (audit P-016) |
+| InternVL3.5-2B GGUF (Tier 1) | Hugging Face `bartowski/OpenGVLab_InternVL3_5-2B-GGUF` | `Apache-2.0` | Not required — the signed manifest declares Apache-2.0, which is auto-accepted (audit P-016; see the note below) |
 | Qwen3.5 GGUF (9B / 35B-A3B, Tiers 2–3) | Hugging Face `unsloth/Qwen3.5-*-GGUF` | `Apache-2.0` | Not required — permissive licenses are auto-accepted (see the note below) |
 | nomic-embed-text-v1.5 | Hugging Face `nomic-ai/nomic-embed-text-v1.5-GGUF` | Apache-2.0 | Same flow |
 
