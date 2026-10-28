@@ -30,6 +30,24 @@ keeps its turn, its sequence number, its phase and its event, and carries what
 was dropped and how many bytes it was. Silently shortening the trace would put
 this module in the position of deciding what the record does not have to say,
 which is the one thing it exists not to do.
+
+RE-STATED WITH THE DECISION PATH (measured 2026-10-28). A turn now also writes
+its decision path (one decision/path row) and one model/request row per model
+call, carrying the request body whole. The ceiling itself does not move: six
+files of _ROTATE_BYTES, 402,653,184 bytes, and no row above _MAX_ROW_BYTES. What
+moves is how many turns it holds. Three turns served through the daemon on the
+2B model, read from the trace as written:
+
+  turn                                   bytes   of which new   turns the ceiling holds
+  a live-data offer (no model call)      7,474     4,424         53,873 (132,017 without)
+  a freeform answer (three model calls) 35,901    22,567         11,215  (30,197 without)
+  a how-to answer (no model call)        8,715     5,278         46,202 (117,152 without)
+
+So the record keeps about 2.5 to 2.7 times fewer turns than it did. Every
+decision/path row there is under 12 KB, about 0.14 % of _MAX_ROW_BYTES, so an
+ordinary turn's path is never shortened. Over the 155-question corpus in
+process (a stub model, so no request rows) the trace per question grew from
+about 1.9 KB to about 6.5 KB, and the largest path row was 8,161 bytes.
 """
 
 from __future__ import annotations
@@ -161,6 +179,36 @@ class RetentionCeilingIsTheTruth(unittest.TestCase):
         rows = [r for f in self._files() for r in self._rows(f)]
         row = glass_rows.only(rows, event="assembled")
         self.assertEqual(row["detail"], {"text": "a short prompt"})
+
+    # -- the decision path, under the same ceiling -------------------------
+    def test_turns_with_their_decision_path_stay_under_the_stated_ceiling(self) -> None:
+        """Turns routed through the real router (a stub model) at the reduced
+        cap, so every path row is several times the row limit here: the ceiling
+        holds, no file passes the rotation size, and the latest turn's path is on
+        disk, shortened only with the attestation that says so."""
+        from intergen.tests.test_glass_decision_path import SYNTHETIC, _router
+
+        router = _router()
+        tids = []
+        for _ in range(60):
+            tids.append(glass.new_turn_id())
+            with glass.turn(tids[-1], "web"):
+                res = router.route(SYNTHETIC)
+                glass.emit("delivery", "final", detail={"text": res.text})
+        self.assertGreater(len(self._files()), 1,
+                           "control: the drive never rotated, so this test "
+                           "measured nothing")
+        self.assertLessEqual(self._bytes_on_disk(), self._ceiling())
+        for p in self._files():
+            with self.subTest(file=p.name):
+                self.assertLessEqual(p.stat().st_size, glass._ROTATE_BYTES)
+        rows = [r for f in self._files() for r in self._rows(f)]
+        paths = glass_rows.where(rows, phase="decision", event="path")
+        self.assertIn(tids[-1], {r["turn_id"] for r in paths})
+        for r in paths:
+            with self.subTest(turn=r["turn_id"]):
+                self.assertTrue("ladder" in r["detail"]
+                                or "glass_oversized_row" in r["detail"], r)
 
 
 if __name__ == "__main__":
