@@ -1689,7 +1689,34 @@ def _glass_summary(r: dict) -> str:
                 f"text={str(d.get('text',''))[:50]!r}")
     if ev == "final":
         return f"iface={d.get('iface')} text={str(d.get('text',''))[:60]!r}"
+    if ev == "path":
+        ladder = d.get("ladder") or []
+        decided = next((e.get("stage") for e in ladder
+                        if e.get("outcome") == "matched"), "-")
+        counts = {k: sum(1 for e in ladder if e.get("outcome") == k)
+                  for k in ("not_reached", "unrecorded")}
+        return (f"decided by {decided}; {len(ladder)} stages, "
+                f"{counts['not_reached']} not reached"
+                + (f", {counts['unrecorded']} UNRECORDED"
+                   if counts["unrecorded"] else "")
+                + f"; retrieval={len(d.get('retrieval') or [])} "
+                f"tools={len(d.get('tools') or [])} "
+                f"model_calls={len(d.get('model_calls') or [])} "
+                f"screens={len(d.get('screens') or [])}")
+    if ev == "request":
+        return (f"call={d.get('call_id')} caller={d.get('caller')} "
+                f"bytes={d.get('body_bytes')}")
     return json.dumps(d)[:80]
+
+
+def _print_decision_path(d: dict) -> None:
+    """The ladder walk of one decision/path row, a line per stage."""
+    print("    decision path (stage, outcome, what decided it):")
+    for e in d.get("ladder") or []:
+        why = (e.get("pattern") or e.get("failed_out") or e.get("reason")
+               or "")
+        print(f"      {str(e.get('stage')):<24} {str(e.get('outcome')):<12} "
+              f"{why}")
 
 
 def cmd_glass(args: list[str]) -> None:
@@ -1744,6 +1771,8 @@ def cmd_glass(args: list[str]) -> None:
             dstr = f" ({dur:.0f}ms)" if isinstance(dur, (int, float)) else ""
             print(f"[{tstr:>9}]{dstr:>9} {r['phase']}/{r['event']:<14} "
                   f"{_glass_summary(r)}")
+            if r.get("phase") == "decision" and r.get("event") == "path":
+                _print_decision_path(r.get("detail") or {})
         return
     from collections import OrderedDict
     turns: "OrderedDict[str, list]" = OrderedDict()

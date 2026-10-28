@@ -165,6 +165,9 @@ class AuditRecord:
     kind: str = "tool_dispatch"  # "tool_dispatch" | "governance_decision"
     event_type: str = ""  # governance event: tier_change | hash_verify_fail | evaluation_blocked | cooldown_escalation
     details: dict[str, Any] | None = None  # governance event-specific payload
+    # The glass turn this row belongs to ("" outside a served turn). Written only
+    # when it holds a value, so a row from before it existed still reads whole.
+    turn_id: str = ""
 
     def to_jsonl_dict(self) -> dict[str, Any]:
         """Serialize to a dict suitable for json.dumps + newline."""
@@ -186,6 +189,8 @@ class AuditRecord:
             d["event_type"] = self.event_type
             if self.details:
                 d["details"] = self.details
+        if self.turn_id:
+            d["turn_id"] = self.turn_id
         return d
 
 

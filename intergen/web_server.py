@@ -2916,10 +2916,13 @@ class WebServer:
             """Run the synchronous LLM streaming generator in a thread."""
             if _stream_stop.is_set():
                 return
-            stream = self._llm.stream_with_tools(
-                messages, tools=tool_schemas, image_data=image_data,
-                max_tokens=_max_tokens,
-            )
+            # Named for the model request it records (glass.model_request).
+            stream = glass.called(
+                f"web_stream:{route_result.source}",
+                self._llm.stream_with_tools(
+                    messages, tools=tool_schemas, image_data=image_data,
+                    max_tokens=_max_tokens,
+                ))
             try:
                 for item in stream:
                     if _stream_stop.is_set():
@@ -3055,6 +3058,8 @@ class WebServer:
         # full_response here is exactly what the user keeps and what persists. Fires
         # only when nothing dispatched this turn; regeneration runs off-thread.
         _dispatched = any(getattr(tr, "executed", False) for tr in tool_results)
+        # Each screen below records the text it read and the text it let on.
+        _before = full_response
         _verdict, _marker = safety.screen_execution_claim(
             full_response, dispatched=_dispatched,
             executed_outputs=ctx.conversation.executed_outputs)
@@ -3083,7 +3088,8 @@ class WebServer:
                     "could not be written again, so a plain statement replaced it")
             glass.emit("decision", "claim_screen", detail={
                 "verdict": _outcome, "marker": _marker,
-                "dispatched": _dispatched, "source": route_result.source})
+                "dispatched": _dispatched, "source": route_result.source,
+                "before": _before, "after": full_response})
 
         # Local-state claim screen (web-path parity with the router's
         # _screen_and_correct_local_state). A reading of THIS machine that nothing
@@ -3095,6 +3101,7 @@ class WebServer:
         # browser session.
         _st_question = next((m.content for m in reversed(messages)
                              if m.role == MessageRole.USER), "")
+        _before = full_response
         _st_verdict, _st_marker = safety.screen_local_state_claim(
             full_response, dispatched=_dispatched,
             context=[m.content for m in messages])
@@ -3126,7 +3133,8 @@ class WebServer:
                     "replaced it")
             glass.emit("decision", "state_claim_screen", detail={
                 "verdict": _st_outcome, "marker": _st_marker,
-                "dispatched": _dispatched, "source": route_result.source})
+                "dispatched": _dispatched, "source": route_result.source,
+                "before": _before, "after": full_response})
 
         # M7 leg 2 — model-authored self-offer screen (web-path parity). A toolless
         # turn whose draft offers to perform an action no code-owned offer backs is
@@ -3134,6 +3142,7 @@ class WebServer:
         # honest no-self-offer fallback. Runs on the (execution-corrected)
         # full_response so ONE delivered answer clears every honesty gate.
         _code_offer = self._bound(ctx, self._router._code_offer_staged)
+        _before = full_response
         _off_verdict, _off_marker = safety.screen_model_text_offer(
             full_response, dispatched=_dispatched, code_offer_staged=_code_offer)
         if _off_verdict == "clean":
@@ -3166,7 +3175,8 @@ class WebServer:
                     "statement replaced it")
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": _off_outcome, "marker": _off_marker,
-                "source": route_result.source})
+                "source": route_result.source,
+                "before": _before, "after": full_response})
 
         # M4 capability gate — web-path parity with the router's
         # _screen_and_correct_capability. Screen the delivered draft for a first-party
@@ -3176,6 +3186,7 @@ class WebServer:
         # full_response so ONE delivered answer clears both gates. Ruling 2: a missing
         # ground-truth surface is LOUD ("unavailable" — WARN + honest-under-
         # uncertainty fallback), never a silent green. Glass-logs every turn.
+        _before = full_response
         _cap_verdict, _cap_marker = safety.screen_capability_claim(full_response)
         if _cap_verdict == "clean":
             glass.emit("decision", "capability_screen", detail={
@@ -3194,7 +3205,8 @@ class WebServer:
             glass.emit("decision", "capability_screen", detail={
                 "verdict": _cap_outcome, "marker": _cap_marker,
                 "source": route_result.source,
-                "degraded": "capability-surface.json missing/unreadable"})
+                "degraded": "capability-surface.json missing/unreadable",
+                "before": _before, "after": full_response})
         elif _cap_verdict == "unverifiable":
             # Web-path parity with the router: a REAL command whose option
             # surface cannot be introspected is stated honestly, not
@@ -3206,7 +3218,8 @@ class WebServer:
             glass.emit("decision", "capability_screen", detail={
                 "verdict": "unverifiable_tool_surface", "marker": _cap_marker,
                 "source": route_result.source,
-                "degraded": "tool argument surface is not introspectable"})
+                "degraded": "tool argument surface is not introspectable",
+                "before": _before, "after": full_response})
         else:
             _cap_ctx = glass.bind_context()
             _cap_corrected = await loop.run_in_executor(
@@ -3230,7 +3243,8 @@ class WebServer:
                     "replaced it")
             glass.emit("decision", "capability_screen", detail={
                 "verdict": _cap_outcome, "marker": _cap_marker,
-                "source": route_result.source})
+                "source": route_result.source,
+                "before": _before, "after": full_response})
 
         # Conversational scope boundary — web-path parity with the router's
         # _try_llm_freeform, which runs _screen_and_correct_refusal after the
@@ -3244,6 +3258,7 @@ class WebServer:
         _refused = False
         if self._bound(ctx, self._router._classify_query_type,
                        user_msg) == "general":
+            _before = full_response
             _ref_verdict, _ref_phrase = safety.screen_general_refusal(
                 full_response)
             if _ref_verdict == "clean":
@@ -3273,7 +3288,8 @@ class WebServer:
                         "replaced it")
                 glass.emit("decision", "refusal_screen", detail={
                     "verdict": _ref_outcome, "phrase": _ref_phrase,
-                    "source": route_result.source})
+                    "source": route_result.source,
+                    "before": _before, "after": full_response})
 
         # THE PHONE-A-FRIEND OFFER, DECIDED WHERE THE ANSWER IS. The verdict
         # this method starts from was made by route(decide_only=True) before

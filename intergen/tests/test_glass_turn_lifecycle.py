@@ -201,8 +201,10 @@ class EveryTurnReachesExactlyOneTerminalEvent(unittest.TestCase):
         # assertion. A row the writer adds to this turn must fail here — that
         # is the point — while a row it adds outside the turn does not reach it.
         mine = glass_rows.where(_rows(self.tmp), turn_id=tid)
+        # "path" is the turn's decision path (glass.DecisionPath), written once
+        # by the writer itself, immediately before the terminal row.
         self.assertEqual([r["event"] for r in mine],
-                         ["turn_start", "verdict", "final"])
+                         ["turn_start", "verdict", "path", "final"])
         self.assertEqual(
             glass_rows.where(_rows(self.tmp), turn_id="no-turn"), [],
             "a row of this turn was written outside it")

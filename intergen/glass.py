@@ -71,6 +71,7 @@ from __future__ import annotations
 
 import asyncio
 import contextvars
+import hashlib
 import itertools
 import json
 import logging
@@ -377,6 +378,18 @@ _current_iface: ContextVar[str | None] = ContextVar("intergen_glass_iface", defa
 _current_turn_ended: ContextVar[list[bool] | None] = ContextVar(
     "intergen_glass_turn_ended", default=None)
 
+# The ACTIVE turn's decision path (see DecisionPath). A mutable object behind a
+# ContextVar for the reason the terminal cell above is one: a worker thread
+# entered through bind_context() holds a copy of the mapping, and an entry it
+# records must reach the path the turn writes, not a copy of it.
+_current_path: ContextVar["DecisionPath | None"] = ContextVar(
+    "intergen_glass_path", default=None)
+
+# The name of the code that is calling the model right now, read by the model
+# client when it records a request (model_request below). Set by calling().
+_current_model_caller: ContextVar[str | None] = ContextVar(
+    "intergen_glass_model_caller", default=None)
+
 # Guards the claim below. A terminal can be attempted from the event loop and
 # from a worker thread bound into the same turn; without this both could read the
 # cell as unclaimed and both would write a terminal.
@@ -478,9 +491,13 @@ def scope(turn_id: str, iface: str) -> Iterator[str]:
     tok_start = _current_turn_start.set(t0)
     tok_iface = _current_iface.set(iface)
     tok_ended = _current_turn_ended.set(None)
+    # No decision path either: a boot has no ladder walk to write, and an entry
+    # recorded here must not join an enclosing turn's path.
+    tok_path = _current_path.set(None)
     try:
         yield turn_id
     finally:
+        _current_path.reset(tok_path)
         _current_turn_ended.reset(tok_ended)
         _current_turn_id.reset(tok_id)
         _current_turn_start.reset(tok_start)
@@ -500,6 +517,7 @@ def turn(turn_id: str, iface: str) -> Iterator[str]:
     tok_start = _current_turn_start.set(t0)
     tok_iface = _current_iface.set(iface)
     tok_ended = _current_turn_ended.set([False])
+    tok_path = _current_path.set(DecisionPath())
     try:
         yield turn_id
     except asyncio.CancelledError:
@@ -517,6 +535,7 @@ def turn(turn_id: str, iface: str) -> Iterator[str]:
         # router unavailable) or a path that simply returns. Still an ending.
         _synthesize_terminal(_TERMINAL_FALLBACK)
     finally:
+        _current_path.reset(tok_path)
         _current_turn_ended.reset(tok_ended)
         _current_turn_id.reset(tok_id)
         _current_turn_start.reset(tok_start)
@@ -561,6 +580,338 @@ def bind_context() -> contextvars.Context:
     glass turn id and any trace.py span in flight.
     """
     return contextvars.copy_context()
+
+
+# ── THE DECISION PATH: one record per turn ──────────────────────────────────
+#
+# The rows above say what each part of the pipeline did when it acted. A turn
+# is explained by more than that: by every stage of the router's ladder that was
+# tried and passed over, the pattern that decided each one, the passages the
+# retrieval weighed and the threshold it applied, the consent behind each tool
+# call, the sources of each prompt, each model request, what each screen
+# changed. Those are collected here while the turn runs and written ONCE, as
+# decision/path, immediately before the turn's terminal row, so one record holds
+# the whole walk. A stage the turn never reached is written as not_reached; a
+# stage before the deciding one that recorded nothing is written as unrecorded.
+# Neither is ever left to be inferred from an absence.
+#
+# Observability only: nothing here is read by the code that decides a turn.
+
+PATH_PHASE = "decision"
+PATH_EVENT = "path"
+#: Written for an entry that arrives after its turn's path was written (a
+#: worker thread that outlived the turn), so a late decision is never dropped.
+PATH_LATE_EVENT = "path_late"
+PATH_SECTIONS = ("ladder", "retrieval", "tools", "prompts", "model_calls",
+                 "screens")
+_PATH_SCHEMA_VERSION = 1
+
+#: The rows that are a screen's or a gate's verdict on a model answer. Each one
+#: written is also an entry in the turn's path "screens" section (see emit).
+SCREEN_ROWS = frozenset({
+    ("decision", "claim_screen"), ("decision", "state_claim_screen"),
+    ("decision", "model_offer_screen"), ("decision", "capability_screen"),
+    ("decision", "refusal_screen"), ("decision", "semantic_flags"),
+    ("decision", "code_owned_delivery"),
+    ("model", "tool_synthesis_gate"), ("model", "tool_synthesis_rejected"),
+    ("model", "system_map_synthesis_gate"),
+    ("model", "system_map_synthesis_rejected"),
+    ("model", "agentic_quality_gate"), ("model", "agentic_synthesis_rejected"),
+    ("model", "reasoning_leak_stripped"),
+})
+
+
+class DecisionPath:
+    """One turn's decision path, collected as the turn runs."""
+
+    def __init__(self) -> None:
+        self._lock = Lock()
+        self._t0 = time.monotonic()
+        self.sections: dict[str, list[dict[str, Any]]] = {
+            name: [] for name in PATH_SECTIONS}
+        self.stage_order: tuple[str, ...] = ()
+        self.passes = 0
+        self.pending_why: dict[str, Any] = {}
+        self.final: dict[str, Any] | None = None
+        self.written = False
+
+    def t_ms(self) -> float:
+        return round((time.monotonic() - self._t0) * 1000.0, 3)
+
+    def add(self, section: str, entry: dict[str, Any]) -> bool:
+        """Append one entry; False when the path has already been written."""
+        with self._lock:
+            if self.written:
+                return False
+            self.sections[section].append({**entry, "t_ms": self.t_ms()})
+            return True
+
+    def record(self) -> "dict[str, Any] | None":
+        """The detail of the decision/path row, once: marks the path written,
+        and returns None to any later caller so it is written exactly once."""
+        with self._lock:
+            if self.written:
+                return None
+            self.written = True
+            ladder = self.sections["ladder"]
+            top = [e for e in ladder if not e.get("scope")]
+            sub = [e for e in ladder if e.get("scope")]
+            return {
+                "path_schema": _PATH_SCHEMA_VERSION,
+                "stage_order": list(self.stage_order),
+                "ladder": (_walk(top, self.stage_order) if self.stage_order
+                           else list(top)),
+                "sub_ladders": sub,
+                **{name: list(self.sections[name])
+                   for name in PATH_SECTIONS if name != "ladder"},
+                "final": self.final,
+                "elapsed_ms": self.t_ms(),
+            }
+
+
+def _walk(entries: list[dict[str, Any]],
+          order: tuple[str, ...]) -> list[dict[str, Any]]:
+    """Every declared stage, in the ladder's order, for every pass of it.
+
+    A stage with entries keeps them. A stage with none is not_reached when it
+    lies after the last stage the pass recorded, and unrecorded when it lies
+    before it: the turn went past it, so it should have said what it decided,
+    and the record says that it did not rather than staying silent."""
+    out: list[dict[str, Any]] = []
+    passes = sorted({e.get("pass", 1) for e in entries}) or [1]
+    for p in passes:
+        mine = [e for e in entries if e.get("pass", 1) == p]
+        by_stage: dict[str, list[dict[str, Any]]] = {}
+        for e in mine:
+            by_stage.setdefault(e.get("stage", ""), []).append(e)
+        last = max((order.index(s) for s in by_stage if s in order), default=-1)
+        for i, stage in enumerate(order):
+            if stage in by_stage:
+                out.extend(by_stage[stage])
+            else:
+                out.append({"pass": p, "stage": stage,
+                            "outcome": "not_reached" if i > last
+                            else "unrecorded"})
+        # A stage the ladder did not declare is kept, after the walk, as it
+        # was recorded: a name nobody declared is itself worth seeing.
+        out.extend(e for e in mine if e.get("stage") not in order)
+    return out
+
+
+def path_active() -> bool:
+    """Whether a decision path is collecting for the code running here."""
+    return _current_path.get() is not None
+
+
+def path_entry(section: str, **entry: Any) -> None:
+    """Add one entry to a section of the active path (a no-op outside one).
+
+    An entry that arrives after the path was written is written on its own, as
+    decision/path_late, rather than dropped."""
+    path = _current_path.get()
+    if path is None or section not in path.sections:
+        return
+    if not path.add(section, entry):
+        emit(PATH_PHASE, PATH_LATE_EVENT,
+             detail={"section": section, "entry": entry})
+
+
+def path_why(**reason: Any) -> None:
+    """Note why the ladder stage in progress decided as it did. The next
+    path_stage() call carries it; a stage method calls this at the point it
+    decides, so the reason recorded is the one the code acted on."""
+    path = _current_path.get()
+    if path is not None:
+        with path._lock:
+            path.pending_why.update(reason)
+
+
+def path_stages(order: "tuple[str, ...] | list[str]") -> None:
+    """Declare the ladder about to be walked: its stages, in order. Starts a
+    new pass of it."""
+    path = _current_path.get()
+    if path is None:
+        return
+    with path._lock:
+        path.stage_order = tuple(order)
+        path.passes += 1
+        path.pending_why = {}
+
+
+def path_stage(stage: str, outcome: str, **why: Any) -> None:
+    """Record one ladder stage's outcome: matched (it answered the turn),
+    declined (it ran and did not), skipped (a condition kept it from running;
+    ``why`` names it). Carries the reason path_why() noted for the stage."""
+    path = _current_path.get()
+    if path is None:
+        return
+    with path._lock:
+        noted, path.pending_why = path.pending_why, {}
+        current_pass = path.passes or 1
+    path_entry("ladder", **{"pass": current_pass, "stage": stage,
+                            "outcome": outcome, **noted, **why})
+
+
+def path_final(**detail: Any) -> None:
+    """The ending a path opened by route_path() records (a served turn's
+    ending is its terminal row's, taken when that row is written)."""
+    path = _current_path.get()
+    if path is not None:
+        with path._lock:
+            path.final = dict(detail)
+
+
+def _write_path(path: DecisionPath) -> None:
+    detail = path.record()
+    if detail is not None:
+        emit(PATH_PHASE, PATH_EVENT, detail=detail)
+
+
+def _write_turn_path(event: str, detail: dict[str, Any] | None) -> None:
+    """Write the active turn's path just before its terminal row."""
+    path = _current_path.get()
+    if path is None:
+        return
+    with path._lock:
+        if path.written:
+            return
+        path.final = {"event": event, **(detail or {})}
+    try:
+        _write_path(path)
+    except Exception:  # the writer is best-effort; the turn's ending is not ours
+        logger.debug("glass could not write the decision path for turn %s",
+                     current_turn_id(), exc_info=True)
+
+
+@contextmanager
+def route_path() -> Iterator[None]:
+    """A decision path for routing that runs outside a served turn.
+
+    Inside a turn (or a worker thread bound into one) the turn's path is used
+    and this does nothing. Outside one — a direct route() call, the in-process
+    replay — a path is opened for the call and written when it returns."""
+    if _current_path.get() is not None:
+        yield
+        return
+    path = DecisionPath()
+    tok = _current_path.set(path)
+    try:
+        yield
+    finally:
+        _current_path.reset(tok)
+        try:
+            _write_path(path)
+        except Exception:  # best-effort, as every write here is
+            logger.debug("glass could not write a route path", exc_info=True)
+
+
+# ── MODEL REQUESTS: what each call sent, recorded where it is sent ──────────
+#
+# prompt/assembled (router._build_messages) is the assembly's view of a prompt:
+# the router's sources for it. It is not the request: a route appends to a
+# prompt after it is assembled, and screens, retries and syntheses send prompts
+# no assembly made. The model client records every request here, at the point
+# it builds the bytes it sends, with a call id that the same call's
+# model/complete row carries and a caller named by calling().
+
+@contextmanager
+def calling(name: str) -> Iterator[None]:
+    """Name the code making the model calls inside this block."""
+    tok = _current_model_caller.set(name)
+    try:
+        yield
+    finally:
+        _current_model_caller.reset(tok)
+
+
+def called(name: str, iterable: "Any") -> "Iterator[Any]":
+    """Iterate a streaming model call with its caller named while it runs.
+
+    A generator runs its body in whoever resumes it, so the name is set around
+    each step rather than once around a loop whose body does other work.
+
+    Closing this closes the call it wraps, at once, as closing the call itself
+    would: a caller that stops reading and closes the stream stops the request
+    (the browser path does exactly that when a turn is cancelled)."""
+    it = iter(iterable)
+    try:
+        while True:
+            tok = _current_model_caller.set(name)
+            try:
+                item = next(it)
+            except StopIteration:
+                return
+            finally:
+                _current_model_caller.reset(tok)
+            yield item
+    finally:
+        close = getattr(it, "close", None)
+        if close is not None:
+            close()
+
+
+def current_model_caller() -> str:
+    """The name calling() set, or "unnamed" (itself a finding when read)."""
+    return _current_model_caller.get() or "unnamed"
+
+
+_IMAGE_DATA_RE = re.compile(r"^data:image/[A-Za-z0-9.+\-]+;base64,")
+
+
+def _request_view(value: Any, images: list[dict[str, Any]]) -> Any:
+    """The request as sent, with each inline image named by its digest.
+
+    An inline image is base64 bytes that are not text a reader can read; the
+    record names it by its sha256 and length, which identify the exact bytes
+    sent, and lists it under the row's images. Everything else is kept as it
+    was sent. The body's own sha256 is recorded beside it."""
+    if isinstance(value, dict):
+        return {k: _request_view(v, images) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_request_view(v, images) for v in value]
+    if isinstance(value, str) and _IMAGE_DATA_RE.match(value):
+        digest = hashlib.sha256(value.encode()).hexdigest()
+        images.append({"sha256": digest, "chars": len(value)})
+        return f"<image sha256={digest} chars={len(value)}>"
+    return value
+
+
+def model_request(endpoint: str, payload: dict[str, Any], body: bytes, *,
+                  retry_of: str | None = None,
+                  retry_reason: str | None = None) -> str:
+    """Record one model request exactly as sent; return its call id.
+
+    ``body`` is the bytes the client sends; their sha256 and length are recorded
+    so the request row can be checked against what the server received."""
+    call_id = secrets.token_hex(6)
+    caller = current_model_caller()
+    images: list[dict[str, Any]] = []
+    view = _request_view(payload, images)
+    detail: dict[str, Any] = {
+        "call_id": call_id,
+        "caller": caller,
+        "endpoint": endpoint,
+        "body_sha256": hashlib.sha256(body).hexdigest(),
+        "body_bytes": len(body),
+        # The body as TEXT, serialized as the client serializes it, so with no
+        # inline image it is the bytes sent. Text and not a structure: the
+        # key-name redaction would rewrite the request's own "max_tokens" as a
+        # credential (its pattern matches "token"), and a request recorded
+        # with a field the client never sent is not the request. The secret
+        # SHAPES are still redacted inside the text, as in every string here.
+        "body": (json.dumps(view) if images else body.decode("utf-8",
+                                                             "replace")),
+    }
+    if images:
+        detail["images"] = images
+    if retry_of is not None:
+        detail["retry_of"] = retry_of
+        detail["retry_reason"] = retry_reason
+    emit("model", "request", detail=detail)
+    path_entry("model_calls", call_id=call_id, caller=caller,
+               messages=len(payload.get("messages") or []),
+               body_bytes=len(body), retry_of=retry_of)
+    return call_id
 
 
 def _bound_row(record: dict[str, Any]) -> str:
@@ -903,8 +1254,16 @@ class GlassLogger:
                 detail = dict(detail or {})
                 detail["refused_terminal"] = event
                 event = _TERMINAL_AFTER_TERMINAL
+            else:
+                # The turn's decision path is written once, immediately before
+                # the terminal row that ends the turn, and carries that ending.
+                _write_turn_path(event, detail)
         if not self.enabled or self._log_file is None:
             return
+        if (phase, event) in SCREEN_ROWS:
+            # A screen's verdict row is also the screen's entry on the turn's
+            # decision path, so no screen can write one and not the other.
+            path_entry("screens", screen=event, phase=phase, **(detail or {}))
         now = _now_ms()
         start = None if turn_id else _current_turn_start.get()
         record = {

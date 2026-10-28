@@ -866,16 +866,43 @@ class WikiRetrieval:
         the winning page fails its cite-time re-verification (honest fallback, no
         fabricated reference). A non-``None`` hit ALWAYS carries a verified
         citation for the exact page its passage came from."""
+        return self._retrieve(query, threshold, None)
+
+    def retrieve_explained(self, query: str, *, threshold: "float | None" = None
+                           ) -> "tuple[WikiHit | None, dict]":
+        """retrieve(), and what it weighed: the backend, the threshold applied,
+        the best candidates with their scores, and why the winner was or was not
+        admitted — for the turn's decision path. The hit is the one retrieve()
+        returns for the same query; the explanation reads, never decides."""
+        explain: dict = {}
+        return self._retrieve(query, threshold, explain), explain
+
+    def _retrieve(self, query: str, threshold: "float | None",
+                  explain: "dict | None") -> "WikiHit | None":
         query = (query or "").strip()
         if not query or not self._chunks:
+            if explain is not None:
+                explain.update(chunks=len(self._chunks), reason=(
+                    "an empty query" if not query
+                    else "no verified wiki page is indexed"))
             return None
         if self._embeddings is not None:
-            idx, score = self._retrieve_embedding(query)
+            idx, score = self._retrieve_embedding(query, explain)
             thr = DEFAULT_THRESHOLD if threshold is None else threshold
         else:
-            idx, score = self._retrieve_keyword(query)
+            idx, score = self._retrieve_keyword(query, explain)
             thr = KEYWORD_THRESHOLD if threshold is None else threshold
+        if explain is not None:
+            explain.setdefault("backend",
+                               "embedding" if self._embeddings is not None
+                               else "keyword")
+            explain.update(chunks=len(self._chunks), threshold=thr,
+                           best_score=score)
         if idx is None or score < thr:
+            if explain is not None:
+                explain["reason"] = ("no passage shares a content word"
+                                     if idx is None else
+                                     "the best score is below the threshold")
             return None
         chunk = self._chunks[idx]
         # CITE-TIME re-gate: the page must STILL verify before we cite it. A page
@@ -885,34 +912,61 @@ class WikiRetrieval:
             logger.error("wiki-retrieval: top match %s failed cite-time "
                          "verification — refusing to cite (honest fallback).",
                          chunk.rel_html)
+            if explain is not None:
+                explain["reason"] = ("the best page failed its cite-time "
+                                     "verification")
             return None
+        if explain is not None:
+            explain["reason"] = "the best score reached the threshold"
+            explain["page"] = chunk.rel_html
         return WikiHit(rel_html=chunk.rel_html, title=chunk.title,
                        passage=chunk.text, score=float(score), citation=citation)
 
-    def _retrieve_embedding(self, query: str) -> "tuple[int | None, float]":
+    # How many of the best candidates an explanation lists.
+    _EXPLAIN_TOP = 5
+
+    def _candidates(self, scored: "list[tuple[float, int]]") -> "list[dict]":
+        return [{"page": self._chunks[i].rel_html, "title": self._chunks[i].title,
+                 "score": round(float(s), 6)}
+                for s, i in scored[:self._EXPLAIN_TOP]]
+
+    def _retrieve_embedding(self, query: str, explain: "dict | None" = None
+                            ) -> "tuple[int | None, float]":
         vectors = self._embedder([query]) if self._embedder else None
         if not vectors:
-            return self._retrieve_keyword(query)  # embedder went away this turn
+            if explain is not None:
+                explain["backend"] = "keyword (the embedder returned nothing)"
+            return self._retrieve_keyword(query, explain)  # embedder went away this turn
         try:
             np = _np()
             q = np.asarray(vectors, dtype=np.float32)[0]
         except (ValueError, TypeError):
-            return self._retrieve_keyword(query)
+            if explain is not None:
+                explain["backend"] = "keyword (the embedding was unreadable)"
+            return self._retrieve_keyword(query, explain)
         np = _np()
         mat = self._embeddings
         sims = (mat @ q) / (np.linalg.norm(mat, axis=1) * np.linalg.norm(q) + 1e-8)
         best = int(np.argmax(sims))
+        if explain is not None:
+            order = np.argsort(-sims, kind="stable")[:self._EXPLAIN_TOP]
+            explain["candidates"] = self._candidates(
+                [(float(sims[i]), int(i)) for i in order])
         return best, float(sims[best])
 
-    def _retrieve_keyword(self, query: str) -> "tuple[int | None, float]":
+    def _retrieve_keyword(self, query: str, explain: "dict | None" = None
+                          ) -> "tuple[int | None, float]":
         """Deterministic fallback: best content-word overlap between the query and
         any chunk, normalized by the query's content words so a terse query that
         is fully covered by a passage scores high."""
         q_words = self._content_words(query)
         if not q_words:
+            if explain is not None:
+                explain["candidates"] = []
             return None, 0.0
         best_idx: "int | None" = None
         best_score = 0.0
+        scored: "list[tuple[float, int]]" = []
         for i, chunk in enumerate(self._chunks):
             c_words = self._content_words(chunk.text)
             if not c_words:
@@ -924,9 +978,15 @@ class WikiRetrieval:
             # whose every content word appears in the passage scores ~1.0, even
             # though the passage carries many more words than the query.
             score = overlap / len(q_words)
+            if explain is not None:
+                scored.append((score, i))
             if score > best_score:
                 best_score = score
                 best_idx = i
+        if explain is not None:
+            scored.sort(key=lambda si: -si[0])  # stable: ties keep page order
+            explain["candidates"] = self._candidates(scored)
+            explain["query_words"] = sorted(q_words)
         return best_idx, best_score
 
     @staticmethod

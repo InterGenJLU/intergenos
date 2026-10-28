@@ -54,6 +54,7 @@ from __future__ import annotations
 import logging
 from typing import Iterable
 
+from intergen import glass
 from intergen.interfaces.provenance import (
     AuditRecord,
     ConversationTrustState,
@@ -411,6 +412,10 @@ def _audit_record(
         result_summary=truncated,
         source_attribution=source_attribution,
         excerpt=excerpt,
+        # The served turn this decision belongs to, so the audit row joins the
+        # turn's glass record (its decision path lists the same call); empty
+        # outside a turn, and then not written.
+        turn_id=glass.current_turn_id(),
     )
 
 

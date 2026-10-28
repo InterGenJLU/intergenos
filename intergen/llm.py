@@ -736,15 +736,19 @@ class LLMRouter(LLMInterface):
             "cache_prompt": True,
         }
 
+        # The request is recorded as sent, from the bytes sent, before it goes
+        # (glass.model_request); its call id joins this call's complete row.
+        _body = json.dumps(payload).encode()
+        _call_id = glass.model_request(self._endpoint, payload, _body)
         try:
             req = urllib.request.Request(
                 self._endpoint,
-                data=json.dumps(payload).encode(),
+                data=_body,
                 headers={"Content-Type": "application/json"},
             )
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
         except Exception as e:
-            self._record_a_model_call_that_got_no_response(e)
+            self._record_a_model_call_that_got_no_response(e, call_id=_call_id)
             return
         self.note_transport_ok()
 
@@ -765,6 +769,7 @@ class LLMRouter(LLMInterface):
                 # were a credential. These are integer counts, not secrets.
                 detail = {
                     "endpoint": self._endpoint,
+                    "call_id": _call_id,
                     "prompt_tok_count": self._last_prompt_tokens,
                     "completion_tok_count": self._last_completion_tokens,
                     "finish_reason": self._last_finish_reason,
@@ -916,20 +921,30 @@ class LLMRouter(LLMInterface):
         if self._presence_penalty is not None:
             payload["presence_penalty"] = self._presence_penalty
 
+        # Recorded as sent, as stream() records its request.
+        _body = json.dumps(payload).encode()
+        _call_id = glass.model_request(self._endpoint, payload, _body)
         try:
             req = urllib.request.Request(
                 self._endpoint,
-                data=json.dumps(payload).encode(),
+                data=_body,
                 headers={"Content-Type": "application/json"},
             )
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
         except urllib.error.HTTPError as e:
             if e.code == 400:
                 self._handle_context_overflow(e, payload)
+                # The retry sends the payload the overflow handler changed: a
+                # second request, recorded as the bytes it sends, naming the
+                # call it retries.
+                _body = json.dumps(payload).encode()
+                _call_id = glass.model_request(
+                    self._endpoint, payload, _body, retry_of=_call_id,
+                    retry_reason="context_overflow")
                 try:
                     req = urllib.request.Request(
                         self._endpoint,
-                        data=json.dumps(payload).encode(),
+                        data=_body,
                         headers={"Content-Type": "application/json"},
                     )
                     response = urllib.request.urlopen(req, timeout=self._request_timeout)
@@ -937,15 +952,16 @@ class LLMRouter(LLMInterface):
                     # The retry after a context overflow is still a model call
                     # that got no response, and it is recorded as one.
                     self._record_a_model_call_that_got_no_response(
-                        e2, what="tool request retried after a context overflow")
+                        e2, what="tool request retried after a context overflow",
+                        call_id=_call_id)
                     return
             else:
                 self._record_a_model_call_that_got_no_response(
-                    e, what="tool request")
+                    e, what="tool request", call_id=_call_id)
                 return
         except Exception as e:
             self._record_a_model_call_that_got_no_response(
-                e, what="tool request")
+                e, what="tool request", call_id=_call_id)
             return
         # A TOOL REQUEST THAT REACHED THE ENDPOINT CLEARS THE RECORD, for the
         # same reason the conversational path clears it: the record is what the
@@ -997,6 +1013,7 @@ class LLMRouter(LLMInterface):
             _completed = True
             detail = {
                 "endpoint": self._endpoint,
+                "call_id": _call_id,
                 "prompt_tok_count": self._last_prompt_tokens,
                 "completion_tok_count": self._last_completion_tokens,
                 "finish_reason": _finish,
@@ -1332,7 +1349,9 @@ class LLMRouter(LLMInterface):
                 "error": str(e)}
 
     def _record_a_model_call_that_got_no_response(self, e: Exception, *,
-                                                  what: str = "request") -> None:
+                                                  what: str = "request",
+                                                  call_id: str | None = None
+                                                  ) -> None:
         """Write down that a model call got no response — one way, for every path.
 
         EVERY path that asks the model and gets nothing owes the same three
@@ -1402,6 +1421,8 @@ class LLMRouter(LLMInterface):
         # system that fails silently.
         glass.emit("model", "no_response", detail={
             "endpoint": self._endpoint,
+            # The request this was (model/request), when one was recorded.
+            "call_id": call_id,
             "error_type": type(e).__name__,
             "error": str(e),
             # A reader of the trace has to be able to tell the two apart
@@ -1976,9 +1997,13 @@ class LLMRouter(LLMInterface):
             self._note_stopped(0)
             return None
         try:
+            # Recorded as sent, as stream() records its request.
+            _body = json.dumps(payload).encode()
+            _call_id = glass.model_request(self._endpoint, payload, _body)
+            _t0 = time.monotonic()
             req = urllib.request.Request(
                 self._endpoint,
-                data=json.dumps(payload).encode(),
+                data=_body,
                 headers={"Content-Type": "application/json"},
             )
             response = urllib.request.urlopen(req, timeout=self._request_timeout)
@@ -1997,6 +2022,13 @@ class LLMRouter(LLMInterface):
             response.close()
 
         raw = "".join(tokens)
+        # The raw generation, before the screen and the strips below, as the
+        # other two request paths record theirs.
+        glass.emit("model", "complete", detail={
+            "endpoint": self._endpoint, "call_id": _call_id,
+            "prompt_tok_count": self._last_prompt_tokens,
+            "completion_tok_count": self._last_completion_tokens,
+            "text": raw}, dur_ms=(time.monotonic() - _t0) * 1000)
         msgs = payload.get("messages") or []
         self._screen_semantic_health(
             raw, self._the_turn_before_the_tool_exchange(msgs)
@@ -2717,9 +2749,13 @@ class LLMRouter(LLMInterface):
             "stream": False,
             "cache_prompt": False,
         }
+        # Recorded as sent (the image itself by its digest), as stream()
+        # records its request.
+        _body = json.dumps(payload).encode()
+        _call_id = glass.model_request(self._endpoint, payload, _body)
         req = urllib.request.Request(
             self._endpoint,
-            data=json.dumps(payload).encode(),
+            data=_body,
             headers={"Content-Type": "application/json"},
         )
         _t0 = time.monotonic()
@@ -2729,6 +2765,7 @@ class LLMRouter(LLMInterface):
         if not isinstance(text, str):
             raise RuntimeError("the transcription reply carried no text")
         glass.emit("ingress", "image_transcribed", detail={
+            "call_id": _call_id,
             "chars": len(text), "prompt_tok_count": (body.get("usage") or {}).get("prompt_tokens")},
             dur_ms=(time.monotonic() - _t0) * 1000)
         return text

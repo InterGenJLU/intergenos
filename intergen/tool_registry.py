@@ -897,6 +897,30 @@ def handoff_withheld(tool_call: "ToolCall", tool_result: "ToolResult | None" = N
 # review that never worked. An answer the registry does not know is recorded as
 # a failed review, and nothing runs on it.
 REVIEW_APPROVALS = frozenset({"allow_once", "allow_conversation"})
+
+
+def _consent_state(user_outcome: str) -> str:
+    """The consent state an audit outcome word records, in four words a reader
+    of the decision path can use without the list in build_audit_record:
+    not_asked (no review was needed and the call ran), granted (the person
+    approved it at the card), refused (the person, the gate or the registry said
+    no), asked_not_granted (a card was needed and nobody approved it). A word
+    this does not know is returned as unknown:<word>, never guessed at. An
+    ingress suffix ("+ingress_...") is about the call's result, not its consent,
+    and is read past."""
+    word = (user_outcome or "").split("+", 1)[0]
+    if word == "executed":
+        return "not_asked"
+    if word in ("allowed_once", "allowed_conversation"):
+        return "granted"
+    if word in ("denied", "deny_conversation", "egress_blocked",
+                "refused_without_review", "dispatch_token_failed",
+                SEARCH_NOT_ASKED):
+        return "refused"
+    if word in ("no_review_ui", "review_timed_out", "review_refused",
+                "review_failed", "review_ended"):
+        return "asked_not_granted"
+    return f"unknown:{word}"
 REVIEW_TIMED_OUT = "review_timed_out"
 REVIEW_REFUSED = "review_refused"
 REVIEW_FAILED = "review_failed"
@@ -1414,6 +1438,7 @@ class ToolRegistry:
         with get_tracer().span("tool.execute", kind="tool") as _tspan:
             _tspan.set_attribute("tool_name", call.name)
             _tspan.set_content("tool_args", call.arguments)
+            _t0 = time.monotonic()
             result = self._execute_impl(
                 call,
                 ingress_tracker=ingress_tracker,
@@ -1427,6 +1452,21 @@ class ToolRegistry:
             _tspan.set_attribute("success", result.success)
             _tspan.set_attribute("executed", getattr(result, "executed", True))
             _tspan.set_attribute("blocked", getattr(result, "blocked", False))
+            # The call on the turn's decision path: what was asked, by whom,
+            # what came back. Its consent entry (written beside the audit row,
+            # _audit_log_decision / _audit_log_refusal) carries the same call id.
+            # The output is recorded whole; the glass redacts every row it
+            # writes (glass.redact_persisted), this field included.
+            glass.path_entry(
+                "tools", event="result", tool=call.name, call_id=call.call_id,
+                arguments=call.arguments,
+                origin=getattr(origin, "value", repr(origin)),
+                success=result.success,
+                executed=getattr(result, "executed", True),
+                blocked=getattr(result, "blocked", False),
+                outcome=getattr(result, "outcome", None),
+                output=result.content,
+                dur_ms=round((time.monotonic() - _t0) * 1000.0, 3))
             return result
 
     def _execute_impl(
@@ -2967,6 +3007,16 @@ class ToolRegistry:
             excerpt=excerpt,
         )
         write_record(record)
+        # The same decision on the turn's decision path, joined to the audit
+        # row by the turn id the row now carries and to the call by its id.
+        glass.path_entry(
+            "tools", event="consent", tool=call.name, call_id=call.call_id,
+            consent=user_outcome, consent_state=_consent_state(user_outcome),
+            exit_code=exit_code, gate_action=getattr(decision, "action", None),
+            effective_provenance=getattr(decision.effective_provenance,
+                                         "value", None),
+            needs_pkexec=getattr(decision, "needs_pkexec", None),
+            result_summary=result_summary)
 
     @staticmethod
     def _audit_log_refusal(
@@ -2987,6 +3037,10 @@ class ToolRegistry:
             source_attribution=source_attribution,
             excerpt=excerpt,
         ))
+        glass.path_entry(
+            "tools", event="consent", tool=call.name, call_id=call.call_id,
+            consent="denied", consent_state="refused_before_the_gate",
+            exit_code=1, reason=reason)
 
     def get_tool(self, name: str) -> BaseTool | None:
         """Get a registered tool by name."""
