@@ -266,13 +266,17 @@ def console(case: Case, root: Path) -> Surface:
         assemblies=assemblies), case.question)
 
 
-def panel(case: Case, root: Path) -> Surface:
+def panel(case: Case, root: Path, *, answer: str = ANSWER,
+          prepare=None) -> Surface:
     """The browser: the shipped message handler over the same router setup,
-    the router detached as the daemon leaves it."""
+    the router detached as the daemon leaves it. ``prepare`` is given the
+    router before the turn."""
     root = root / "panel"
-    capture = _Capture([(200, "text/event-stream", _sse(ANSWER))])
+    capture = _Capture([(200, "text/event-stream", _sse(answer))])
     try:
         router, registry, cache, assemblies = _router(case, root, capture)
+        if prepare is not None:
+            prepare(router)
         router.detach_conversation()
         server = WebServer(router=router, llm=router._llm, tools=registry,
                            governance=None)
@@ -322,6 +326,24 @@ def test_both_surfaces_send_the_same_request_and_deliver_the_same_answer(
         f"the panel sent {browser.labels}, the console {bus.labels}")
     assert browser.answer == bus.answer
     assert browser.cache_reads == bus.cache_reads
+
+
+def test_the_panel_never_cites_a_page_on_a_text_it_served_itself(state):
+    """A text served in place of the model's is never cited, whatever its
+    words, as on the console. The support check is made to cite every text, so
+    the code-owned gate is the only thing between the page and the text: an
+    empty completion is replaced by the server's own line and carries no
+    Source line, and the model's own answer, the control, carries one."""
+    def cite_everything(router):
+        router._wiki_citation_if_used = (
+            lambda text, citation, passage, question: (citation, 1.0))
+    page = "wiki.intergenos.org/security/advisory.html"
+    served = panel(CASES[0], state / "served", answer="",
+                   prepare=cite_everything)
+    assert served.answer.startswith("Sorry — I didn't quite catch that.")
+    assert page not in served.answer
+    control = panel(CASES[0], state / "control", prepare=cite_everything)
+    assert control.answer.startswith(ANSWER) and page in control.answer
 
 
 def _paths(state) -> list[dict]:
