@@ -4597,7 +4597,7 @@ class ConversationRouter(RouterInterface):
         if _ip and not forget_in_compound and not web_clauses:
             self._won("ip", matched=True)
             self._stage("ip", "matched", _s, pattern="_is_ip_query",
-                        source="ip")
+                        answered_by="_answer_ip_query")
             return self._answer_ip_query(user_input, t0)
         self._stage("ip", "skipped" if _ip else "declined", _s, reason=(
             "_is_ip_query did not match" if not _ip
@@ -8263,7 +8263,8 @@ class ConversationRouter(RouterInterface):
         # lpstat/lpoptions are installed") steers it to the right tool+command.
         # Query-scoped: None for non-subject turns, so zero added prefill there.
         grounding = self._grounding_context(user_input, for_tools=True)
-        glass.path_note("prompts", grounding=grounding, source="reference")
+        glass.path_note("prompts", grounding=grounding,
+                        grounding_from="reference")
         messages = self._build_messages(user_input, grounding=grounding)
         tool_schema_objs = self._tools.get_tool_schemas()
         if not tool_schema_objs:
@@ -8749,7 +8750,8 @@ class ConversationRouter(RouterInterface):
                                  reason="the route decided only; its caller "
                                         "assembles the prompt itself")
             return RouteResult(text="", source="llm_freeform", handled=False)
-        glass.path_note("prompts", grounding=grounding, source=grounding_kind)
+        glass.path_note("prompts", grounding=grounding,
+                        grounding_from=grounding_kind)
         messages = self._build_messages(user_input, with_tools=False,
                                         grounding=grounding)
 
@@ -11651,9 +11653,11 @@ class ConversationRouter(RouterInterface):
 
         if grounding:
             messages.append(Message(role=MessageRole.USER, content=grounding))
-            _grounding_source = glass.path_take_note(
-                "prompts", grounding=grounding).get("source")
-            _sources.append(f"grounding:{_grounding_source or 'unnamed'}")
+            # The note's key is not "source": the coverage inventory reads every
+            # source="..." literal in this file as a route source.
+            _grounding_from = glass.path_take_note(
+                "prompts", grounding=grounding).get("grounding_from")
+            _sources.append(f"grounding:{_grounding_from or 'unnamed'}")
 
         messages.append(Message(role=MessageRole.USER, content=user_input))
         _sources.append("question")

@@ -2841,7 +2841,7 @@ class WebServer:
                                       _gen_input)
                           if route_result.source == "llm_freeform" else None)
             glass.path_note("prompts", grounding=_grounding,
-                            source="reference")
+                            grounding_from="reference")
             messages = self._bound(
                 ctx, self._router._build_messages,
                 _gen_input, with_tools=_with_tools, grounding=_grounding)
