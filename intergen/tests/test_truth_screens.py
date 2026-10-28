@@ -209,6 +209,13 @@ def _router(*, tier=HardwareTierLevel.TIER_2, locked=False):
             hardware_tier=tier, lock_dispatch=locked)
     router._howto = HowtoCorpus(embedder=None, data_dir=CORPUS)
     router._current_query_type = "general"
+    # The recorded session (2026-10-19) had no disk-usage probe: its turn 14
+    # is the model's invented usage table. The probe now answers that
+    # question from the machine before any model is reached, so on these
+    # recorded turns it is made to DECLINE — the route the turn takes when
+    # the probe cannot run — and the model's recorded text is reached as it
+    # was. The probe's own routing and bounds are measured in their own files.
+    router._da_disk_usage = lambda text: None
     return router
 
 

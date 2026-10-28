@@ -59,6 +59,7 @@ from intergen.tool_registry import ToolRegistry
 from intergen.tools.run_command import _SHELL_CONSTRUCT_CHARS, RunCommandTool
 
 MODEL_ANSWER = "(a model's answer)"
+PROBE_ANSWER = "(the probe's own measurement)"
 LSCPU = "\n".join((
     "Architecture:                            x86_64",
     "CPU op-mode(s):                          32-bit, 64-bit",
@@ -248,14 +249,17 @@ class TheCpuQuestionIsAnsweredFromTheMachine(_Turn):
         self.assertEqual((self.asked, self.processes, self.connections), ([], [], []))
 
 
-class TheDiskSpaceQuestionGoesToTheModel(_Turn):
+class TheDiskSpaceQuestionIsAnsweredFromTheMachine(_Turn):
+    """What takes the space is measured by the bounded read-only probe
+    (intergen.disk_usage) — never a shell command, never the model."""
 
     def test_whats_taking_up_all_my_disk_space(self) -> None:
-        result = self._route("what's taking up all my disk space")
-        self.assertNotIn("shell", result.text or "")
-        self.assertEqual(result.text, MODEL_ANSWER)
+        with mock.patch("intergen.disk_usage.answer", return_value=PROBE_ANSWER) as answer:
+            result = self._route("what's taking up all my disk space")
+        self.assertEqual(result.text, PROBE_ANSWER)
+        self.assertEqual(answer.call_args.args, ("both",))
         self.assertEqual(self.ran, [])
-        self.assertEqual(self.asked, ["stream_with_tools"])
+        self.assertEqual(self.asked, [])
         self.assertEqual((self.processes, self.connections), ([], []))
 
 
