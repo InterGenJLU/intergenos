@@ -46,7 +46,7 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from pkm.repo import generate_index, sign_index
+from pkm.repo import generate_index, sign_index, validate_security_advisories
 
 
 def _load_release_keys():
@@ -137,8 +137,11 @@ def load_security_advisories(path, *, required=False):
                 sys.exit(1)
             if advisories is None:
                 advisories = {}
-            if not isinstance(advisories, dict):
-                print(f"ERROR: {adv_path}: expected a mapping", file=sys.stderr)
+            try:
+                validate_security_advisories(advisories)
+            except ValueError as e:
+                location = " ".join(str(adv_path).splitlines())
+                print(f"ERROR: {location}: {e}", file=sys.stderr)
                 sys.exit(1)
             for key, entry in advisories.items():
                 if not isinstance(entry, dict):

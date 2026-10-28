@@ -69,6 +69,7 @@ import tempfile
 import time
 import urllib.request
 import urllib.error
+from collections.abc import Mapping
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -1823,6 +1824,21 @@ def _source_archive_for(sources_dir, name, meta):
     return opened_source()
 
 
+def validate_security_advisories(advisories):
+    """Reject malformed advisory data before index generation or file loading returns."""
+    if not isinstance(advisories, Mapping):
+        raise ValueError("expected a mapping")
+    for key, entry in advisories.items():
+        label = " ".join(str(key).splitlines())
+        if not isinstance(entry, Mapping):
+            raise ValueError(f"{label}: expected a mapping")
+        cves = entry.get("cves")
+        if not isinstance(cves, list) or any(
+            not isinstance(cve, str) or not cve for cve in cves
+        ):
+            raise ValueError(f"{label}: cves must be a list of non-empty strings")
+
+
 def generate_index(package_dir, arch="x86_64", output=None,
                    security_advisories=None, sources_dir=None):
     """Generate a repository index from a directory of packages.
@@ -1851,7 +1867,12 @@ def generate_index(package_dir, arch="x86_64", output=None,
 
     Returns:
         Path to the generated index
+
+    Raises:
+        ValueError: Malformed advisory data; no output is written.
     """
+    advisories = {} if security_advisories is None else security_advisories
+    validate_security_advisories(advisories)
     package_dir = Path(package_dir)
     if not output:
         output = package_dir / "InterGenOS.db"
@@ -1911,7 +1932,6 @@ def generate_index(package_dir, arch="x86_64", output=None,
     # only mechanism InterGenOS currently commits to -- maintainers
     # add entries to docs/governance/security-advisories.yml as they
     # patch CVEs.
-    advisories = security_advisories or {}
     for adv_key, adv_entry in advisories.items():
         if not isinstance(adv_key, str) or "-" not in adv_key:
             continue
