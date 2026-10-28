@@ -7670,29 +7670,25 @@ class ConversationRouter(RouterInterface):
             glass.path_entry("retrieval", store="wiki", admitted=False,
                              reason="no wiki retrieval on this machine")
             return None, None, None
-        # What the retrieval weighed, filled by retrieve() for the decision
-        # path: the backend, the threshold, the best candidates and why the
-        # winner was or was not admitted.
-        explained: dict = {}
-        _explaining = getattr(wr, "retrieve_explained", None)
         try:
-            if callable(_explaining):
-                hit, explained = _explaining(user_input)
-            else:
-                hit = wr.retrieve(user_input)
-                explained = {"explained": False,
-                             "reason_unexplained": "this retrieval cannot say "
-                                                   "what it weighed"}
+            hit = wr.retrieve(user_input)
         except Exception:  # noqa: BLE001 — additive: retrieval failure never breaks the turn
             logger.debug("wiki retrieval failed for %r", user_input, exc_info=True)
-            glass.path_entry("retrieval", store="wiki", admitted=False,
-                             reason="the retrieval raised", **explained)
+            glass.path_entry("retrieval", store="wiki", query=user_input,
+                             admitted=False, reason="the retrieval raised")
             return None, None, None
-        glass.path_entry("retrieval", store="wiki", query=user_input,
-                         admitted=hit is not None,
-                         passage=(hit.passage if hit is not None else None),
-                         citation=(hit.citation if hit is not None else None),
-                         **explained)
+        # What the retrieval weighed — the backend, the threshold, the best
+        # candidates and why the winner was or was not admitted — is the note
+        # retrieve() left for this query; a retrieval that left none is said to.
+        explained = glass.path_take_note("retrieval", query=user_input) or {
+            "explained": False,
+            "reason_unexplained": "the retrieval left no account of what it "
+                                  "weighed"}
+        glass.path_entry("retrieval", **{
+            **explained, "store": "wiki", "query": user_input,
+            "admitted": hit is not None,
+            "passage": hit.passage if hit is not None else None,
+            "citation": hit.citation if hit is not None else None})
         if hit is None:
             return None, None, None
         block = (
@@ -8256,8 +8252,8 @@ class ConversationRouter(RouterInterface):
         # lpstat/lpoptions are installed") steers it to the right tool+command.
         # Query-scoped: None for non-subject turns, so zero added prefill there.
         grounding = self._grounding_context(user_input, for_tools=True)
-        messages = self._build_messages(user_input, grounding=grounding,
-                                        grounding_kind="reference")
+        glass.path_note("prompts", grounding=grounding, source="reference")
+        messages = self._build_messages(user_input, grounding=grounding)
         tool_schema_objs = self._tools.get_tool_schemas()
         if not tool_schema_objs:
             return RouteResult(handled=False)
@@ -8733,9 +8729,9 @@ class ConversationRouter(RouterInterface):
                     return result
         if decide_only:
             return RouteResult(text="", source="llm_freeform", handled=False)
+        glass.path_note("prompts", grounding=grounding, source=grounding_kind)
         messages = self._build_messages(user_input, with_tools=False,
-                                        grounding=grounding,
-                                        grounding_kind=grounding_kind)
+                                        grounding=grounding)
 
         # The guards below are appended AFTER the assembly was recorded; the
         # decision path names them, and the request the model receives is
@@ -8929,10 +8925,11 @@ class ConversationRouter(RouterInterface):
         # been established. Unknown therefore behaves exactly as before.
         if getattr(self, "_current_query_type", "") == "general":
             text = text + "\n\n" + honest_scope_steer()
+        glass.path_note("screens", screen="semantic_flags",
+                        before=getattr(response, "text", None), after=text)
         glass.emit("decision", "semantic_flags", detail={
             "flags": flags, "source": source,
-            "action": "incoherence_fallback",
-            "before": getattr(response, "text", None), "after": text})
+            "action": "incoherence_fallback"})
         self._append_history(user_input, text)
         return RouteResult(
             text=text,
@@ -9104,11 +9101,12 @@ class ConversationRouter(RouterInterface):
                 outcome, text = "violation_regen_failed_fallback", honest_action_fallback()
                 if fallbacks is not None:
                     fallbacks.append("claim_screen")
+            # What the screen changed: the draft it read, the text it let on.
+            glass.path_note("screens", screen="claim_screen", before=draft,
+                            after=text)
             glass.emit("decision", "claim_screen", detail={
                 "verdict": outcome, "marker": marker,
-                "dispatched": dispatched, "source": source,
-                # What the screen changed: the draft it read, the text it let on.
-                "before": draft, "after": text})
+                "dispatched": dispatched, "source": source})
 
         # (1a) a reading of THIS machine that nothing took — an invented size,
         # package list, unit list or path (safety.screen_local_state_claim). Runs
@@ -9200,9 +9198,11 @@ class ConversationRouter(RouterInterface):
             text = honest_local_state_fallback(marker, question)
             if fallbacks is not None:
                 fallbacks.append("state_claim_screen")
+        glass.path_note("screens", screen="state_claim_screen", before=draft,
+                        after=text)
         glass.emit("decision", "state_claim_screen", detail={
             "verdict": outcome, "marker": marker, "dispatched": dispatched,
-            "source": source, "before": draft, "after": text})
+            "source": source})
         return text
 
     def _true_capability_sentence(self, tool: str | None) -> str | None:
@@ -9276,9 +9276,10 @@ class ConversationRouter(RouterInterface):
             outcome, text = "violation_regen_failed_fallback", honest_no_selfoffer_fallback()
             if fallbacks is not None:
                 fallbacks.append("model_offer_screen")
+        glass.path_note("screens", screen="model_offer_screen", before=draft,
+                        after=text)
         glass.emit("decision", "model_offer_screen", detail={
-            "verdict": outcome, "marker": marker, "source": source,
-            "before": draft, "after": text})
+            "verdict": outcome, "marker": marker, "source": source})
         return text
 
     def _regenerate_with_capability_grounding(self, messages: "list[Message]",
@@ -9333,10 +9334,11 @@ class ConversationRouter(RouterInterface):
                     fallbacks.append("capability_screen")
             else:
                 outcome, text = "unavailable_no_surface", draft
+            glass.path_note("screens", screen="capability_screen",
+                            before=draft, after=text)
             glass.emit("decision", "capability_screen", detail={
                 "verdict": outcome, "marker": marker, "source": source,
-                "degraded": "capability-surface.json missing/unreadable",
-                "before": draft, "after": text})
+                "degraded": "capability-surface.json missing/unreadable"})
             return text
         if verdict == "unverifiable":
             # The command is REAL but its option surface is not introspectable
@@ -9347,11 +9349,12 @@ class ConversationRouter(RouterInterface):
             # not be checked, which is a different and narrower thing to say
             # than "that command does not exist".
             _after = capability_unintrospectable_fallback(marker)
+            glass.path_note("screens", screen="capability_screen",
+                            before=draft, after=_after)
             glass.emit("decision", "capability_screen", detail={
                 "verdict": "unverifiable_tool_surface", "marker": marker,
                 "source": source,
-                "degraded": "tool argument surface is not introspectable",
-                "before": draft, "after": _after})
+                "degraded": "tool argument surface is not introspectable"})
             if fallbacks is not None:
                 fallbacks.append("capability_screen")
             return _after
@@ -9363,9 +9366,10 @@ class ConversationRouter(RouterInterface):
             outcome, text = "violation_regen_failed_fallback", honest_capability_fallback(marker)
             if fallbacks is not None:
                 fallbacks.append("capability_screen")
+        glass.path_note("screens", screen="capability_screen", before=draft,
+                        after=text)
         glass.emit("decision", "capability_screen", detail={
-            "verdict": outcome, "marker": marker, "source": source,
-            "before": draft, "after": text})
+            "verdict": outcome, "marker": marker, "source": source})
         return text
 
     def _regenerate_without_refusal(self, messages: "list[Message]", *,
@@ -9416,9 +9420,10 @@ class ConversationRouter(RouterInterface):
                 "refusal_regen_failed_steer", honest_scope_steer(), True)
             if fallbacks is not None:
                 fallbacks.append("refusal_screen")
+        glass.path_note("screens", screen="refusal_screen", before=draft,
+                        after=text)
         glass.emit("decision", "refusal_screen", detail={
-            "verdict": outcome, "phrase": phrase, "source": source,
-            "before": draft, "after": text})
+            "verdict": outcome, "phrase": phrase, "source": source})
         return (text, refused)
 
     # ── System Map (Goal-2 grounded retrieval) ──
@@ -11537,15 +11542,15 @@ class ConversationRouter(RouterInterface):
 
     def _build_messages(self, user_input: str,
                         with_tools: bool = True,
-                        grounding: str | None = None,
-                        grounding_kind: str | None = None) -> list[Message]:
+                        grounding: str | None = None) -> list[Message]:
         """Build message list with adaptive system prompt.
 
         grounding (Goal-2 L1): if set, true installed-tool facts for the query's
         subject are inserted as a least-trust USER context message just before
         the user's question — facts the model MAY use, never a scripted answer.
-        grounding_kind names where it came from ("reference" or "wiki") for the
-        assembly's record of its sources.
+        Where it came from ("reference" or "wiki") is the note the caller left
+        for this grounding (glass.path_note), for the assembly's record of its
+        sources.
         """
         query_type = getattr(self, '_current_query_type', 'general')
         messages = self._llm.build_system_messages(query_type=query_type,
@@ -11626,7 +11631,9 @@ class ConversationRouter(RouterInterface):
 
         if grounding:
             messages.append(Message(role=MessageRole.USER, content=grounding))
-            _sources.append(f"grounding:{grounding_kind or 'unnamed'}")
+            _grounding_source = glass.path_take_note(
+                "prompts", grounding=grounding).get("source")
+            _sources.append(f"grounding:{_grounding_source or 'unnamed'}")
 
         messages.append(Message(role=MessageRole.USER, content=user_input))
         _sources.append("question")

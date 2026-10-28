@@ -56,6 +56,8 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from intergen import glass
+
 if TYPE_CHECKING:  # numpy is an embedding-path-only dep (kept out of import)
     import numpy as np
 
@@ -865,17 +867,18 @@ class WikiRetrieval:
         is below threshold (honest no-answer — the wiki does not cover this), or
         the winning page fails its cite-time re-verification (honest fallback, no
         fabricated reference). A non-``None`` hit ALWAYS carries a verified
-        citation for the exact page its passage came from."""
-        return self._retrieve(query, threshold, None)
+        citation for the exact page its passage came from.
 
-    def retrieve_explained(self, query: str, *, threshold: "float | None" = None
-                           ) -> "tuple[WikiHit | None, dict]":
-        """retrieve(), and what it weighed: the backend, the threshold applied,
-        the best candidates with their scores, and why the winner was or was not
-        admitted — for the turn's decision path. The hit is the one retrieve()
-        returns for the same query; the explanation reads, never decides."""
-        explain: dict = {}
-        return self._retrieve(query, threshold, explain), explain
+        While a turn's decision path is collecting, what the retrieval weighed —
+        the backend, the threshold applied, the best candidates with their
+        scores, why the winner was or was not admitted — is left as a note for
+        the caller's retrieval entry (glass.path_note), keyed by the query. It
+        is read from the same pass that decides the hit and decides nothing."""
+        explain: "dict | None" = {} if glass.path_active() else None
+        hit = self._retrieve(query, threshold, explain)
+        if explain is not None:
+            glass.path_note("retrieval", query=query, **explain)
+        return hit
 
     def _retrieve(self, query: str, threshold: "float | None",
                   explain: "dict | None") -> "WikiHit | None":

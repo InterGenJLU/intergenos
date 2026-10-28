@@ -632,6 +632,8 @@ class DecisionPath:
         self.stage_order: tuple[str, ...] = ()
         self.passes = 0
         self.pending_why: dict[str, Any] = {}
+        # Fields left for an entry another call writes (see path_note).
+        self.notes: dict[str, dict[str, Any]] = {}
         self.final: dict[str, Any] | None = None
         self.written = False
 
@@ -714,6 +716,38 @@ def path_entry(section: str, **entry: Any) -> None:
     if not path.add(section, entry):
         emit(PATH_PHASE, PATH_LATE_EVENT,
              detail={"section": section, "entry": entry})
+
+
+def path_note(section: str, **fields: Any) -> None:
+    """Leave fields for an entry that another call writes to a section of the
+    active path (a no-op outside one). The code that knows them is not the code
+    that writes the entry, and the call between them stays exactly as it was:
+    a screen's text before and after rides on the entry its verdict row mirrors,
+    the retrieval's account of what it weighed on the router's retrieval entry,
+    the source of an assembly's grounding on its prompts entry. The writer takes
+    the note with path_take_note(). A later note for the same section replaces
+    one nobody took."""
+    path = _current_path.get()
+    if path is None or section not in path.sections:
+        return
+    with path._lock:
+        path.notes[section] = dict(fields)
+
+
+def path_take_note(section: str, **match: Any) -> dict[str, Any]:
+    """The note left for a section, removed, when each ``match`` field equals
+    the note's own (the screen it is for, the query it weighed, the grounding
+    it names); otherwise {}, and a note left for another stays for it. The
+    match fields are not returned."""
+    path = _current_path.get()
+    if path is None:
+        return {}
+    with path._lock:
+        note = path.notes.get(section)
+        if note is None or any(note.get(k) != v for k, v in match.items()):
+            return {}
+        del path.notes[section]
+    return {k: v for k, v in note.items() if k not in match}
 
 
 def path_why(**reason: Any) -> None:
@@ -1262,8 +1296,12 @@ class GlassLogger:
             return
         if (phase, event) in SCREEN_ROWS:
             # A screen's verdict row is also the screen's entry on the turn's
-            # decision path, so no screen can write one and not the other.
-            path_entry("screens", screen=event, phase=phase, **(detail or {}))
+            # decision path, so no screen can write one and not the other. The
+            # entry also carries the text the screen read and the text it let
+            # on, which the screen left as a note: the row stays as it was.
+            path_entry("screens", **{"screen": event, "phase": phase,
+                                     **(detail or {}),
+                                     **path_take_note("screens", screen=event)})
         now = _now_ms()
         start = None if turn_id else _current_turn_start.get()
         record = {

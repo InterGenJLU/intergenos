@@ -263,6 +263,48 @@ def test_an_entry_after_the_path_was_written_is_kept_as_path_late(state):
     assert late and late[0]["detail"]["entry"]["tool"] == "late_tool"
 
 
+# ── (c2) what a screen changed is on the path; its own row is as it was ─────
+
+def test_a_screen_row_keeps_its_detail_and_the_path_carries_its_texts(state):
+    with glass.turn("t-screen", "web"):
+        glass.path_note("screens", screen="refusal_screen", before="no",
+                        after="not this one")
+        glass.path_note("screens", screen="claim_screen", before="I ran it.",
+                        after="I did not run it.")
+        glass.emit("decision", "claim_screen", detail={
+            "verdict": "violation_regenerated", "marker": "ran",
+            "dispatched": False, "source": "llm_freeform"})
+        glass.emit("delivery", "final", detail={"text": "I did not run it."})
+    rows = [x for x in glass_rows.read(state) if x.get("turn_id") == "t-screen"]
+    screen_rows = [x["detail"] for x in rows if x["event"] == "claim_screen"]
+    assert screen_rows == [{"verdict": "violation_regenerated", "marker": "ran",
+                            "dispatched": False, "source": "llm_freeform"}]
+    entry = _paths(state)[0]["screens"][0]
+    assert entry["screen"] == "claim_screen"
+    assert (entry["before"], entry["after"]) == ("I ran it.", "I did not run it.")
+
+
+def test_a_note_left_for_another_screen_is_not_taken(state):
+    with glass.turn("t-other", "web"):
+        glass.path_note("screens", screen="refusal_screen", before="a", after="b")
+        glass.emit("decision", "claim_screen", detail={"verdict": "clean"})
+        glass.emit("delivery", "final", detail={"text": "x"})
+    entry = _paths(state)[0]["screens"][0]
+    assert "before" not in entry and "after" not in entry
+
+
+def test_a_retrieval_that_leaves_no_account_is_said_to(state):
+    r = _router()
+    r._howto = None
+    r._wiki_retrieval = mock.Mock()
+    r._wiki_retrieval.retrieve.return_value = None
+    r.route("where is this file located")
+    r._wiki_retrieval.retrieve.assert_called_once_with("where is this file located")
+    hit = [e for e in _paths(state)[0]["retrieval"] if e.get("store") == "wiki"][0]
+    assert hit["admitted"] is False
+    assert hit["explained"] is False and hit["reason_unexplained"]
+
+
 # ── (d) the new fields are redacted like every other field ─────────────────
 
 def test_a_secret_shaped_tool_output_is_redacted_in_the_path(state):

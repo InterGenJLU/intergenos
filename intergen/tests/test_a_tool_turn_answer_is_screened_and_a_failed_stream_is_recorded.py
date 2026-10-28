@@ -210,9 +210,11 @@ class TheToolPathAnswerIsScreened(_Case):
                          "the engine-health counter never saw the answer")
 
     def test_the_flag_is_written_before_the_complete_row_as_on_the_conversational_path(self):
+        # Every model row of the call, in order; the call's request row, which
+        # the client writes from the bytes it sends, comes first.
         self.tool_turn(_text("The sshd service is ", "enabled� and running."))
         self.assertEqual(self.model_events(),
-                         ["first_token", "semantic_health", "complete"])
+                         ["request", "first_token", "semantic_health", "complete"])
 
     def test_a_clean_text_answer_enters_the_window_clean(self):
         out = self.tool_turn(_text("The sshd service is ", "enabled and running."))

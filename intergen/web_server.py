@@ -2840,6 +2840,8 @@ class WebServer:
             _grounding = (self._bound(ctx, self._router._grounding_context,
                                       _gen_input)
                           if route_result.source == "llm_freeform" else None)
+            glass.path_note("prompts", grounding=_grounding,
+                            source="reference")
             messages = self._bound(
                 ctx, self._router._build_messages,
                 _gen_input, with_tools=_with_tools, grounding=_grounding)
@@ -3086,10 +3088,11 @@ class WebServer:
                 kept_answer_reasons.append(
                     "the answer claimed an action that was never performed and "
                     "could not be written again, so a plain statement replaced it")
+            glass.path_note("screens", screen="claim_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "claim_screen", detail={
                 "verdict": _outcome, "marker": _marker,
-                "dispatched": _dispatched, "source": route_result.source,
-                "before": _before, "after": full_response})
+                "dispatched": _dispatched, "source": route_result.source})
 
         # Local-state claim screen (web-path parity with the router's
         # _screen_and_correct_local_state). A reading of THIS machine that nothing
@@ -3131,10 +3134,11 @@ class WebServer:
                     "the answer stated readings of this machine that were never "
                     "taken and could not be written again, so a plain statement "
                     "replaced it")
+            glass.path_note("screens", screen="state_claim_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "state_claim_screen", detail={
                 "verdict": _st_outcome, "marker": _st_marker,
-                "dispatched": _dispatched, "source": route_result.source,
-                "before": _before, "after": full_response})
+                "dispatched": _dispatched, "source": route_result.source})
 
         # M7 leg 2 — model-authored self-offer screen (web-path parity). A toolless
         # turn whose draft offers to perform an action no code-owned offer backs is
@@ -3173,10 +3177,11 @@ class WebServer:
                     "the answer offered to perform an action nothing here can "
                     "carry out and could not be written again, so a plain "
                     "statement replaced it")
+            glass.path_note("screens", screen="model_offer_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "model_offer_screen", detail={
                 "verdict": _off_outcome, "marker": _off_marker,
-                "source": route_result.source,
-                "before": _before, "after": full_response})
+                "source": route_result.source})
 
         # M4 capability gate — web-path parity with the router's
         # _screen_and_correct_capability. Screen the delivered draft for a first-party
@@ -3202,11 +3207,12 @@ class WebServer:
                     "replaced it")
             else:
                 _cap_outcome = "unavailable_no_surface"
+            glass.path_note("screens", screen="capability_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "capability_screen", detail={
                 "verdict": _cap_outcome, "marker": _cap_marker,
                 "source": route_result.source,
-                "degraded": "capability-surface.json missing/unreadable",
-                "before": _before, "after": full_response})
+                "degraded": "capability-surface.json missing/unreadable"})
         elif _cap_verdict == "unverifiable":
             # Web-path parity with the router: a REAL command whose option
             # surface cannot be introspected is stated honestly, not
@@ -3215,11 +3221,12 @@ class WebServer:
             kept_answer_reasons.append(
                 "a command named in the answer cannot be inspected for its "
                 "options, so a plain statement replaced it")
+            glass.path_note("screens", screen="capability_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "capability_screen", detail={
                 "verdict": "unverifiable_tool_surface", "marker": _cap_marker,
                 "source": route_result.source,
-                "degraded": "tool argument surface is not introspectable",
-                "before": _before, "after": full_response})
+                "degraded": "tool argument surface is not introspectable"})
         else:
             _cap_ctx = glass.bind_context()
             _cap_corrected = await loop.run_in_executor(
@@ -3241,10 +3248,11 @@ class WebServer:
                     "the answer named a command or option that does not exist "
                     "and could not be written again, so a plain statement "
                     "replaced it")
+            glass.path_note("screens", screen="capability_screen",
+                            before=_before, after=full_response)
             glass.emit("decision", "capability_screen", detail={
                 "verdict": _cap_outcome, "marker": _cap_marker,
-                "source": route_result.source,
-                "before": _before, "after": full_response})
+                "source": route_result.source})
 
         # Conversational scope boundary — web-path parity with the router's
         # _try_llm_freeform, which runs _screen_and_correct_refusal after the
@@ -3286,10 +3294,11 @@ class WebServer:
                         "the answer declined a question it can answer and "
                         "could not be written again, so a plain statement "
                         "replaced it")
+                glass.path_note("screens", screen="refusal_screen",
+                                before=_before, after=full_response)
                 glass.emit("decision", "refusal_screen", detail={
                     "verdict": _ref_outcome, "phrase": _ref_phrase,
-                    "source": route_result.source,
-                    "before": _before, "after": full_response})
+                    "source": route_result.source})
 
         # THE PHONE-A-FRIEND OFFER, DECIDED WHERE THE ANSWER IS. The verdict
         # this method starts from was made by route(decide_only=True) before
