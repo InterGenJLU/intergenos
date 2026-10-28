@@ -847,10 +847,16 @@ else
     fi
 
     python3 - "$ARCHIVE_DIR" "$SOURCES_DIR" <<'PYINDEX' || { echo "ERROR: Index generation failed" >&2; exit 1; }
+import runpy
 import sys
 sys.path.insert(0, '.')
 from pkm.repo import generate_index
-path = generate_index(sys.argv[1], arch='x86_64', sources_dir=sys.argv[2])
+load_advisories = runpy.run_path('scripts/generate-repodb.py')['load_security_advisories']
+advisories = load_advisories('docs/governance/security-advisories.yml', required=True)
+path = generate_index(
+    sys.argv[1], arch='x86_64', sources_dir=sys.argv[2],
+    security_advisories=advisories,
+)
 print(f'Index written: {path}')
 PYINDEX
 

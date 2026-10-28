@@ -108,6 +108,49 @@ def _report_source_archives(index_path, sources_dir):
         )
 
 
+def load_security_advisories(path, *, required=False):
+    """Load curated advisories; required inputs fail before index generation."""
+    advisories = {}
+    if path:
+        adv_path = Path(path)
+        if required or adv_path.exists():
+            try:
+                import yaml
+            except ImportError:
+                print(
+                    "ERROR: PyYAML is required to parse security-advisories.yml. "
+                    "Install via the build host's package manager, or pass "
+                    "--security-advisories '' to disable advisory stamping.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            try:
+                with open(adv_path) as f:
+                    advisories = yaml.safe_load(f) or {}
+            except yaml.YAMLError as e:
+                print(
+                    f"ERROR: failed to parse {adv_path}: {e}",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+            advisory_count = sum(
+                1 for v in advisories.values()
+                if isinstance(v, dict) and v.get("cves")
+            )
+            print(
+                f"Loaded {advisory_count} security advisory entries from {adv_path}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"WARNING: --security-advisories {adv_path} not found; "
+                f"security: false on all entries.",
+                file=sys.stderr,
+            )
+
+    return advisories
+
+
 def main():
     import argparse
 
@@ -172,46 +215,7 @@ def main():
 
     output = Path(args.output) if args.output else None
 
-    # Q7 (O-030): load hand-curated security advisories. Generator-side
-    # YAML parse keeps the runtime pkm module free of a yaml dependency
-    # (parsed dict is passed to generate_index instead).
-    advisories = {}
-    if args.security_advisories:
-        adv_path = Path(args.security_advisories)
-        if adv_path.exists():
-            try:
-                import yaml
-            except ImportError:
-                print(
-                    "ERROR: PyYAML is required to parse security-advisories.yml. "
-                    "Install via the build host's package manager, or pass "
-                    "--security-advisories '' to disable advisory stamping.",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            try:
-                with open(adv_path) as f:
-                    advisories = yaml.safe_load(f) or {}
-            except yaml.YAMLError as e:
-                print(
-                    f"ERROR: failed to parse {adv_path}: {e}",
-                    file=sys.stderr,
-                )
-                sys.exit(1)
-            advisory_count = sum(
-                1 for v in advisories.values()
-                if isinstance(v, dict) and v.get("cves")
-            )
-            print(
-                f"Loaded {advisory_count} security advisory entries from {adv_path}",
-                file=sys.stderr,
-            )
-        else:
-            print(
-                f"WARNING: --security-advisories {adv_path} not found; "
-                f"security: false on all entries.",
-                file=sys.stderr,
-            )
+    advisories = load_security_advisories(args.security_advisories)
 
     # Step 1: Generate index
     sources_dir = Path(args.sources_dir) if args.sources_dir else package_dir / "sources"
