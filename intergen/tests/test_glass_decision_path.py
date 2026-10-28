@@ -236,6 +236,43 @@ def test_a_below_threshold_miss_is_recorded_with_its_score(state, tmp_path):
     assert "threshold" in hit and "best_score" in hit
 
 
+def test_the_how_to_corpus_that_answers_is_recorded_with_its_score(state):
+    _router().route("where is this file located")
+    path = _paths(state)[0]
+    assert _walk(path)["explain"]["outcome"] == "matched"
+    hit = [e for e in path["retrieval"] if e.get("store") == "howto"][0]
+    assert hit["admitted"] is True and hit["entry"]
+    assert hit["backend"] == "keyword"
+    assert hit["score"] == hit["best_score"] >= hit["threshold"]
+    assert hit["candidates"][0]["entry"] == hit["entry"]
+    assert hit["reason"] == "the best score reached the threshold"
+
+
+def test_a_decided_only_route_says_its_wiki_grounding_stayed_behind(
+        state, tmp_path):
+    from intergen.tests.test_wiki_retrieval import _Fixture
+
+    fx = _Fixture(str(tmp_path / "wiki"))
+    fx._write("security/advisory.html", (
+        "<html><body><main><h1>Security advisory</h1><p>The vulnerable code "
+        "is located in the crypto af_alg file of the kernel.</p></main>"
+        "</body></html>"))
+    pages = json.loads((fx.root / "pages-manifest.json").read_text())
+    pages["pages"]["security/advisory.html"] = fx._sha("security/advisory.html")
+    (fx.root / "pages-manifest.json").write_text(json.dumps(pages))
+    r = _router()
+    r._howto = None
+    r._wiki_retrieval = fx.retrieval()
+    res = r.route("where is this file located", decide_only=True)
+    assert (res.source, res.handled) == ("llm_freeform", False)
+    path = _paths(state)[0]
+    assert [e["admitted"] for e in path["retrieval"]
+            if e.get("store") == "wiki"] == [True]
+    kept = [p for p in path["prompts"] if p.get("kind") == "grounding_not_handed_on"]
+    assert len(kept) == 1 and kept[0]["source"] == "wiki" and kept[0]["citation"]
+    assert not [p for p in path["prompts"] if p.get("kind") == "assembly"]
+
+
 # ── (c) one record per served turn, before its terminal row ────────────────
 
 def test_a_served_turn_writes_one_path_just_before_its_terminal(state):

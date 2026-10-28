@@ -34,6 +34,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable
 
+from intergen import glass
+
 if TYPE_CHECKING:  # numpy is an embedding-path-only dep — keep it out of the import
     import numpy as np
 
@@ -456,14 +458,31 @@ class HowtoCorpus:
         ``threshold`` still overrides both, for a caller that has measured its
         own floor on a known path (the calibration harness passes 0.0 to read raw
         scores).
+
+        While a turn's decision path is collecting, what the retrieval weighed —
+        the path that scored, the floor applied, the best candidates with their
+        scores, why the winner was or was not admitted — is left as a note for
+        the caller's retrieval entry (glass.path_note), keyed by the query. It is
+        read from the same pass that decides the entry and decides nothing.
         """
+        explain: "dict | None" = {} if glass.path_active() else None
+        entry, score = self._retrieve(query, threshold, strong, explain)
+        if explain is not None:
+            glass.path_note("retrieval", store="howto", query=query, **explain)
+        return entry, score
+
+    def _retrieve(self, query: str, threshold: float | None, strong: bool,
+                  explain: "dict | None") -> "tuple[HowtoEntry | None, float]":
         query = (query or "").strip()
         if not query or not self._entries:
+            if explain is not None:
+                explain["reason"] = ("an empty query" if not query
+                                     else "no curated entry is loaded")
             return None, 0.0
         if self._embeddings is not None:
-            entry, score, keyword_path = self._retrieve_embedding(query)
+            entry, score, keyword_path = self._retrieve_embedding(query, explain)
         else:
-            entry, score = self._retrieve_keyword(query)
+            entry, score = self._retrieve_keyword(query, explain)
             keyword_path = True
         if threshold is not None:
             thr = threshold
@@ -471,14 +490,45 @@ class HowtoCorpus:
             thr = KEYWORD_STRONG_THRESHOLD if strong else KEYWORD_THRESHOLD
         else:
             thr = STRONG_THRESHOLD if strong else DEFAULT_THRESHOLD
+        if explain is not None:
+            explain.setdefault("backend", "keyword" if keyword_path else "embedding")
+            explain.update(threshold=thr, strong=strong, best_score=score,
+                           best_entry=entry.id if entry is not None else None)
         if entry is None or score < thr or not self._eligible(entry):
+            if explain is not None:
+                explain.setdefault("reason", (
+                    "no entry matched" if entry is None
+                    else "the best score is below the threshold" if score < thr
+                    else "the best entry needs a command that is not installed"))
             return None, score
         strong_floor = KEYWORD_STRONG_THRESHOLD if keyword_path else STRONG_THRESHOLD
         if score < strong_floor and not _shares_subject(query, entry):
+            if explain is not None:
+                explain["reason"] = ("below the strong floor and the best entry "
+                                     "shares no subject with the question")
             return None, score
+        if explain is not None:
+            explain["reason"] = "the best score reached the threshold"
         return entry, score
 
-    def _retrieve_embedding(self, query: str
+    # How many of the best candidates an explanation lists.
+    _EXPLAIN_TOP = 5
+
+    def _candidates(self, scored: "list[tuple[float, int]]") -> "list[dict]":
+        """The best distinct entries of (score, trigger index) pairs, best first."""
+        seen: set[int] = set()
+        out: list[dict] = []
+        for s, i in sorted(scored, key=lambda si: -si[0]):  # stable: ties keep order
+            owner = self._trigger_owner[i]
+            if owner in seen:
+                continue
+            seen.add(owner)
+            out.append({"entry": self._entries[owner].id, "score": round(float(s), 6)})
+            if len(out) == self._EXPLAIN_TOP:
+                break
+        return out
+
+    def _retrieve_embedding(self, query: str, explain: "dict | None" = None
                             ) -> "tuple[HowtoEntry | None, float, bool]":
         """The embedding match, plus whether the score actually came from the
         KEYWORD fallback — the caller needs that to pick a floor on the right
@@ -486,21 +536,29 @@ class HowtoCorpus:
         vectors = self._embedder([query]) if self._embedder else None
         if not vectors:
             # Embedding server went away after index build — fall back this turn.
-            return (*self._retrieve_keyword(query), True)
+            if explain is not None:
+                explain["backend"] = "keyword (the embedder returned nothing)"
+            return (*self._retrieve_keyword(query, explain), True)
         try:
             np = _np()
             q = np.asarray(vectors, dtype=np.float32)[0]
         except (ValueError, TypeError):
-            return (*self._retrieve_keyword(query), True)
+            if explain is not None:
+                explain["backend"] = "keyword (the embedding was unreadable)"
+            return (*self._retrieve_keyword(query, explain), True)
         np = _np()
         mat = self._embeddings
         dot = mat @ q
         sims = dot / (np.linalg.norm(mat, axis=1) * np.linalg.norm(q) + 1e-8)
         best_trig = int(np.argmax(sims))
+        if explain is not None:
+            explain["candidates"] = self._candidates(
+                [(float(s), i) for i, s in enumerate(sims)])
         return (self._entries[self._trigger_owner[best_trig]],
                 float(sims[best_trig]), False)
 
-    def _retrieve_keyword(self, query: str) -> "tuple[HowtoEntry | None, float]":
+    def _retrieve_keyword(self, query: str, explain: "dict | None" = None
+                          ) -> "tuple[HowtoEntry | None, float]":
         """Deterministic fallback, two measured conditions (see the floors above).
 
         The score is the share of the QUERY's content words that a trigger
@@ -522,11 +580,15 @@ class HowtoCorpus:
         query = _instruction_query(query)
         q_words = self._content_words(query)
         if not q_words:
+            if explain is not None:
+                explain.update(candidates=[], reason="the question has no content word")
             return None, 0.0
         best_entry: HowtoEntry | None = None
         best_score = 0.0
         best_width = 0
-        for t_words, owner in zip(self._trigger_words, self._trigger_owner):
+        scored: "list[tuple[float, int]]" = []
+        for i, (t_words, owner) in enumerate(zip(self._trigger_words,
+                                                 self._trigger_owner)):
             if not t_words:
                 continue
             overlap = len(q_words & t_words)
@@ -540,6 +602,8 @@ class HowtoCorpus:
             if score < KEYWORD_STRONG_THRESHOLD and not _shares_subject(
                     query, self._entries[owner]):
                 continue
+            if explain is not None:
+                scored.append((score, i))
             # Ties go to the NARROWER trigger. Query coverage alone cannot
             # choose between "how do I verify a package" and a longer trigger
             # that also happens to contain those words: both supply the whole
@@ -551,10 +615,16 @@ class HowtoCorpus:
                 best_width = len(t_words)
                 best_entry = self._entries[owner]
         known = len(q_words & self._vocabulary) / len(q_words)
+        if explain is not None:
+            explain.update(candidates=self._candidates(scored),
+                           known_share=round(known, 6))
         if known < KEYWORD_MIN_KNOWN_SHARE:
             logger.debug("howto: %r is out of the corpus's vocabulary "
                          "(known share %.2f) — refusing the keyword match",
                          query, known)
+            if explain is not None:
+                explain["reason"] = ("the question is out of the corpus's "
+                                     "vocabulary")
             return None, best_score
         return best_entry, best_score
 

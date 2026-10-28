@@ -7556,6 +7556,16 @@ class ConversationRouter(RouterInterface):
         orientation = bool(_EXPLAIN_ORIENTATION_RE.search(normalized))
         entry, score = self._howto.retrieve(
             normalized, strong=not (prior and not orientation))
+        # What the corpus weighed is the note its retrieve() left for this
+        # query; a corpus that left none is said to.
+        glass.path_entry("retrieval", **{
+            **(glass.path_take_note("retrieval", store="howto", query=normalized)
+               or {"explained": False,
+                   "reason_unexplained": "the corpus left no account of what "
+                                         "it weighed"}),
+            "store": "howto", "query": normalized, "admitted": entry is not None,
+            "entry": entry.id if entry is not None else None, "score": score,
+            "prior": prior})
         if entry is None:
             # F2 mis-route fix: an instructional package action the corpus does
             # not cover ("how do I install zoom") is still TAUGHT the canonical
@@ -7680,7 +7690,8 @@ class ConversationRouter(RouterInterface):
         # What the retrieval weighed — the backend, the threshold, the best
         # candidates and why the winner was or was not admitted — is the note
         # retrieve() left for this query; a retrieval that left none is said to.
-        explained = glass.path_take_note("retrieval", query=user_input) or {
+        explained = glass.path_take_note("retrieval", store="wiki",
+                                         query=user_input) or {
             "explained": False,
             "reason_unexplained": "the retrieval left no account of what it "
                                   "weighed"}
@@ -8728,6 +8739,15 @@ class ConversationRouter(RouterInterface):
                         self._record(result, record_started_at, result.source)
                     return result
         if decide_only:
+            if grounding is not None:
+                # The route returns its decision alone: the grounding it found
+                # (and a wiki page's citation) stays here, and the caller's own
+                # assembly, recorded as its own entry, is what the model gets.
+                glass.path_entry("prompts", kind="grounding_not_handed_on",
+                                 source=grounding_kind, chars=len(grounding),
+                                 citation=wiki_citation,
+                                 reason="the route decided only; its caller "
+                                        "assembles the prompt itself")
             return RouteResult(text="", source="llm_freeform", handled=False)
         glass.path_note("prompts", grounding=grounding, source=grounding_kind)
         messages = self._build_messages(user_input, with_tools=False,

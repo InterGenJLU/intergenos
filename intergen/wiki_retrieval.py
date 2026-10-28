@@ -877,7 +877,7 @@ class WikiRetrieval:
         explain: "dict | None" = {} if glass.path_active() else None
         hit = self._retrieve(query, threshold, explain)
         if explain is not None:
-            glass.path_note("retrieval", query=query, **explain)
+            glass.path_note("retrieval", store="wiki", query=query, **explain)
         return hit
 
     def _retrieve(self, query: str, threshold: "float | None",
