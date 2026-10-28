@@ -171,7 +171,7 @@ def _router_with_hit(answer_text: str) -> ConversationRouter:
     ))
     # No installed-tool grounding, so the wiki lookup is the path taken — the
     # same condition as the captured turn.
-    router._grounding_context = lambda user_input: None
+    router._grounding_context = lambda user_input, for_tools=False: None
     router._llm.chat = lambda messages, **kw: _Resp(answer_text)
     router._screen_and_correct_claim = lambda text, *a, **k: text
     router._maybe_stage_generate_and_save = lambda *a, **k: None
