@@ -140,6 +140,19 @@ def load_security_advisories(path, *, required=False):
             if not isinstance(advisories, dict):
                 print(f"ERROR: {adv_path}: expected a mapping", file=sys.stderr)
                 sys.exit(1)
+            for key, entry in advisories.items():
+                if not isinstance(entry, dict):
+                    reason = "expected a mapping"
+                elif entry.get("cves") and (
+                    not isinstance(entry["cves"], list)
+                    or any(not isinstance(cve, str) or not cve for cve in entry["cves"])
+                ):
+                    reason = "cves must be a list of non-empty strings"
+                else:
+                    continue
+                location = " ".join(f"{adv_path}: {key}".splitlines())
+                print(f"ERROR: {location}: {reason}", file=sys.stderr)
+                sys.exit(1)
             advisory_count = sum(
                 1 for v in advisories.values()
                 if isinstance(v, dict) and v.get("cves")

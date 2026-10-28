@@ -117,6 +117,7 @@ def test_unavailable_advisories_stop_index_generation(publish_inputs, failure, s
 
 @pytest.mark.parametrize("failure", [
     "missing", "directory", "malformed", "non_utf8", "list", "empty_list", "false",
+    "cves_scalar", "cves_non_string", "entry_list", "entry_string",
 ])
 def test_loader_reports_one_error_line_for_invalid_input(tmp_path, failure):
     advisory = tmp_path / "advisories.yml"
@@ -126,6 +127,10 @@ def test_loader_reports_one_error_line_for_invalid_input(tmp_path, failure):
         advisory.write_bytes({
             "malformed": b"demo-2.0: [unterminated\n", "non_utf8": b"\xff",
             "list": b"- demo\n", "empty_list": b"[]\n", "false": b"false\n",
+            "cves_scalar": b"demo-2.0:\n  cves: CVE-2026-12345\n",
+            "cves_non_string": b"demo-2.0:\n  cves: [CVE-2026-12345, 12345]\n",
+            "entry_list": b"demo-2.0: [CVE-2026-12345]\n",
+            "entry_string": b"demo-2.0: CVE-2026-12345\n",
         }[failure])
     result = subprocess.run(
         [sys.executable, "-c",
@@ -138,3 +143,25 @@ def test_loader_reports_one_error_line_for_invalid_input(tmp_path, failure):
     error, = result.stderr.splitlines()
     assert error.startswith("ERROR:") and str(advisory) in error
     assert "Traceback" not in result.stderr
+    if failure in {"cves_scalar", "cves_non_string", "entry_list", "entry_string"}:
+        assert error.startswith(f"ERROR: {advisory}: demo-2.0: ")
+
+
+def test_loader_preserves_shipped_advisories(tmp_path):
+    import yaml
+
+    advisory = ROOT / ADVISORIES
+    original = advisory.read_bytes()
+    expected = yaml.safe_load(original)
+    result = subprocess.run(
+        [sys.executable, "-c",
+         "import json,runpy,sys; print(json.dumps(runpy.run_path(sys.argv[1])"
+         "['load_security_advisories'](sys.argv[2], required=True)))",
+         str(ROOT / "scripts/generate-repodb.py"), str(advisory)],
+        cwd=tmp_path, capture_output=True, text=True, timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert json.loads(result.stdout) == expected
+    count = sum(1 for entry in expected.values() if entry.get("cves"))
+    assert result.stderr == f"Loaded {count} security advisory entries from {advisory}\n"
+    assert advisory.read_bytes() == original
