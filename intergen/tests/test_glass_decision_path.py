@@ -248,8 +248,7 @@ def test_the_how_to_corpus_that_answers_is_recorded_with_its_score(state):
     assert hit["reason"] == "the best score reached the threshold"
 
 
-def test_a_decided_only_route_says_its_wiki_grounding_stayed_behind(
-        state, tmp_path):
+def test_a_decided_only_route_hands_its_wiki_grounding_on(state, tmp_path):
     from intergen.tests.test_wiki_retrieval import _Fixture
 
     fx = _Fixture(str(tmp_path / "wiki"))
@@ -265,11 +264,15 @@ def test_a_decided_only_route_says_its_wiki_grounding_stayed_behind(
     r._wiki_retrieval = fx.retrieval()
     res = r.route("where is this file located", decide_only=True)
     assert (res.source, res.handled) == ("llm_freeform", False)
+    assert res.handed_on.grounding_kind == "wiki"
+    assert "crypto af_alg" in res.handed_on.passage
     path = _paths(state)[0]
     assert [e["admitted"] for e in path["retrieval"]
             if e.get("store") == "wiki"] == [True]
-    kept = [p for p in path["prompts"] if p.get("kind") == "grounding_not_handed_on"]
-    assert len(kept) == 1 and kept[0]["source"] == "wiki" and kept[0]["citation"]
+    handed = [p for p in path["prompts"] if p.get("kind") == "grounding_handed_on"]
+    assert len(handed) == 1 and handed[0]["source"] == "wiki"
+    assert handed[0]["citation"] == res.handed_on.citation
+    assert handed[0]["to"] == "the caller's assembly"
     assert not [p for p in path["prompts"] if p.get("kind") == "assembly"]
 
 

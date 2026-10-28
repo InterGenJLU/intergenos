@@ -272,6 +272,29 @@ class AnswerLinkage:
                 "call_id": self.call_id, "renderer": self.renderer}
 
 
+@dataclass(frozen=True)
+class HandedOn:
+    """What a route found for the model's request, handed to the caller that
+    builds the request itself.
+
+    A decide_only caller (the web streamer) is given the route's decision and
+    no text, and assembles the prompt on its own. What the route had found for
+    the model used to stay behind at that boundary: the wiki passage it
+    admitted and the page's citation, the installed-tool facts, the guards the
+    route appends after its assembly, the system map's data. The caller builds
+    from this instead, so both surfaces send the model the same request."""
+    # The model-facing block as the route built it, and where it came from:
+    # "reference" (installed-tool facts), "wiki" or "system_map".
+    grounding: str | None = None
+    grounding_kind: str | None = None
+    # A wiki page's verified citation line, and the passage it is a claim
+    # about: the caller cites the page only when the answer drew on it.
+    citation: str | None = None
+    passage: str | None = None
+    # The persona names of the guards the route appends after its assembly.
+    guards: tuple[str, ...] = ()
+
+
 @dataclass
 class RouteResult:
     text: str = ""
@@ -341,6 +364,9 @@ class RouteResult:
     # uninstrumented path is visible rather than silently exempt from the
     # substituted-result check.
     answer_linkage: AnswerLinkage | None = None
+    # What the route found for the model, handed to a decide_only caller that
+    # builds the request itself (see HandedOn). None = nothing handed on.
+    handed_on: HandedOn | None = None
 
 
 @dataclass

@@ -43,7 +43,8 @@ import unittest
 from pathlib import Path
 
 from intergen import web_server as ws_mod
-from intergen.interfaces.types import Message, MessageRole, RouteResult
+from intergen.interfaces.types import (HandedOn, Message, MessageRole,
+                                       RouteResult)
 from intergen.router import ConversationRouter, ConversationUnbound
 from intergen.web_server import ConnectionContext, WebServer
 
@@ -113,11 +114,13 @@ def _server_and_ctx(llm, router):
     return server, ctx
 
 
-def _run_model_turn(server, ctx, user_msg, source="llm_freeform"):
+def _run_model_turn(server, ctx, user_msg, source="llm_freeform",
+                    handed_on=None):
     # The message handler appends nothing before it routes: the router's
     # _append_history is the single writer of the conversation on the web
     # surface, so driving the streamed path directly meets the same shape.
-    route_result = RouteResult(text="", source=source, handled=False)
+    route_result = RouteResult(text="", source=source, handled=False,
+                               handed_on=handed_on)
     asyncio.run(server._stream_llm_response(ctx, "turn1", user_msg,
                                             route_result))
 
@@ -160,22 +163,22 @@ class DetachedRouterModelTurnTests(unittest.TestCase):
         self.assertIn("Who created it?", contents)
 
     def test_the_system_map_builders_run_bound_too(self):
-        # With cached data: _build_system_map_messages reads the history.
+        # With the route's data: _build_system_map_messages reads the history.
         llm = _FakeLLM(["12 GB free."])
         router = _detached_router(llm)
-        router._state_cache = type("_Cache", (), {
-            "get_system_map_data": staticmethod(lambda q: "disk: 12G free")})()
         server, ctx = _server_and_ctx(llm, router)
         _run_model_turn(server, ctx, "How much disk is free?",
-                        source="system_map")
+                        source="system_map",
+                        handed_on=HandedOn(grounding="disk: 12G free",
+                                           grounding_kind="system_map"))
         self.assertEqual(len(ctx.ws.of_type("stream_end")), 1, ctx.ws.sent)
         self.assertFalse(ctx.ws.of_type("error"))
-        # Cache emptied since the decision: the no-fabricate fallback builds
-        # a plain prompt, which reads the history as well.
+        self.assertTrue(any("disk: 12G free" in m.content
+                            for m in llm.prompts[0]), llm.prompts[0])
+        # No data came with the decision: the no-fabricate fallback builds a
+        # plain prompt, which reads the history as well.
         llm2 = _FakeLLM(["I cannot see that right now."])
         router2 = _detached_router(llm2)
-        router2._state_cache = type("_Cache", (), {
-            "get_system_map_data": staticmethod(lambda q: None)})()
         server2, ctx2 = _server_and_ctx(llm2, router2)
         _run_model_turn(server2, ctx2, "How much disk is free?",
                         source="system_map")
@@ -300,8 +303,11 @@ class EveryRouterAccessIsCoveredTests(unittest.TestCase):
         src = Path(ws_mod.__file__).read_text(encoding="utf-8")
         tree = ast.parse(src)
         seen = {node.attr for node, _ in _router_accesses(tree)}
+        # _grounding_context is no longer called here: the route hands the
+        # grounding it found on with its decision (HandedOn), and the server
+        # builds the request from that.
         for name in ("_build_messages", "_build_system_map_messages",
-                     "_grounding_context", "_code_offer_staged",
+                     "_code_offer_staged",
                      "_regenerate_without_claim",
                      "_regenerate_without_selfoffer",
                      "_regenerate_with_capability_grounding"):

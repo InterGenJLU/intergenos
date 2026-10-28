@@ -2810,21 +2810,25 @@ class WebServer:
         # delivery (what the user typed and saw); only generation uses the tail.
         _gen_input = getattr(route_result, "effective_input", "") or user_msg
 
+        # What the route found for the model came with its decision: the
+        # grounding and where it came from, a wiki page's citation and passage,
+        # the guards it appends. The request is built from that, never from a
+        # second look of this server's own, so it is the request the route
+        # would have sent on the bus.
+        _handed = getattr(route_result, "handed_on", None)
+
         # System Map route: build grounded-synthesis messages from TRUE cached
         # system data and offer NO tools (the model reads real data instead of
         # fabricating; no tools means injected log/service text can't escalate).
         # Mirrors the CLI _try_system_map path so both surfaces behave the same.
         if route_result.source == "system_map":
-            sysmap_data = (
-                self._router._state_cache.get_system_map_data(_gen_input)
-                if getattr(self._router, "_state_cache", None) else None
-            )
+            sysmap_data = _handed.grounding if _handed is not None else None
             if sysmap_data:
                 messages = self._bound(
                     ctx, self._router._build_system_map_messages,
                     _gen_input, sysmap_data)
             else:
-                # Cache emptied since the route decision — fall back to the
+                # No data came with the decision — fall back to the
                 # no-fabricate freeform prompt rather than inventing state.
                 messages = self._bound(ctx, self._router._build_messages,
                                        _gen_input, with_tools=False)
@@ -2833,18 +2837,20 @@ class WebServer:
             # Match the system prompt to the route: tool turns keep the
             # provenance directive (~197 tok); conversational turns drop it.
             _with_tools = route_result.source == "llm_tools"
-            # L1 anti-fabrication grounding (Goal-2): on freeform how-to turns,
-            # make true installed-tool facts available so the model grounds
-            # instead of inventing (png2jpg) or defaulting to apt. None for
-            # tool turns and non-subjects → those are untouched.
-            _grounding = (self._bound(ctx, self._router._grounding_context,
-                                      _gen_input)
-                          if route_result.source == "llm_freeform" else None)
+            _grounding = (_handed.grounding if _handed is not None
+                          and route_result.source in ("llm_freeform",
+                                                      "llm_tools")
+                          else None)
             glass.path_note("prompts", grounding=_grounding,
-                            grounding_from="reference")
+                            grounding_from=(_handed.grounding_kind
+                                            if _grounding else None))
             messages = self._bound(
                 ctx, self._router._build_messages,
                 _gen_input, with_tools=_with_tools, grounding=_grounding)
+            if _handed is not None and _handed.guards:
+                self._bound(ctx, self._router._append_guards, messages,
+                            _handed.guards,
+                            caller=f"web_stream:{route_result.source}")
             # Offer tools ONLY when the router's eligibility gate decided this
             # turn needs them (source == "llm_tools"). Freeform/conversational
             # turns must match the CLI path and attach NO tools — otherwise the
@@ -2893,6 +2899,10 @@ class WebServer:
         # why it happened, in plain language, and stream_end carries it: a
         # replacement the person can see the reason for, never a silent swap.
         kept_answer_reasons: list[str] = []
+        # The name of each text this server or the model client served in
+        # place of the model's answer, as the route's `fallbacks` names them: a
+        # wiki page is never cited on a text the model did not write.
+        _code_owned: list[str] = []
         tool_calls_made: list[ToolCall] = []
         tool_results: list[ToolResult] = []
         stream_started = time.monotonic()
@@ -3000,6 +3010,7 @@ class WebServer:
             full_response = (
                 "Sorry — I didn't quite catch that. Could you rephrase it for me?"
             )
+            _code_owned.append("empty_response")
             collected_tokens.append(full_response)
             await ctx.ws.send_json({
                 "type": "stream_token",
@@ -3075,7 +3086,7 @@ class WebServer:
                 None,
                 lambda: _claim_ctx.run(
                     self._bound, ctx, self._router._regenerate_without_claim,
-                    messages, _marker))
+                    messages, _marker, fallbacks=_code_owned))
             if _corrected is not None:
                 full_response = _corrected
                 _outcome = "violation_regenerated"
@@ -3084,6 +3095,7 @@ class WebServer:
                     "so it was written again")
             else:
                 full_response = safety.honest_action_fallback()
+                _code_owned.append("claim_screen")
                 _outcome = "violation_regen_failed_fallback"
                 kept_answer_reasons.append(
                     "the answer claimed an action that was never performed and "
@@ -3119,7 +3131,7 @@ class WebServer:
                 lambda: _state_ctx.run(
                     self._bound, ctx,
                     self._router._regenerate_without_state_claim,
-                    messages, _st_marker))
+                    messages, _st_marker, fallbacks=_code_owned))
             if _st_corrected is not None:
                 full_response = _st_corrected
                 _st_outcome = "violation_regenerated"
@@ -3129,6 +3141,7 @@ class WebServer:
             else:
                 full_response = safety.honest_local_state_fallback(
                     _st_marker, _st_question)
+                _code_owned.append("state_claim_screen")
                 _st_outcome = "violation_regen_failed_fallback"
                 kept_answer_reasons.append(
                     "the answer stated readings of this machine that were never "
@@ -3163,7 +3176,7 @@ class WebServer:
                 None,
                 lambda: _offer_ctx.run(
                     self._bound, ctx, self._router._regenerate_without_selfoffer,
-                    messages, _off_marker, _offer_draft))
+                    messages, _off_marker, _offer_draft, fallbacks=_code_owned))
             if _off_corrected is not None:
                 full_response = _off_corrected
                 _off_outcome = "violation_regenerated"
@@ -3172,6 +3185,7 @@ class WebServer:
                     "carry out, so it was written again")
             else:
                 full_response = safety.honest_no_selfoffer_fallback()
+                _code_owned.append("model_offer_screen")
                 _off_outcome = "violation_regen_failed_fallback"
                 kept_answer_reasons.append(
                     "the answer offered to perform an action nothing here can "
@@ -3200,6 +3214,7 @@ class WebServer:
         elif _cap_verdict == "unavailable":
             if _cap_marker is not None:
                 full_response = safety.capability_unverified_fallback(_cap_marker)
+                _code_owned.append("capability_screen")
                 _cap_outcome = "unavailable_no_surface_fallback"
                 kept_answer_reasons.append(
                     "a command named in the answer could not be checked against "
@@ -3218,6 +3233,7 @@ class WebServer:
             # surface cannot be introspected is stated honestly, not
             # regenerated — there is nothing proven wrong to correct.
             full_response = safety.capability_unintrospectable_fallback(_cap_marker)
+            _code_owned.append("capability_screen")
             kept_answer_reasons.append(
                 "a command named in the answer cannot be inspected for its "
                 "options, so a plain statement replaced it")
@@ -3234,7 +3250,7 @@ class WebServer:
                 lambda: _cap_ctx.run(
                     self._bound, ctx,
                     self._router._regenerate_with_capability_grounding,
-                    messages, _cap_marker))
+                    messages, _cap_marker, fallbacks=_code_owned))
             if _cap_corrected is not None:
                 full_response = _cap_corrected
                 _cap_outcome = "violation_regenerated"
@@ -3243,6 +3259,7 @@ class WebServer:
                     "so it was written again")
             else:
                 full_response = safety.honest_capability_fallback(_cap_marker)
+                _code_owned.append("capability_screen")
                 _cap_outcome = "violation_regen_failed_fallback"
                 kept_answer_reasons.append(
                     "the answer named a command or option that does not exist "
@@ -3279,7 +3296,8 @@ class WebServer:
                     None,
                     lambda: _ref_ctx.run(
                         self._bound, ctx,
-                        self._router._regenerate_without_refusal, messages))
+                        self._router._regenerate_without_refusal, messages,
+                        fallbacks=_code_owned))
                 if _ref_corrected is not None:
                     full_response = _ref_corrected
                     _ref_outcome = "refusal_regenerated"
@@ -3288,6 +3306,7 @@ class WebServer:
                         "was written again")
                 else:
                     full_response = safety.honest_scope_steer()
+                    _code_owned.append("refusal_screen")
                     _ref_outcome = "refusal_regen_failed_steer"
                     _refused = True
                     kept_answer_reasons.append(
@@ -3299,6 +3318,25 @@ class WebServer:
                 glass.emit("decision", "refusal_screen", detail={
                     "verdict": _ref_outcome, "phrase": _ref_phrase,
                     "source": route_result.source})
+
+        # Cite the verified wiki page the answer was grounded in, as the route
+        # cites it (RC001): last, after the screens, and only when the answer
+        # draws on the passage and its text is the model's. A text served in
+        # place of the model's drew on no page, whatever words it shares.
+        if _handed is not None and _handed.citation:
+            if _code_owned:
+                logger.info(
+                    "wiki citation withheld: the delivered text is a code-owned "
+                    "fallback (%s), not the model's answer",
+                    ", ".join(_code_owned))
+            else:
+                _cited, _support = self._bound(
+                    ctx, self._router._wiki_citation_if_used, full_response,
+                    _handed.citation, _handed.passage, _gen_input)
+                if _cited:
+                    full_response = full_response.rstrip() + "\n\n" + _cited
+                    kept_answer_reasons.append(
+                        "the wiki page the answer drew on was named at the end")
 
         # THE PHONE-A-FRIEND OFFER, DECIDED WHERE THE ANSWER IS. The verdict
         # this method starts from was made by route(decide_only=True) before

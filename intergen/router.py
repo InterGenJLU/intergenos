@@ -51,7 +51,7 @@ from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
 from intergen import disk_usage as _disk_usage
 from intergen.interfaces.types import (
-    AnswerLinkage,
+    AnswerLinkage, HandedOn,
     HardwareTierLevel, LLMResponse, Message, MessageRole, RouteResult,
     SafetyTier, ToolCall, ToolResult,
 )
@@ -4920,7 +4920,12 @@ class ConversationRouter(RouterInterface):
                     glass.emit("route", "decided", detail={
                         "source": "system_map", "decide_only": True,
                         "streamed": True})
-                    return RouteResult(text="", source="system_map", handled=False)
+                    # The data this decision was made on goes with it: the
+                    # caller synthesizes from these bytes, not a second read.
+                    return RouteResult(
+                        text="", source="system_map", handled=False,
+                        handed_on=HandedOn(grounding=sysmap_data,
+                                           grounding_kind="system_map"))
                 result = self._try_system_map(user_input, sysmap_data)
                 if result.handled:
                     self._stage("system_map", "matched", _s, result,
@@ -5144,7 +5149,16 @@ class ConversationRouter(RouterInterface):
                     "source": "llm_tools", "decide_only": True, "streamed": True,
                     "query_type": self._current_query_type,
                     "semantic_score": self._last_semantic_score})
-                return RouteResult(text="", source="llm_tools", handled=False)
+                # The installed-tool facts _try_llm_tools would ground its own
+                # request on go with the decision to the caller that builds it.
+                _tool_grounding = self._grounding_context(user_input,
+                                                          for_tools=True)
+                return RouteResult(
+                    text="", source="llm_tools", handled=False,
+                    handed_on=HandedOn(
+                        grounding=_tool_grounding,
+                        grounding_kind=("reference" if _tool_grounding
+                                        else None)))
             with get_tracer().span("router.llm_tools", kind="llm") as _llm_span, \
                     glass.calling("llm_tools"):
                 result = self._try_llm_tools(user_input)
@@ -8846,62 +8860,29 @@ class ConversationRouter(RouterInterface):
                     if decide_only and record_started_at is not None:
                         self._record(result, record_started_at, result.source)
                     return result
+        guards = self._freeform_guards(user_input)
+        if grounding is not None:
+            # The grounding goes into the request whichever surface builds it:
+            # the route's own assembly below, or, deciding only, its caller's.
+            glass.path_entry("prompts", kind="grounding_handed_on",
+                             source=grounding_kind, chars=len(grounding),
+                             citation=wiki_citation,
+                             to=("the caller's assembly" if decide_only
+                                 else "the route's own assembly"))
         if decide_only:
-            if grounding is not None:
-                # The route returns its decision alone: the grounding it found
-                # (and a wiki page's citation) stays here, and the caller's own
-                # assembly, recorded as its own entry, is what the model gets.
-                glass.path_entry("prompts", kind="grounding_not_handed_on",
-                                 source=grounding_kind, chars=len(grounding),
-                                 citation=wiki_citation,
-                                 reason="the route decided only; its caller "
-                                        "assembles the prompt itself")
-            return RouteResult(text="", source="llm_freeform", handled=False)
+            # The route returns its decision alone and its caller builds the
+            # request, so what the route found for the model goes with it.
+            return RouteResult(
+                text="", source="llm_freeform", handled=False,
+                handed_on=HandedOn(
+                    grounding=grounding, grounding_kind=grounding_kind,
+                    citation=wiki_citation, passage=wiki_passage,
+                    guards=tuple(guards)))
         glass.path_note("prompts", grounding=grounding,
                         grounding_from=grounding_kind)
         messages = self._build_messages(user_input, with_tools=False,
                                         grounding=grounding)
-
-        # The guards below are appended AFTER the assembly was recorded; the
-        # decision path names them, and the request the model receives is
-        # recorded whole where it is sent (glass.model_request).
-        _appended: list[str] = []
-        if self._current_query_type == "diagnostic":
-            _appended.append("FREEFORM_STATE_GUARD")
-            # M8 wave 6 (teach_gap): the anti-fabrication guard must scope the "no
-            # current data" hedge to THIS machine's live state — otherwise it
-            # over-rotates and suppresses a teaching answer to a general how-to /
-            # advice question ("how do I make a secure password", "back up my
-            # files", "lock my screen") that general knowledge already answers. The
-            # guard against inventing live system facts STAYS; the hedge no longer
-            # blankets general-knowledge asks. Cause: OUR injected instruction, not
-            # the model. M7 persona leg 1: the guard text is owned by the persona
-            # home (persona.FREEFORM_STATE_GUARD) so the hedge-scoping wording lives
-            # in one place; the graduated-confidence STYLE comes from the base
-            # prompt's RULE 2 (persona.HEDGING).
-            messages.append(Message(
-                role=MessageRole.USER,
-                content=persona.FREEFORM_STATE_GUARD,
-            ))
-
-        # System-category turns (administration, privileges, the authorization/
-        # safety layer, or InterGen's own ability to change system state) drew
-        # fabricated capability-denial + `sudo` folklore from the locked 2B floor
-        # when a user pressed on why a privileged action was gated. Ground the
-        # model in the true, checkable capability facts so it answers WITHIN them
-        # instead of inventing a mechanism the system does not use. Locked-floor
-        # only — a native (9B+) lane is not the folklore surface this addresses.
-        if (getattr(self, "_lock_dispatch", True)
-                and is_system_category_conversation(user_input)):
-            _appended.append("SYSTEM_CAPABILITY_GUARD")
-            messages.append(Message(
-                role=MessageRole.USER,
-                content=persona.SYSTEM_CAPABILITY_GUARD,
-            ))
-        if _appended:
-            glass.path_entry("prompts", kind="appended_after_assembly",
-                             caller="llm_freeform", appended=_appended,
-                             messages_now=len(messages))
+        self._append_guards(messages, guards, caller="llm_freeform")
 
         # Synthesis INPUTS for the freeform (no-tool) path (06-11 harness plan
         # "synthesize" seam): WHAT shaped the final answer — whether grounding
@@ -9022,6 +9003,50 @@ class ConversationRouter(RouterInterface):
             escalation_offer=self._maybe_offer(
                 user_input, response, confidence, refused=refused),
         )
+
+    def _freeform_guards(self, user_input: str) -> list[str]:
+        """The guards the freeform route appends after its assembly, by their
+        persona names, in the order they are appended."""
+        guards: list[str] = []
+        if self._current_query_type == "diagnostic":
+            # M8 wave 6 (teach_gap): the anti-fabrication guard must scope the "no
+            # current data" hedge to THIS machine's live state — otherwise it
+            # over-rotates and suppresses a teaching answer to a general how-to /
+            # advice question ("how do I make a secure password", "back up my
+            # files", "lock my screen") that general knowledge already answers. The
+            # guard against inventing live system facts STAYS; the hedge no longer
+            # blankets general-knowledge asks. Cause: OUR injected instruction, not
+            # the model. M7 persona leg 1: the guard text is owned by the persona
+            # home (persona.FREEFORM_STATE_GUARD) so the hedge-scoping wording lives
+            # in one place; the graduated-confidence STYLE comes from the base
+            # prompt's RULE 2 (persona.HEDGING).
+            guards.append("FREEFORM_STATE_GUARD")
+        # System-category turns (administration, privileges, the authorization/
+        # safety layer, or InterGen's own ability to change system state) drew
+        # fabricated capability-denial + `sudo` folklore from the locked 2B floor
+        # when a user pressed on why a privileged action was gated. Ground the
+        # model in the true, checkable capability facts so it answers WITHIN them
+        # instead of inventing a mechanism the system does not use. Locked-floor
+        # only — a native (9B+) lane is not the folklore surface this addresses.
+        if (getattr(self, "_lock_dispatch", True)
+                and is_system_category_conversation(user_input)):
+            guards.append("SYSTEM_CAPABILITY_GUARD")
+        return guards
+
+    @staticmethod
+    def _append_guards(messages: "list[Message]", guards, *,
+                       caller: str) -> None:
+        """Append the named guards to an assembled prompt. They come AFTER the
+        assembly was recorded; the decision path names them, and the request
+        the model receives is recorded whole where it is sent
+        (glass.model_request)."""
+        for name in guards:
+            messages.append(Message(role=MessageRole.USER,
+                                    content=getattr(persona, name)))
+        if guards:
+            glass.path_entry("prompts", kind="appended_after_assembly",
+                             caller=caller, appended=list(guards),
+                             messages_now=len(messages))
 
     def _semantic_flag_fallback(self, response, user_input: str, *,
                                 source: str = "llm_freeform"
