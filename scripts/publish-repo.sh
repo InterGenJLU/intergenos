@@ -846,13 +846,17 @@ else
         trap 'cp -p -- "$_DR_SAVED_INDEX" "$INDEX_PATH" && rm -f -- "$_DR_SAVED_INDEX"' EXIT
     fi
 
-    python3 - "$ARCHIVE_DIR" "$SOURCES_DIR" <<'PYINDEX' || { echo "ERROR: Index generation failed" >&2; exit 1; }
+    python3 - "$ARCHIVE_DIR" "$SOURCES_DIR" "$(dirname "$SCRIPT_PATH")/.." \
+        "$(dirname "$SCRIPT_PATH")/generate-repodb.py" \
+        "$REPO_ROOT/docs/governance/security-advisories.yml" <<'PYINDEX' || { echo "ERROR: Index generation failed" >&2; exit 1; }
 import runpy
 import sys
-sys.path.insert(0, '.')
+from pathlib import Path
+code_root = Path(sys.argv[3]).resolve()
+sys.path.insert(0, str(code_root))
 from pkm.repo import generate_index
-load_advisories = runpy.run_path('scripts/generate-repodb.py')['load_security_advisories']
-advisories = load_advisories('docs/governance/security-advisories.yml', required=True)
+load_advisories = runpy.run_path(sys.argv[4])['load_security_advisories']
+advisories = load_advisories(sys.argv[5], required=True)
 path = generate_index(
     sys.argv[1], arch='x86_64', sources_dir=sys.argv[2],
     security_advisories=advisories,

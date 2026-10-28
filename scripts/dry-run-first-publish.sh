@@ -144,9 +144,17 @@ INDEX_OUTPUT="$OUTPUT_DIR/InterGenOS.db"
 
 python3 - "$PROJECT_ROOT" "$ARCHIVES_DIR" "$INDEX_OUTPUT" "$SOURCES_DIR" <<'PYINDEX' 2>&1
 import gzip, json, os, sys
+import runpy
+from pathlib import Path
 sys.path.insert(0, sys.argv[1])
 from pkm.repo import generate_index
-path = generate_index(sys.argv[2], arch='x86_64', output=sys.argv[3], sources_dir=sys.argv[4])
+root = Path(sys.argv[1]).resolve()
+load_advisories = runpy.run_path(str(root / 'scripts/generate-repodb.py'))['load_security_advisories']
+advisories = load_advisories(root / 'docs/governance/security-advisories.yml', required=True)
+path = generate_index(
+    sys.argv[2], arch='x86_64', output=sys.argv[3], sources_dir=sys.argv[4],
+    security_advisories=advisories,
+)
 print(f'Index written: {path}')
 with gzip.open(path, 'rt', encoding='utf-8') as handle:
     packages = json.load(handle)['packages']

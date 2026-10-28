@@ -51,6 +51,7 @@ def test_generation_passes_all_paths_as_data(tmp_path, script, directory):
         "ARCHIVE_DIR": str(binaries), "ARCHIVES_DIR": str(binaries),
         "SOURCES_DIR": str(sources), "PUBLISH_SOURCES_DIR": str(sources),
         "INDEX_OUTPUT": str(output), "PROJECT_ROOT": str(project),
+        "REPO_ROOT": str(project), "SCRIPT_PATH": str(project / "scripts" / script),
         "PYTHONPATH": str(ROOT),
     }
     result = subprocess.run(["bash", "-e", "-o", "pipefail", "-c", generation_block(script)],

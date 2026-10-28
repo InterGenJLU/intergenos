@@ -119,19 +119,26 @@ def load_security_advisories(path, *, required=False):
             except ImportError:
                 print(
                     "ERROR: PyYAML is required to parse security-advisories.yml. "
-                    "Install via the build host's package manager, or pass "
-                    "--security-advisories '' to disable advisory stamping.",
+                    "Install via the build host's package manager (the "
+                    "generate-repodb.py command line alone also accepts "
+                    "--security-advisories '' to disable advisory stamping).",
                     file=sys.stderr,
                 )
                 sys.exit(1)
             try:
                 with open(adv_path) as f:
-                    advisories = yaml.safe_load(f) or {}
-            except yaml.YAMLError as e:
+                    advisories = yaml.safe_load(f)
+            except (OSError, UnicodeDecodeError, yaml.YAMLError) as e:
+                reason = " ".join(str(e).splitlines())
                 print(
-                    f"ERROR: failed to parse {adv_path}: {e}",
+                    f"ERROR: cannot load {adv_path}: {reason}",
                     file=sys.stderr,
                 )
+                sys.exit(1)
+            if advisories is None:
+                advisories = {}
+            if not isinstance(advisories, dict):
+                print(f"ERROR: {adv_path}: expected a mapping", file=sys.stderr)
                 sys.exit(1)
             advisory_count = sum(
                 1 for v in advisories.values()

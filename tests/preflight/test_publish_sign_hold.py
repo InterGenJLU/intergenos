@@ -133,6 +133,8 @@ class PublishSignHoldTest(unittest.TestCase):
             "https://intergenos.org/news.html.\n")
         docs = self.tree / "docs"
         docs.mkdir()
+        (docs / "governance").mkdir()
+        (docs / "governance/security-advisories.yml").write_text("{}\n")
         (docs / "release-policy.md").write_text(
             "# Policy\n\n## Release types\n\n"
             "- **Major releases — `R001`, `R002`, …** rebuild everything.\n"
