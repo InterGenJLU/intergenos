@@ -49,6 +49,7 @@ from intergen.memory import (MemoryManager, _FORGET_DECLINED, fact_cache_text,
 from intergen.interfaces.router import RouterInterface
 from intergen.state_cache import StateCache
 from intergen.reference import ReferenceIndex
+from intergen import disk_usage as _disk_usage
 from intergen.interfaces.types import (
     AnswerLinkage,
     HardwareTierLevel, LLMResponse, Message, MessageRole, RouteResult,
@@ -2374,6 +2375,68 @@ _DA_CONVERSATION_MEMORY_RE = re.compile(
 _DA_RESOURCE_ELLIPSIS_RE = re.compile(
     r"^(?:and|what\s+about|how\s+about|ok(?:ay)?\s+and)\s+"
     r"(?:my\s+|the\s+)?(?:memory|ram)\s*\??$",
+    re.IGNORECASE)
+# D1 — WHAT TAKES THE SPACE ("what's taking up all my disk space", "which
+# folders are the biggest", "storage is full again"): a question about WHERE the
+# space went, answered by the bounded read-only probe in intergen.disk_usage. It
+# is consulted BEFORE the free-space probe because the df answer (how much is
+# left) is the wrong answer to it — measured on every R001.4-03 record: the 9B
+# reported free space, the 35B found nothing in the wiki, the 2B said nothing.
+# The teach guard above still declines the how-to forms ("how do I find large
+# files"), so this never steals a teaching turn. The verbs and the disk nouns
+# are enumerated; a phrasing with neither (a bare "which ones are the biggest")
+# binds only as a follow-up to a usage question in the turn before.
+_DA_DISK_NOUNS = (r"(?:disk\s+space|disk|space|storage|drive|room|ssd|nvme|hdd"
+                  r"|hard\s+disk|hard\s+drive|partition|file\s*system)")
+_DA_USAGE_VERBS = (r"(?:tak(?:e|es|ing|en|in)|us(?:e|es|ing|eing)|eat(?:s|ing)?"
+                   r"|hog(?:s|ging)?|fill(?:s|ing|ed)?|consum(?:e|es|ing)|chew(?:s|ing)?"
+                   r"|occup(?:y|ies|ying)|clog(?:s|ging)?)")
+_DA_DISK_USAGE_RE = re.compile(
+    # "what's taking up / using / eating / hogging / filling (up) (all) (my) disk"
+    r"\b(?:what(?:'?s)?|which|who|something|anything)\b[^?]*\b" + _DA_USAGE_VERBS
+    + r"\b(?:\s+(?:up|through|into))?(?:\s+(?:all|so\s+much|most\s+of|the\s+most|much))?"
+    + r"(?:\s+(?:of\s+)?(?:my|the|this|our))?\s+(?:\w+\s+)?" + _DA_DISK_NOUNS + r"\b"
+    # "where did all my disk space go" / "where is my storage going"
+    + r"|\bwhere\s+(?:did|is|has|are)\b[^?]*\b" + _DA_DISK_NOUNS + r"\b[^?]*\b(?:go|gone|going|went)\b"
+    # "why is my disk full" / "disk almost full... what is it" / "the drive is nearly full, what's on it"
+    + r"|\bwhy\s+is\s+(?:my|the)\s+" + _DA_DISK_NOUNS + r"\s+(?:so\s+)?full\b"
+    + r"|\b" + _DA_DISK_NOUNS + r"\s+(?:is\s+)?(?:almost|nearly|basically|getting|so)?\s*full\b[^?]*\bwhat\b"
+    + r"|\b(?:storage|disk|drive)\s+is\s+full\b"
+    # "the biggest folders" / "which folders are the biggest" / "space hogs"
+    + r"|\b(?:biggest|largest|big|large|top)\b[^?]*\b(?:folders?|directories|dirs?|files?|consumers?|hogs?)\b"
+    + r"|\b(?:folders?|directories|dirs?|files?|consumers?|hogs?)\b[^?]*\b(?:biggest|largest|most\s+space|most\s+disk|hogging|taking|using)\b"
+    + r"|\bspace\s+hogs?\b"
+    # "disk usage by folder" / "breakdown of my disk usage" / "show disk usage by directory"
+    + r"|\bdisk\s+usage\b[^?]*\b(?:by|per|breakdown|folder|director)\w*"
+    + r"|\bbreakdown\s+of\b[^?]*\b(?:disk|space|storage)\b"
+    + r"|\b(?:show|list|find)\b[^?]*\b(?:disk\s+usage|space\s+consumers|top\s+space|largest|biggest)\b"
+    # "how big is the package cache" / "how much are the logs taking up"
+    + r"|\bhow\s+(?:big|much)\b[^?]*\b(?:cache|journal|logs?|trash|home\s+(?:folder|directory|dir))\b"
+    + r"|\b(?:cache|journal|logs?|trash)\b[^?]*\b" + _DA_USAGE_VERBS + r"\b(?:\s+up)?"
+    # "out of space... what is all this stuff" / "running out of space, what's the culprit"
+    + r"|\bout\s+of\s+(?:space|storage|room|disk)\b[^?!]*\b(?:what|which|culprit|hogging|why)\b"
+    + r"|\bwhat(?:'?s|\s+is)\s+the\s+culprit\b"
+    # "whats big on this disk" / "what's on it"
+    + r"|\bwhat(?:'?s|\s+is)\s+(?:big|large)\s+on\b"
+    + r"|\bwhat(?:'?s|\s+is)\s+on\s+(?:it|(?:my|the|this)\s+" + _DA_DISK_NOUNS + r")\b",
+    re.IGNORECASE)
+# Not a question about THIS machine's space: a size limit elsewhere.
+_DA_DISK_USAGE_NOT_RE = re.compile(
+    r"\b(?:upload|attach|e-?mail|quota|cloud|onedrive|dropbox|google\s+drive"
+    r"|maximum|max\s+size|allowed|can\s+i\s+(?:send|upload))\b", re.IGNORECASE)
+# A bare scope follow-up to a usage question: "and in my home folder?", "what
+# about the root filesystem", "ok which ones are the biggest".
+_DA_DISK_USAGE_FOLLOWUP_RE = re.compile(
+    r"^(?:ok(?:ay)?,?\s*)?(?:and|what\s+about|how\s+about|also|now)?\s*"
+    r"(?:in|on|for|under|of)?\s*(?:my|the)?\s*"
+    r"(?:home(?:\s+(?:folder|directory|dir))?|~|/home|root(?:\s+(?:filesystem|file\s+system|partition|fs|drive|disk))?"
+    r"|the\s+system|the\s+whole\s+(?:disk|drive))\s*\??\s*$"
+    r"|^(?:ok(?:ay)?,?\s*)?(?:and\s+)?which\s+(?:ones?|of\s+(?:them|those))\s+(?:are|is)\s+the\s+(?:biggest|largest)\s*\??\s*$",
+    re.IGNORECASE)
+_DA_DISK_USAGE_HOME_RE = re.compile(
+    r"\b(?:home|/home)\b|(?:^|\s)~(?:/|\s|$)", re.IGNORECASE)
+_DA_DISK_USAGE_ROOT_RE = re.compile(
+    r"\b(?:root|the\s+system|whole\s+(?:disk|drive|system)|this\s+(?:machine|computer|system|box|pc|laptop))\b",
     re.IGNORECASE)
 # An ORDINAL question about the conversation itself — "what was my first
 # question to you", "what was the last thing I asked". Answered from the
@@ -5681,6 +5744,25 @@ class ConversationRouter(RouterInterface):
                     "verdict": "declined_no_resource_antecedent"})
                 return None
             text = "how much memory is available"
+        # D1 — WHAT TAKES THE SPACE, consulted BEFORE the free-space probe: the
+        # usage question asks where the space went, and df's answer (how much is
+        # left) is the wrong answer to it. A bare scope follow-up binds only to
+        # a usage question in the turn before; anything else declines here.
+        usage_text = text
+        if _DA_DISK_USAGE_FOLLOWUP_RE.search(text.strip()):
+            # The follow-up is read WITH the turn before it: the pair passes the
+            # same detector and the same guards as a single question would, so a
+            # scope word after a time question binds to nothing.
+            transcript = self._conv.transcript
+            prior = transcript[-1][0] if transcript else ""
+            usage_text = f"{prior} {text}" if prior else ""
+        if usage_text and _DA_DISK_USAGE_RE.search(usage_text):
+            answer = self._da_disk_usage(usage_text)
+            if answer is not None:
+                return self._direct_answer_result(
+                    user_input, answer, "disk_usage", "local", t0,
+                    # Composed in code from the probe's own measurement — no dispatch.
+                    linkage=AnswerLinkage(kind="code", renderer="disk_usage_probe"))
         for intent, detector, command, render in _DA_LOCAL_PROBES:
             if not detector.search(text):
                 continue
@@ -5703,6 +5785,31 @@ class ConversationRouter(RouterInterface):
                 linkage=AnswerLinkage(kind="dispatch", tool="run_command",
                                       renderer="direct_answer_render"))
         return None
+
+    # The probe's wall-clock budget for one answer (the whole answer: the known
+    # places, the root walk and the home walk). A test lowers it on the instance.
+    _DISK_USAGE_BUDGET_S = _disk_usage.DEFAULT_BUDGET_S
+
+    def _da_disk_usage(self, text: str) -> "str | None":
+        """D1 — WHAT TAKES THE SPACE: the bounded, read-only probe
+        (intergen.disk_usage) over the root filesystem and the home, or over the
+        one scope the question names. A probe that cannot run DECLINES (None)
+        with the reason in the glass, never a guessed figure."""
+        if _DA_DISK_USAGE_NOT_RE.search(text):
+            glass.emit("decision", "direct_answer", detail={
+                "class": "local", "intent": "disk_usage",
+                "verdict": "declined_not_this_machine"})
+            return None
+        home = bool(_DA_DISK_USAGE_HOME_RE.search(text))
+        root = bool(_DA_DISK_USAGE_ROOT_RE.search(text))
+        scope = "home" if home and not root else "root" if root and not home else "both"
+        try:
+            return _disk_usage.answer(scope, budget_s=self._DISK_USAGE_BUDGET_S)
+        except (OSError, ValueError) as exc:
+            glass.emit("decision", "direct_answer", detail={
+                "class": "local", "intent": "disk_usage",
+                "verdict": "probe_failed", "error": type(exc).__name__})
+            return None
 
     def _try_direct_posture(self, text: str, t0: float) -> "RouteResult | None":
         """D1 — SECURITY POSTURE and the assistant's own privacy: each answered
