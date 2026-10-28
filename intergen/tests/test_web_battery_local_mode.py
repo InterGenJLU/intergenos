@@ -295,9 +295,10 @@ class TheLocalRecordIsTheTunnelRecordMemberForMember(unittest.TestCase):
 
         self.assertEqual(members(by_local), members(by_tunnel))
         self.assertEqual(members(by_local),
-                         ["SHA256SUMS", "frames.jsonl", "glass-excerpt.jsonl",
-                          "ground-truth.txt", "summary.json",
-                          "target-identity.txt", "verdicts.tsv"])
+                         ["SHA256SUMS", "decision-paths.jsonl", "frames.jsonl",
+                          "glass-excerpt.jsonl", "ground-truth.txt",
+                          "summary.json", "target-identity.txt",
+                          "verdicts.tsv"])
         local_summary = json.loads((by_local / "summary.json").read_text())
         tunnel_summary = json.loads((by_tunnel / "summary.json").read_text())
         self.assertEqual(sorted(local_summary), sorted(tunnel_summary))

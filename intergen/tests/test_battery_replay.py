@@ -1190,10 +1190,10 @@ class TheReplayRecord(unittest.TestCase):
         self.assertEqual(drove, [["t01", "t02"]])
         members = sorted(p.name for p in record.iterdir())
         self.assertEqual(members, [
-            "SHA256SUMS", "frames.jsonl", "glass-excerpt.jsonl",
-            "ground-truth.txt", "replay.tsv", "summary.json",
-            "target-identity.txt", "tier-status.txt", "transcript.txt",
-            "verdicts.tsv"])
+            "SHA256SUMS", "decision-paths.jsonl", "frames.jsonl",
+            "glass-excerpt.jsonl", "ground-truth.txt", "replay.tsv",
+            "summary.json", "target-identity.txt", "tier-status.txt",
+            "transcript.txt", "verdicts.tsv"])
         self.assertEqual((record / "replay.tsv").read_bytes(),
                          replay.read_bytes())
         lines = (record / "verdicts.tsv").read_text().splitlines()

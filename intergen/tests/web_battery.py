@@ -98,7 +98,11 @@ origin-evidence statement), ``target-identity.txt``
 (the raw pkm/hostname output), ``ground-truth.txt`` (the target's own reading
 of what the CORRECTNESS predicates check an answer against),
 ``glass-excerpt.jsonl`` (the target's trace
-rows for the turn ids this run minted, when readable) and ``SHA256SUMS``,
+rows for the turn ids this run minted, when readable),
+``decision-paths.jsonl`` (one line per question or replay turn, in the order
+sent, carrying the turn's decision path — every ladder stage, the retrieval,
+the tool calls, the prompt's sources, the screens — as the trace recorded it,
+or saying why there is none; see _write_decision_paths) and ``SHA256SUMS``,
 written LAST. Exit status: 0 = every question PASS; 1 = at least one FAIL;
 2 = refused or usage error (no record written).
 
@@ -188,6 +192,7 @@ EXIT_FAIL = 1
 EXIT_REFUSED = 2
 
 SEAL_NAME = "SHA256SUMS"
+DECISION_PATHS_NAME = "decision-paths.jsonl"
 TARGET_PORT = 8089
 TOKEN_PATH = ".config/intergen/web-token"
 GLASS_PATH = ".local/state/intergen/glass.jsonl"
@@ -1617,6 +1622,47 @@ def _read_glass(target: str | None, ssh_port: int, turn_ids: list[str],
     return rows, p.stdout, ""
 
 
+def _turn_ids(results: list) -> list[tuple[str, str]]:
+    """Each question's or replay turn's key with the turn id its frames named
+    first, or "" when they named none, in the order sent."""
+    keyed: list[tuple[str, str]] = []
+    for item, r in results:
+        tid = next((str(m["turn_id"]) for m in r.messages
+                    if m.get("turn_id")), "")
+        keyed.append((item.key, tid))
+    return keyed
+
+
+def _write_decision_paths(path: Path, keyed: list[tuple[str, str]],
+                          glass_rows: dict[str, list[dict]] | None,
+                          glass_err: str) -> int:
+    """Each turn's decision path into ``decision-paths.jsonl``: one line per
+    question or replay turn, in the order sent, carrying the target's
+    decision/path rows for the turn id the frames named, and the
+    decision/path_late rows of entries that arrived after it was written —
+    read from the trace rows already fetched, never fetched again. A turn with
+    no path says why (the frames named no turn id, the trace was not readable,
+    or it holds no path for that turn); its line is never left out. Returns
+    how many turns carried a path."""
+    carried = 0
+    with path.open("w", encoding="utf-8") as fh:
+        for key, tid in keyed:
+            paths = _turn_rows(glass_rows, tid, "path", "decision")
+            line: dict[str, Any] = {
+                "turn": key, "turn_id": tid or None, "paths": paths,
+                "late": _turn_rows(glass_rows, tid, "path_late", "decision")}
+            if not tid:
+                line["why_none"] = "the frames named no turn id"
+            elif glass_rows is None:
+                line["why_none"] = "the trace was not readable: " + glass_err
+            elif not paths:
+                line["why_none"] = "the trace holds no decision path for this turn"
+            else:
+                carried += 1
+            fh.write(json.dumps(line) + "\n")
+    return carried
+
+
 def _write_opening_frames(fh: Any, conv: Any) -> None:
     """The connection's opening frames into ``frames.jsonl``: the harness
     stamps no arrival for them, so ``at_s`` is null."""
@@ -1730,14 +1776,12 @@ def _finish_replay(out: Path, *, replay_name: str, replay_bytes: bytes,
                    failsafes: dict[str, float], meta: dict[str, Any]) -> int:
     """Read the trace and the after-status, grade every turn, write the
     replay record and seal it."""
-    turn_ids: list[str] = []
-    for _t, r in results:
-        for m in r.messages:
-            if m.get("turn_id"):
-                turn_ids.append(str(m["turn_id"]))
-                break
-    glass_rows, glass_raw, glass_err = _read_glass(target, ssh_port, turn_ids)
+    keyed = _turn_ids(results)
+    glass_rows, glass_raw, glass_err = _read_glass(
+        target, ssh_port, [tid for _key, tid in keyed if tid])
     (out / "glass-excerpt.jsonl").write_text(glass_raw, encoding="utf-8")
+    with_path = _write_decision_paths(out / DECISION_PATHS_NAME, keyed,
+                                      glass_rows, glass_err)
     status_after = _read(target, ssh_port, STATUS_COMMAND, timeout=60)
     via = "local" if target is None else f"ssh {target}"
     (out / "tier-status.txt").write_text(
@@ -1808,6 +1852,8 @@ def _finish_replay(out: Path, *, replay_name: str, replay_bytes: bytes,
             "frames ONLY — the target's glass.jsonl was not readable: "
             + glass_err),
         "glass_readable": glass_rows is not None,
+        "decision_paths": {"file": DECISION_PATHS_NAME, "turns": len(keyed),
+                           "with_a_path": with_path},
         "per_turn": [v.__dict__ for v in verdicts],
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2),
@@ -2024,15 +2070,12 @@ def main(argv: list[str] | None = None) -> int:
             target=target, ssh_port=ssh_port, status_before=status_before,
             failsafes=failsafes, meta=meta)
 
-    turn_ids: list[str] = []
-    for _q, r in results:
-        for m in r.messages:
-            if m.get("turn_id"):
-                turn_ids.append(str(m["turn_id"]))
-                break
+    keyed = _turn_ids(results)
     glass_rows, glass_raw, glass_err = _read_glass(
-        target, ssh_port, turn_ids)
+        target, ssh_port, [tid for _key, tid in keyed if tid])
     (out / "glass-excerpt.jsonl").write_text(glass_raw, encoding="utf-8")
+    with_path = _write_decision_paths(out / DECISION_PATHS_NAME, keyed,
+                                      glass_rows, glass_err)
 
     # The readings the CORRECTNESS predicates check answers against, each taken
     # on the target immediately after its own turn (see _drive), written into
@@ -2094,6 +2137,8 @@ def main(argv: list[str] | None = None) -> int:
         "failed": failed,
         "origin_evidence": origin_evidence,
         "glass_readable": glass_rows is not None,
+        "decision_paths": {"file": DECISION_PATHS_NAME, "turns": len(keyed),
+                           "with_a_path": with_path},
         "per_question": [v.__dict__ for v in verdicts],
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2),
