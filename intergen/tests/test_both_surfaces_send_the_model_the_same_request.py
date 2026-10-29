@@ -12,6 +12,12 @@ guards were never in the panel's request, and the panel read the system map's
 data from the cache a second time instead of using what the route had read.
 One surface answered without what the other one used.
 
+The tool request is the system prompt and one user message, so what the tool
+route adds reaches the model inside that message: the installed-tool facts or
+a verified wiki passage, and the capability guard on a system-category turn.
+Until it did, the model client trimmed them with the history and a tool turn
+was answered, on both surfaces, from the system prompt and the question alone.
+
 THE TEST THAT FINDS THIS CLASS: one question, one router setup, each surface.
 A loopback endpoint of the test's own stands in for the model server and keeps
 the bytes each request delivered. The generation request's messages must be
@@ -28,6 +34,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -35,6 +42,7 @@ import pytest
 import intergen.glass as glass
 from intergen import persona
 from intergen.interfaces.types import HardwareTierLevel
+from intergen.model_manager import MODEL_CATALOG
 from intergen.intents import register_all_intents
 from intergen.llm import LLMRouter
 from intergen.router import ConversationRouter
@@ -78,12 +86,15 @@ CASES = (
          "grounding wiki", wiki=True),
     Case("freeform_reference", "how do I list the printers", "llm_freeform",
          "grounding reference", reference=True),
-    # The model client sends a tool request as the system prompt and the
-    # question alone, so the tool route's facts reach neither surface's
-    # request; the two assemblies still have to agree.
+    # The tool route's cases: what the route adds is inside the request's one
+    # user message, ahead of the question.
     Case("tools_reference", "which printers can I print to", "llm_tools",
-         "grounding reference", adds_in="assembly", locked=False,
-         reference=True),
+         "grounding reference", locked=False, reference=True),
+    Case("tools_wiki", "where is this file located", "llm_tools",
+         "grounding wiki", locked=False, wiki=True),
+    Case("tools_system_category_guard",
+         "why do you need permission to change things", "llm_tools",
+         "guard SYSTEM_CAPABILITY_GUARD", locked=False),
     Case("system_map", "is everything ok?", "system_map", "system map data",
          system_map=(SYSTEM_MAP,)),
     Case("system_map_read_again", "is everything ok?", "system_map",
@@ -151,6 +162,14 @@ class Surface:
     assembly_labels: list[str] = field(default_factory=list)
 
     @property
+    def parts(self) -> list[str]:
+        """The generation request's labels with a user message that carries
+        several parts named part by part."""
+        return [p for name in self.labels
+                for p in (name[5:-1].split(" + ") if name.startswith("user[")
+                          else [name])]
+
+    @property
     def generation(self) -> list[dict]:
         """The first request's messages: the one that generates the answer."""
         return _unclocked(self.requests[0]["messages"] if self.requests else [])
@@ -191,7 +210,8 @@ def _wiki(root: Path):
     return fx.retrieval()
 
 
-def _router(case: Case, root: Path, capture: _Capture):
+def _router(case: Case, root: Path, capture: _Capture,
+            lane: "HardwareTierLevel | None" = None):
     registry = ToolRegistry()
     registry.discover_tools()
     registry.execute = mock.Mock(side_effect=AssertionError("unexpected dispatch"))
@@ -200,10 +220,15 @@ def _router(case: Case, root: Path, capture: _Capture):
     register_all_intents(matcher)
     llm = LLMRouter(config=None)
     llm._endpoint = capture.url
+    if lane is not None:
+        # The lane's model, named as the engine the daemon wires in names it:
+        # the system prompt's identity line carries it.
+        llm._serving_engine = SimpleNamespace(
+            model_name=MODEL_CATALOG[lane].name)
     cache = _StateCache(case.system_map) if case.system_map else None
     router = ConversationRouter(
         tool_registry=registry, semantic_matcher=matcher, llm=llm,
-        hardware_tier=HardwareTierLevel.TIER_2, lock_dispatch=case.locked,
+        hardware_tier=lane or HardwareTierLevel.TIER_2, lock_dispatch=case.locked,
         state_cache=cache)
     router._howto = None
     router._reference = _Reference(case.question) if case.reference else None
@@ -222,11 +247,33 @@ def _router(case: Case, root: Path, capture: _Capture):
     return router, registry, cache, assemblies
 
 
+def _parts(content: str, question: str) -> list[str]:
+    """The named parts one user message carries, in the order they appear."""
+    found = []
+    for text, name in (
+            (persona.FREEFORM_STATE_GUARD, "guard FREEFORM_STATE_GUARD"),
+            (persona.SYSTEM_CAPABILITY_GUARD, "guard SYSTEM_CAPABILITY_GUARD"),
+            ("You have a VERIFIED passage from the InterGenOS wiki",
+             "grounding wiki"),
+            (FACTS, "grounding reference"),
+            (SYSTEM_MAP, "system map data")):
+        at = content.find(text)
+        if at >= 0:
+            found.append((at, name))
+    if content.endswith("\n\n" + question):
+        found.append((len(content) - len(question), "question"))
+    return [name for _, name in sorted(found)]
+
+
 def label(message: dict, question: str) -> str:
-    """A name for one request message, by where its text comes from."""
+    """A name for one request message, by where its text comes from. A tool
+    request's user message that carries the turn's facts ahead of the
+    question is named by each part, in order: user[part + ... + question]."""
     content = message.get("content")
     if not isinstance(content, str):
         content = json.dumps(content, sort_keys=True)
+    if message.get("role") == "user" and content.startswith("<context>\n"):
+        return "user[" + " + ".join(_parts(content, question)) + "]"
     if content == persona.FREEFORM_STATE_GUARD:
         return "guard FREEFORM_STATE_GUARD"
     if content == persona.SYSTEM_CAPABILITY_GUARD:
@@ -250,12 +297,15 @@ def _finish(surface: Surface, question: str) -> Surface:
     return surface
 
 
-def console(case: Case, root: Path) -> Surface:
-    """The bus: the turn routed in full, as the daemon's Ask routes it."""
+def console(case: Case, root: Path, *,
+            lane: "HardwareTierLevel | None" = None) -> Surface:
+    """The bus: the turn routed in full, as the daemon's Ask routes it.
+    ``lane`` serves the turn as that lane's model."""
     root = root / "console"
     capture = _Capture([(200, "text/event-stream", _sse(ANSWER))])
     try:
-        router, _registry, cache, assemblies = _router(case, root, capture)
+        router, _registry, cache, assemblies = _router(case, root, capture,
+                                                       lane)
         result = router.route(case.question)
     finally:
         capture.close()
@@ -267,14 +317,15 @@ def console(case: Case, root: Path) -> Surface:
 
 
 def panel(case: Case, root: Path, *, answer: str = ANSWER,
-          prepare=None) -> Surface:
+          prepare=None, lane: "HardwareTierLevel | None" = None) -> Surface:
     """The browser: the shipped message handler over the same router setup,
     the router detached as the daemon leaves it. ``prepare`` is given the
-    router before the turn."""
+    router before the turn; ``lane`` serves it as that lane's model."""
     root = root / "panel"
     capture = _Capture([(200, "text/event-stream", _sse(answer))])
     try:
-        router, registry, cache, assemblies = _router(case, root, capture)
+        router, registry, cache, assemblies = _router(case, root, capture,
+                                                      lane)
         if prepare is not None:
             prepare(router)
         router.detach_conversation()
@@ -314,7 +365,7 @@ def test_both_surfaces_send_the_same_request_and_deliver_the_same_answer(
     # Controls: both surfaces reached the route the case names, and the
     # console carries what that route adds where the case says it does.
     assert (bus.source, browser.source) == (case.route, case.route)
-    carried = bus.labels if case.adds_in == "request" else bus.assembly_labels
+    carried = bus.parts if case.adds_in == "request" else bus.assembly_labels
     assert case.adds in carried, (bus.assembly_labels, bus.labels)
     assert all("Today is <date>. Time: <time>." in m["content"]
                for s in (bus, browser) for m in s.generation[:1]), (

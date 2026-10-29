@@ -61,7 +61,7 @@ from intergen.interfaces.provenance import (
     Provenance,
     escalate_provenance,
 )
-from intergen.llm import LLMRouter, system_prompt_char_budget
+from intergen.llm import ContextMessage, LLMRouter, system_prompt_char_budget
 from intergen.metrics import EventLogger, MetricsTracker
 from intergen.trace import get_tracer
 from intergen.safety import (
@@ -5149,16 +5149,16 @@ class ConversationRouter(RouterInterface):
                     "source": "llm_tools", "decide_only": True, "streamed": True,
                     "query_type": self._current_query_type,
                     "semantic_score": self._last_semantic_score})
-                # The installed-tool facts _try_llm_tools would ground its own
-                # request on go with the decision to the caller that builds it.
-                _tool_grounding = self._grounding_context(user_input,
-                                                          for_tools=True)
+                # What _try_llm_tools would ground its own request on — the
+                # installed-tool facts, or a verified wiki passage with its
+                # page's citation — goes with the decision to the caller that
+                # builds the request.
+                _g, _kind, _citation, _passage = self._tool_route_grounding(
+                    user_input, to="the caller's assembly")
                 return RouteResult(
                     text="", source="llm_tools", handled=False,
-                    handed_on=HandedOn(
-                        grounding=_tool_grounding,
-                        grounding_kind=("reference" if _tool_grounding
-                                        else None)))
+                    handed_on=HandedOn(grounding=_g, grounding_kind=_kind,
+                                       citation=_citation, passage=_passage))
             with get_tracer().span("router.llm_tools", kind="llm") as _llm_span, \
                     glass.calling("llm_tools"):
                 result = self._try_llm_tools(user_input)
@@ -8331,6 +8331,48 @@ class ConversationRouter(RouterInterface):
 
         return RouteResult(handled=False)
 
+    def _tool_route_grounding(self, user_input: str, *, to: str
+                              ) -> "tuple[str | None, str | None, str | None, str | None]":
+        """What the tool route grounds its request on, as (block, kind,
+        citation, passage): the installed-tool facts in the tool framing, or,
+        with none, a verified wiki passage and its page's citation — the
+        freeform route's two sources, in its order. The wiki was never
+        consulted here, so a documentation question asked on the native lane
+        ("what does the wiki say about Phone-A-Friend") was answered with an
+        offer to search the web. ``to`` names the assembly the grounding goes
+        into, for the decision path, as the freeform route records it."""
+        grounding = self._grounding_context(user_input, for_tools=True)
+        kind = "reference" if grounding is not None else None
+        citation = passage = None
+        if grounding is None:
+            block, citation, passage = self._wiki_grounding(user_input)
+            if block:
+                grounding, kind = block, "wiki"
+        if grounding is not None:
+            glass.path_entry("prompts", kind="grounding_handed_on",
+                             source=kind, chars=len(grounding),
+                             citation=citation, to=to)
+        return grounding, kind, citation, passage
+
+    def _cite_tool_answer(self, text: str, citation: "str | None",
+                          passage: "str | None", user_input: str,
+                          fallbacks: "list[str]") -> str:
+        """The tool route's answer with the wiki page it drew on named at the
+        end, as the freeform route names it (RC001): only when a verified
+        passage grounded the turn, the delivered text is the model's — no
+        screen or model client served its own in its place — and the text
+        draws on the passage."""
+        if not citation:
+            return text
+        if fallbacks:
+            logger.info(
+                "wiki citation withheld: the delivered text is a code-owned "
+                "fallback (%s), not the model's answer", ", ".join(fallbacks))
+            return text
+        cited, _support = self._wiki_citation_if_used(text, citation, passage,
+                                                      user_input)
+        return text.rstrip() + "\n\n" + cited if cited else text
+
     def _try_llm_tools(self, user_input: str) -> RouteResult:
         """P3: LLM decides which tool to call.
 
@@ -8383,9 +8425,13 @@ class ConversationRouter(RouterInterface):
         # run_command lpstat. The grounding ("printing -> lpstat -p -d; lp/lpr/
         # lpstat/lpoptions are installed") steers it to the right tool+command.
         # Query-scoped: None for non-subject turns, so zero added prefill there.
-        grounding = self._grounding_context(user_input, for_tools=True)
+        # With no facts, a verified wiki passage grounds it instead, and the
+        # answer cites the page it drew on (_cite_tool_answer).
+        grounding, grounding_kind, wiki_citation, wiki_passage = (
+            self._tool_route_grounding(user_input,
+                                       to="the route's own assembly"))
         glass.path_note("prompts", grounding=grounding,
-                        grounding_from="reference")
+                        grounding_from=grounding_kind)
         messages = self._build_messages(user_input, grounding=grounding)
         tool_schema_objs = self._tools.get_tool_schemas()
         if not tool_schema_objs:
@@ -8653,6 +8699,12 @@ class ConversationRouter(RouterInterface):
             response_text, refused = self._screen_model_answer(
                 response_text, screen_messages, source="llm_tools",
                 dispatched=dispatched, fallbacks=fallbacks)
+            # A template's words are the code's, so only the model's own
+            # synthesis may cite the page.
+            if _renderer == "llm_synth":
+                response_text = self._cite_tool_answer(
+                    response_text, wiki_citation, wiki_passage, user_input,
+                    fallbacks)
 
             self._append_history(user_input, response_text)
 
@@ -8794,6 +8846,8 @@ class ConversationRouter(RouterInterface):
             text, refused = self._screen_model_answer(
                 self._llm._strip_filler(draft.text),
                 screen_messages, source="llm_tools", fallbacks=fallbacks)
+            text = self._cite_tool_answer(text, wiki_citation, wiki_passage,
+                                          user_input, fallbacks)
             # THE SAME OFFER AS A FREEFORM ANSWER. A refusal the screens could
             # not correct is a failure of the local answer: on the freeform
             # route it earns the phone-a-friend offer beside the steer in the
@@ -9034,6 +9088,20 @@ class ConversationRouter(RouterInterface):
         return guards
 
     @staticmethod
+    def _tool_guards(user_input: str) -> list[str]:
+        """The guards a prompt that offers tools carries, by their persona
+        names. The freeform route grounds a system-category turn in the
+        capability facts on the locked floor only; the tool route runs on the
+        native lane, which is the same folklore surface: asked "do you have
+        root access on this system", the 9B answered "Yes — I run with full
+        privileges" from a request that carried no capability fact (measured
+        2026-10-29 through a lane daemon). They go ahead of the question,
+        where the tool request carries them (llm.tool_request_messages)."""
+        if is_system_category_conversation(user_input):
+            return ["SYSTEM_CAPABILITY_GUARD"]
+        return []
+
+    @staticmethod
     def _append_guards(messages: "list[Message]", guards, *,
                        caller: str) -> None:
         """Append the named guards to an assembled prompt. They come AFTER the
@@ -9041,8 +9109,8 @@ class ConversationRouter(RouterInterface):
         the model receives is recorded whole where it is sent
         (glass.model_request)."""
         for name in guards:
-            messages.append(Message(role=MessageRole.USER,
-                                    content=getattr(persona, name)))
+            messages.append(ContextMessage(role=MessageRole.USER,
+                                           content=getattr(persona, name)))
         if guards:
             glass.path_entry("prompts", kind="appended_after_assembly",
                              caller=caller, appended=list(guards),
@@ -11784,12 +11852,24 @@ class ConversationRouter(RouterInterface):
             _sources.append("memory_facts")
 
         if grounding:
-            messages.append(Message(role=MessageRole.USER, content=grounding))
+            # A ContextMessage, so a tool request carries it inside its one
+            # user message rather than trimming it with the history.
+            messages.append(ContextMessage(role=MessageRole.USER,
+                                           content=grounding))
             # The note's key is not "source": the coverage inventory reads every
             # source="..." literal in this file as a route source.
             _grounding_from = glass.path_take_note(
                 "prompts", grounding=grounding).get("grounding_from")
             _sources.append(f"grounding:{_grounding_from or 'unnamed'}")
+
+        # A prompt that offers tools carries the capability facts on a
+        # system-category turn, ahead of the question (_tool_guards). Both
+        # surfaces build a tool prompt here, so both carry them.
+        if with_tools:
+            for name in self._tool_guards(user_input):
+                messages.append(ContextMessage(role=MessageRole.USER,
+                                               content=getattr(persona, name)))
+                _sources.append(f"guard:{name}")
 
         messages.append(Message(role=MessageRole.USER, content=user_input))
         _sources.append("question")

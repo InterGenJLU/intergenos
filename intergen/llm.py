@@ -21,6 +21,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from typing import Any, Iterator
 
 from intergen import glass
@@ -381,6 +382,44 @@ def build_system_prompt(query_type: str = "general",
 # streaming buffer only engages when leading content begins with — or could
 # still grow into — one of these, so normal responses stream unbuffered.
 _DIALECT_OPENERS = ("<function=", "<|action_start|>", "<|plugin|>")
+
+
+@dataclass
+class ContextMessage(Message):
+    """A user-role message of facts the code supplies for one turn — a
+    grounding block or a guard — as distinct from the person's words and the
+    conversation's history.
+
+    It is sent as an ordinary user message (the request carries its role and
+    content and nothing else), so a conversational request is unchanged by
+    it. It is marked for the TOOL request, which keeps the system prompt and
+    one user message: the history is left out there (see stream_with_tools),
+    and until these messages were told apart from it they were left out with
+    it, so the facts the route found never reached the model on a tool turn.
+    """
+
+
+def tool_request_messages(messages: list[Message]) -> tuple[Message, ...]:
+    """The two messages a tool request sends, and the question they answer.
+
+    Returns ``(system, user, question)``. The question is the last message
+    that is not a ContextMessage. Every ContextMessage goes inside the user
+    message, in order and ahead of the question, between context tags, so
+    the model reads the code's facts and the person's words as two things;
+    with none, the user message is the question itself. The history and the
+    memory blocks stay out, as they always have on a tool request.
+    """
+    system = messages[0]
+    rest = list(messages[1:])
+    question = next((m for m in reversed(rest)
+                     if not isinstance(m, ContextMessage)), rest[-1])
+    facts = [m.content for m in rest if isinstance(m, ContextMessage)]
+    if not facts:
+        return system, question, question
+    user = Message(role=MessageRole.USER, content=(
+        "<context>\n" + "\n\n".join(facts) + "\n</context>\n\n"
+        + question.content))
+    return system, user, question
 
 
 class StreamEndedEarly(Exception):
@@ -861,8 +900,12 @@ class LLMRouter(LLMInterface):
         messages. Conversation history is NOT included in the messages array
         for tool calls — it causes "pattern addiction" where Qwen copies
         tool-calling patterns from history instead of following rules.
-        Context from prior turns should be injected via XML tags in the
-        user message by the upstream router.
+        The facts the code supplies for the turn — the grounding and the
+        guards, marked as ContextMessage by the prompt builder — go inside the
+        user message between context tags, ahead of the question
+        (tool_request_messages). They used to be trimmed with the history, so
+        a tool turn was answered from the system prompt and the question
+        alone.
         """
         # THE FINISH REASON THE QUALITY GATE READS (_gate_reason) IS THIS
         # CALL'S. It was kept in a local only, so a text answer the cap cut off
@@ -889,14 +932,18 @@ class LLMRouter(LLMInterface):
             yield self._image_not_admitted()
             return
 
-        # Enforce 2-message constraint: [system, user] only
-        # Strip any history messages — only keep first (system) and last (user)
+        # Enforce 2-message constraint: [system, user] only. The history is
+        # left out; the turn's facts travel inside the user message. The
+        # answer is screened against the question alone, as before: the facts
+        # are the code's words, not the person's turn.
         if len(messages) > 2:
-            tool_messages = [messages[0], messages[-1]]
-            logger.debug("Tool calling: trimmed %d messages to [system, user]",
+            _system, _user, _question = tool_request_messages(messages)
+            tool_messages = [_system, _user]
+            screen_messages = [_system, _question]
+            logger.debug("Tool calling: %d messages sent as [system, user]",
                          len(messages))
         else:
-            tool_messages = messages
+            tool_messages = screen_messages = messages
 
         msg_dicts = self._to_openai_messages(tool_messages)
         if image_data and msg_dicts:
@@ -1035,7 +1082,7 @@ class LLMRouter(LLMInterface):
             # alone) served no answer and enters nothing.
             text = "".join(_served) + still_to_hand_over
             if text:
-                self._run_semantic_health(text, tool_messages)
+                self._run_semantic_health(text, screen_messages)
 
         try:
             for raw_line in response:
