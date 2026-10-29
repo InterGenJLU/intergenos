@@ -161,12 +161,14 @@ class SystemCapabilityGuardInjection(unittest.TestCase):
         self.assertNotIn(persona.SYSTEM_CAPABILITY_GUARD, injected,
                          "an ordinary how-to must not draw the capability guard")
 
-    def test_guard_not_injected_on_native_tier(self):
-        # Locked-floor only: a native (9B+) lane is not the folklore surface.
+    def test_guard_injected_on_native_tier_too(self):
+        # Every lane: a 9B asked "do you have root access on this system"
+        # answered "Yes — I run with full privileges" with no guard in its
+        # request, so the native lane is a folklore surface too.
         injected = _freeform_injected(
             _native_router(), "can you upgrade the system for me?")
-        self.assertNotIn(persona.SYSTEM_CAPABILITY_GUARD, injected,
-                         "the native tier must not draw the locked-floor guard")
+        self.assertIn(persona.SYSTEM_CAPABILITY_GUARD, injected,
+                      "the native tier must draw the capability guard")
 
     def test_guard_text_states_the_true_facts(self):
         g = persona.SYSTEM_CAPABILITY_GUARD
