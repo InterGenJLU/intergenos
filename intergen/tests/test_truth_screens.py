@@ -2934,8 +2934,10 @@ class TemporalPassiveTests(unittest.TestCase):
                 self.assertEqual(decisions[0], ("claim_screen", "clean", None))
                 self.assertEqual([d[1] for d in decisions],
                                  ["clean"] * len(decisions))
-                self.assertEqual(result.text, RELEASE_ANSWER + (
-                    "\n\n" + PIPELINE_PAGE.citation if locked else ""))
+                # The tool route grounds on the installed wiki too, so the
+                # page the answer drew on is cited on both floors.
+                self.assertEqual(result.text, RELEASE_ANSWER + "\n\n"
+                                 + PIPELINE_PAGE.citation)
                 self.assertEqual(regenerations, [])
         self.assertEqual(floors[True], floors[False])
 
