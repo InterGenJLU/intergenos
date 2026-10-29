@@ -9080,10 +9080,12 @@ class ConversationRouter(RouterInterface):
         # fabricated capability-denial + `sudo` folklore from the locked 2B floor
         # when a user pressed on why a privileged action was gated. Ground the
         # model in the true, checkable capability facts so it answers WITHIN them
-        # instead of inventing a mechanism the system does not use. Locked-floor
-        # only — a native (9B+) lane is not the folklore surface this addresses.
-        if (getattr(self, "_lock_dispatch", True)
-                and is_system_category_conversation(user_input)):
+        # instead of inventing a mechanism the system does not use. On every
+        # lane: this was the locked floor's alone, on the reading that a native
+        # lane is not a folklore surface, and a 9B asked "do you have root
+        # access on this system" answered "Yes — I run with full privileges".
+        # A native-lane turn reaches this route when its own text forbids tools.
+        if is_system_category_conversation(user_input):
             guards.append("SYSTEM_CAPABILITY_GUARD")
         return guards
 

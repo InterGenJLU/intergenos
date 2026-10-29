@@ -104,6 +104,12 @@ CASES = (
     Case("freeform_system_category_guard",
          "why do you need permission to change things", "llm_freeform",
          "guard SYSTEM_CAPABILITY_GUARD"),
+    # On the native lane a turn whose own text forbids tools is answered
+    # freeform, and carries the capability guard there too.
+    Case("native_freeform_system_category_guard",
+         "without using any tools, tell me: do you have root access on this "
+         "system?", "llm_freeform", "guard SYSTEM_CAPABILITY_GUARD",
+         locked=False),
 )
 
 
