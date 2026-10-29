@@ -17,7 +17,8 @@ endpoint keeps each request's body; the route runs in full, after an earlier
 exchange, as each lane's model. The body must carry exactly two messages, the
 fact inside the user message ahead of the question, and none of the history.
 Each body's size is checked against the context the daemon starts each lane's
-model server with, the reply's room included.
+model server with, less the chat template's allowance; the reply's room is not
+part of this check.
 """
 from __future__ import annotations
 

@@ -11908,8 +11908,9 @@ class ConversationRouter(RouterInterface):
         # ~100->221 tok over the arc with no gate catching it).
         # Per source, in the order the sources first appear: how many messages
         # and characters each put in the prompt, and a token count ESTIMATED as
-        # chars / 4 — named as an estimate in its key, because the exact count
-        # is the server's (prompt_tok_count on the call's model/complete row)
+        # chars / 4 — named as an estimate in its key, because the server's
+        # own count is prompt_tok_count on the call's model/complete row — the
+        # tokens it processed after any reused prefix, not the whole prompt
         # and asking the server's tokenizer here would be a new request.
         _sources_summary: list[dict] = []
         _by_source: dict[str, dict] = {}
