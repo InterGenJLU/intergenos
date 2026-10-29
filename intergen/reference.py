@@ -33,8 +33,22 @@ layer consumes is_installed()/known_tools() to validate emitted commands.
 
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass, field
+
+
+def keyword_in(keyword: str, lower: str) -> bool:
+    """True when ``keyword`` stands in the lowered text as whole words: a
+    hyphenated word counts as one word, and a plural ``s`` or ``es`` may
+    follow. A keyword found anywhere used to count, so "tar" in "start" gave a
+    service question the archive facts, "word" in "password" the document
+    facts, and "phone" in "microphone" and in "Phone-A-Friend" the phone
+    facts — and that grounding is consulted before the wiki, so the wiki's
+    page on Phone-A-Friend never reached the model. A keyword's own padding
+    ("lp " — a hand-made word boundary) is dropped: the match makes it."""
+    return re.search(r"(?<![a-z0-9-])" + re.escape(keyword.strip())
+                     + r"(?:e?s)?(?![a-z0-9-])", lower) is not None
 
 
 # Package managers the model reaches for out of training habit, and the one
@@ -213,7 +227,7 @@ class ReferenceIndex:
         best: Capability | None = None
         best_hits = 0
         for cap in _CAPABILITIES:
-            hits = sum(1 for kw in cap.keywords if kw in lower)
+            hits = sum(1 for kw in cap.keywords if keyword_in(kw, lower))
             if hits > best_hits:
                 best, best_hits = cap, hits
         if best is None or best_hits == 0:
