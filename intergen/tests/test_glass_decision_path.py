@@ -158,7 +158,11 @@ def test_fa_whats_running_right_now_names_the_live_data_pattern(state):
     assert walk["system_map"]["outcome"] == "not_reached"
 
 
-def test_fb_the_free_space_tool_is_chosen_and_no_stage_probes_usage(state):
+def test_fb_the_usage_question_is_answered_by_the_probe_and_no_tool_runs(state):
+    """"What's taking up all my disk space" asks where the space went: the bounded
+    read-only disk-usage probe answers it inside the direct answer, so the tool
+    stage is never reached and no command runs. (Before the probe, the free-space
+    tool was chosen for this question; the decision path records the change.)"""
     def model_picks_df(messages, **_kw):
         yield ToolCall(name="run_command", arguments={"command": "df -h"},
                        call_id="call-fb",
@@ -169,25 +173,12 @@ def test_fb_the_free_space_tool_is_chosen_and_no_stage_probes_usage(state):
     tool.execute = mock.Mock(return_value=ToolResult(
         call_id="call-fb", name="run_command", success=True,
         content="Filesystem Size Used Avail Use%\n/dev/nvme0n1p3 435G 35G 397G 8% /"))
-    r._template_synthesis = mock.Mock(return_value="Your disk is 8% full.")
-    r._llm.continue_after_tool_call = mock.Mock(return_value=LLMResponse(
-        text="Your disk is 8% full — 397G free.", model="stub"))
     r.route("what's taking up all my disk space")
     path = _paths(state)[0]
     walk = _walk(path)
-    assert walk["llm_tools"]["outcome"] == "matched"
-    assert [c["tool"] for c in walk["llm_tools"]["tool_calls"]] == ["run_command"]
-    assert not [s for s in router_mod.LADDER_STAGES
-                if "probe" in s or "usage" in s]
-    results = [t for t in path["tools"] if t.get("event") == "result"]
-    assert results and results[0]["tool"] == "run_command"
-    assert results[0]["arguments"] == {"command": "df -h"}
-    assert "397G" in results[0]["output"]
-    consents = [t for t in path["tools"] if t.get("event") == "consent"]
-    assert consents and consents[0]["call_id"] == results[0]["call_id"]
-    assert consents[0]["consent_state"] in (
-        "not_asked", "granted", "refused", "asked_not_granted")
-
+    assert walk["direct_answer"]["outcome"] == "matched"
+    assert walk["llm_tools"]["outcome"] == "not_reached"
+    tool.execute.assert_not_called()
 
 def test_fg_the_admitted_passage_its_score_and_threshold_are_recorded(
         state, tmp_path):
