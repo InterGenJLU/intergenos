@@ -10,8 +10,10 @@
 # orchestrator reads the stamp when live git is unavailable.
 #
 # Wired for post-commit, post-checkout, post-merge (the latter two are
-# symlinks to this file). Failure is non-fatal: the orchestrator's
-# downstream scripts keep their loud wall-clock fallback.
+# small scripts that exec this file: regular files, not symlinks, so a
+# clone made without symlink support still runs them). Failure is
+# non-fatal: the orchestrator's downstream scripts keep their loud
+# wall-clock fallback.
 set -u
 
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0

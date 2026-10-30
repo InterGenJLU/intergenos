@@ -1,1 +1,6 @@
-post-commit
+#!/bin/bash
+# Run the epoch stamp in post-commit after a merge (see post-commit for why).
+# A regular file, not a symlink: a clone made without symlink support
+# (core.symlinks=false) checks a symlink out as a plain file holding the
+# target's name, which git cannot run.
+exec "$(dirname "$0")/post-commit" "$@"
